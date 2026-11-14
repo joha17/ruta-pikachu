@@ -272,3 +272,11 @@ dialog.zoom[open]{display:grid}
 dialog.zoom::backdrop{background:rgba(6,7,10,.92)}
 dialog.zoom img{width:auto;height:min(calc(100dvh - 32px),calc((100vw - 32px) * 88 / 63));max-width:none;max-height:none;aspect-ratio:63/88;object-fit:contain;border-radius:14px;border:0;background:var(--pocket);box-shadow:0 20px 60px rgba(0,0,0,.5)}
 dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
+
+/* GIF junto al logo (App.tsx → Sprites). Pixel art: se agrandan sin suavizar. */
+.sprites{flex:1 1 auto;min-width:0;display:flex;align-items:flex-end;gap:6px;overflow:hidden;height:34px;margin-right:auto}
+.sprites img{height:32px;width:auto;flex:none;image-rendering:pixelated}
+.sprites img:not(:first-child){display:none}
+@media (min-width:620px){.sprites img:not(:first-child){display:block}}
+.topbar-r{flex:none}
+@media (max-width:619px){.sprites{gap:4px}.sprites img{height:26px}}

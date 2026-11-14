@@ -101,6 +101,34 @@ function UpdateBanner() {
   );
 }
 
+/** GIF de la cabecera, junto al logo (public/sprites). En pantallas angostas solo se ve Pikachu. */
+const SPRITES: Array<[file: string, name: string]> = [
+  ['pikachurun', 'Pikachu'],
+  ['gengar', 'Gengar'],
+  ['chandelure', 'Chandelure'],
+  ['duskull', 'Duskull'],
+  ['giratina', 'Giratina'],
+  ['rayquaza', 'Rayquaza'],
+];
+
+function Sprites() {
+  return (
+    <div class="sprites" aria-hidden="true">
+      {SPRITES.map(([f, name]) => (
+        <img
+          key={f}
+          src={`${import.meta.env.BASE_URL}sprites/${f}.gif`}
+          alt=""
+          title={name}
+          height={32}
+          decoding="async"
+          onError={(e) => (e.currentTarget.style.display = 'none')}
+        />
+      ))}
+    </div>
+  );
+}
+
 export function App() {
   if (!ready.value) return <p class="loading">Abriendo tu colección…</p>;
   const r = route.value;
@@ -114,6 +142,7 @@ export function App() {
           <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" width={28} height={28} />
           <span>Ruta Pikachu</span>
         </a>
+        <Sprites />
         <div class="topbar-r">
           <SaveChip />
           <SyncChip />
