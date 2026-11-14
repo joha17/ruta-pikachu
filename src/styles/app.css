@@ -156,3 +156,71 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
 .more-menu button:hover{background:var(--bg)}
 .more-menu button:disabled{opacity:.5;cursor:default}
 .arr-hint{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+
+/* Buscar cartas (TCGdex) */
+.browse{display:grid;gap:14px}
+.browse .section-head{margin-bottom:0}
+.browse-f{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
+.browse-f label{display:grid;gap:4px;min-width:0}
+.browse-f label>span{font-size:12.5px;font-weight:600;color:var(--muted)}
+.browse-f input,.browse-f select{font:500 15px var(--f-body);padding:9px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0;width:100%}
+.browse-f input:focus-visible,.browse-f select:focus-visible{outline:3px solid var(--yellow);outline-offset:1px}
+.bf-name,.bf-acts{grid-column:1/-1}
+.bf-acts{display:flex;gap:8px;flex-wrap:wrap}
+@media (min-width:760px){.browse-f{grid-template-columns:2fr repeat(4,minmax(0,1fr))}.bf-name{grid-column:auto}}
+.browse-r{display:grid;gap:10px}
+.cand-img{position:relative;display:block}
+.cand-own{position:absolute;top:5px;right:5px;width:20px;height:20px;border-radius:50%;background:var(--yellow);color:var(--yellow-ink);font:800 12px/20px var(--f-body);text-align:center;font-style:normal}
+.cand-cap b{font-size:12.5px;overflow-wrap:anywhere}
+.more-res{justify-self:center}
+
+/* Resumen en una línea, descripciones plegadas */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.head{gap:14px}
+.sum{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;margin:0;font-size:15px;color:var(--muted)}
+.sum>span{white-space:nowrap}
+.sum>span+span::before{content:"·";margin:0 6px;color:var(--muted)}
+.sum strong{font:800 21px/1.1 var(--f-display);color:var(--ink);font-variant-numeric:tabular-nums}
+.info-btn{margin-left:2px;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;align-self:center}
+.info-btn:hover,.info-btn[aria-expanded="true"]{color:var(--ink);background:var(--surface)}
+.info-btn:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.sum-info{display:grid;gap:4px;max-width:62ch}
+.sum-info p{margin:0;font-size:13.5px;color:var(--muted)}
+.pika{display:grid;gap:6px}
+.pika-t{font-size:14px;color:var(--muted)}
+.pika-t strong{color:var(--ink)}
+.sh-stat{margin:4px 0 0;color:var(--muted)}
+.sh-stat strong{color:var(--ink)}
+.sh-desc{display:flex;align-items:baseline;gap:8px;margin-top:8px;max-width:62ch;color:var(--muted);font-size:14px}
+.sh-desc>p{margin:0;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sh-desc.open{display:grid;gap:6px;justify-items:start}
+.sh-desc.open>p{white-space:normal}
+.sh-desc .linkish{flex:none;font-size:13px}
+.sh-desc .rows{margin:0}
+
+/* Menos cajas y bordes; un solo acento (amarillo) para todas las hojas */
+.wrap{gap:48px}
+.topbar{border-bottom:0}
+.nav{border:0;box-shadow:none;background:color-mix(in srgb,var(--bg) 90%,transparent);margin-inline:-4px}
+.panel{border:0}
+.cand{border:0}
+.cand:hover,.cand:focus-visible{box-shadow:0 0 0 2px var(--yellow-deep)}
+.shop-row{border:0}
+.boxgrid{border:0}
+.more-btn{border:0;background:transparent;color:var(--muted)}
+.more-btn:hover{color:var(--ink);background:var(--surface)}
+.section-head p{max-width:62ch}
+.section-head span[class]{color:var(--ink)!important}
+.strip.sm i.on{background:var(--yellow)!important}
+.btn.primary{background:var(--yellow)!important;border-color:var(--yellow-deep)!important;color:var(--yellow-ink)!important}
+.more-opts{border-top:1px solid var(--line);padding-top:10px}
+.more-opts>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--muted)}
+.more-opts>summary:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:4px}
+.more-opts[open]>summary{color:var(--ink);margin-bottom:10px}
+.more-in{display:grid;gap:12px}
+.section-head>div{min-width:0;flex:1 1 100%}
+.pocket .badge em{display:block;margin-left:0;white-space:nowrap}
+.more-in>.boxplace{order:-2}
+/* Bolsillos sin imagen: el mismo amarillo en todas las hojas */
+.pocket.has:not(.photo){border-color:var(--yellow-deep)!important;color:var(--yellow-ink)!important;background:linear-gradient(135deg,#FFE27A 0%,var(--yellow) 45%,#FFD95A 55%,var(--yellow-deep) 100%)!important}
+.pocket.has:not(.photo) .tick{background:var(--yellow-ink)!important;color:var(--yellow)!important}

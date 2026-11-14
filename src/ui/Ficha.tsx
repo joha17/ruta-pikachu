@@ -46,7 +46,7 @@ function CardSheet({ k }: { k: string }) {
   const auto = autoUsd(prices.value, al, k);
   const pdate = lastPriceDate(prices.value, al, k);
   const ck = canon(al, k);
-  const theme = isBox ? 'bx' : sh?.theme ?? '';
+  const theme = isBox ? 'bx' : (sh?.theme ?? '');
   const pk = photoKeyOf(k);
   const myPhoto = hasPhoto(pk);
   const img = showMine && art.photo ? art.photo : art.src;
@@ -85,7 +85,7 @@ function CardSheet({ k }: { k: string }) {
   const base = f.slot;
   const opts = base?.alts?.length ? [base, ...base.alts] : [];
   const slotKey = sh && base ? keyOf(sh.id, base.k) : '';
-  const cur = slotKey ? col.variant[slotKey] ?? slotKey : '';
+  const cur = slotKey ? (col.variant[slotKey] ?? slotKey) : '';
 
   function done(text: string, ok = true) {
     setMsg({ text, ok });
@@ -148,52 +148,6 @@ function CardSheet({ k }: { k: string }) {
         </dl>
         {c.note && <p class="msg">{c.note}</p>}
 
-        <details class="pman" open={!!man || auto == null}>
-          <summary>{man ? 'Precio puesto a mano' : 'Poner precio a mano'}</summary>
-          <form
-            class="pform"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const v = parseFloat(String((e.currentTarget.elements.namedItem('pman') as HTMLInputElement).value).replace(',', '.'));
-              if (!(v >= 0 && v < 100000)) return done('Escribe un precio válido, por ejemplo 12.50.', false);
-              act((cc) => ops.setManual(cc, al, k, v));
-              done('Precio guardado. Manda sobre el automático hasta que lo quites.');
-            }}
-          >
-            <label for="pman-in">Precio de mercado en dólares (míralo en TCGplayer)</label>
-            <div class="prow">
-              <input
-                id="pman-in"
-                name="pman"
-                inputMode="decimal"
-                pattern="[0-9]+([.,][0-9]{1,2})?"
-                maxLength={9}
-                autoComplete="off"
-                value={man ? String(man.v) : ''}
-                placeholder={auto != null ? auto.toFixed(2) : '0.00'}
-              />
-              <button class="btn" type="submit">
-                Guardar precio
-              </button>
-              {man && (
-                <button
-                  class="btn quiet"
-                  type="button"
-                  onClick={() => {
-                    act((cc) => ops.clearManual(cc, al, k));
-                    done(auto != null ? 'Listo: vuelve a usar el precio automático.' : 'Precio quitado.');
-                  }}
-                >
-                  {auto != null ? 'Volver al automático' : 'Quitar precio'}
-                </button>
-              )}
-            </div>
-            <p class="hint">Para cartas sin precio automático. El precio a mano manda sobre el automático hasta que lo quites.</p>
-          </form>
-        </details>
-
-        <PriceTrend k={k} />
-
         {opts.length > 0 && sh && base && (
           <div class="variants">
             <div class="eyebrow">Variantes de este bolsillo</div>
@@ -227,14 +181,14 @@ function CardSheet({ k }: { k: string }) {
               })}
             </div>
             <p class="hint">
-              Cambia la carta del bolsillo para ver cómo queda la hoja. Los totales usan la que esté en la hoja; las que ya tienes siguen
-              contando como tuyas.
+              Cambia la carta del bolsillo para ver cómo queda la hoja. Los totales usan la que esté en la hoja; las que ya tienes
+              siguen contando como tuyas.
             </p>
           </div>
         )}
 
-        <div class="actions">
-          {!isBox && (
+        {!isBox && (
+          <div class="actions">
             <button
               class={own ? 'btn' : primary}
               onClick={() => {
@@ -246,97 +200,157 @@ function CardSheet({ k }: { k: string }) {
             >
               {own ? 'Desmarcar (no la tengo)' : 'Marcar como conseguida'}
             </button>
-          )}
-          {!own && !isBox && (
-            <button class="btn quiet" aria-pressed={!!col.wish[ck]} onClick={() => act((cc) => void ops.toggleWish(cc, al, k))}>
-              {col.wish[ck] ? '★ Quitar de prioridad' : '☆ Marcar como prioridad'}
-            </button>
-          )}
-          <a class="btn" href={limitless(c)} target="_blank" rel="noopener noreferrer">
-            {c.url ? 'Ver carta ↗' : 'Buscar en Limitless ↗'}
-          </a>
-          <button class="btn" onClick={() => fileRef.current?.click()}>
-            {myPhoto ? 'Cambiar mi foto' : 'Poner mi foto'}
-          </button>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
-          {myPhoto && (
-            <button
-              class="btn quiet"
-              onClick={async () => {
-                await removePhoto(pk);
-                setShowMine(false);
-                done('Foto quitada.');
-              }}
-            >
-              Quitar mi foto
-            </button>
-          )}
-        </div>
-
-        {custom && base && (
-          <div class="cedit">
-            {pending === 'del' ? (
-              <>
-                <p class="msg warn">
-                  {f.isAlt
-                    ? `¿Quitar la variante «${title}», con su foto y su precio a mano? El bolsillo vuelve a la carta original.`
-                    : `¿Quitar «${title}» de la hoja, con su foto, su precio a mano y sus variantes?`}
-                </p>
-                <button
-                  class="btn danger"
-                  onClick={() => {
-                    const back = f.isAlt ? keyOf(sh!.id, base.k) : '';
-                    act((cc) => ops.deleteCard(cc, sheets.value, k));
-                    openKey.value = back;
-                  }}
-                >
-                  Sí, quitarla
-                </button>
-                <button class="btn quiet" onClick={() => setPending('')}>
-                  No
-                </button>
-              </>
-            ) : (
-              <>
-                <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, cid: c.k })}>
-                  Editar datos
-                </button>
-                <button
-                  class="btn quiet"
-                  disabled={ci <= 0}
-                  aria-label="Mover un bolsillo antes"
-                  onClick={() => {
-                    let j = -1;
-                    act((cc) => void (j = ops.moveCard(cc, k, -1)));
-                    done(`Movida al bolsillo ${j + 1}.`);
-                  }}
-                >
-                  ◀ Mover
-                </button>
-                <button
-                  class="btn quiet"
-                  disabled={ci < 0 || ci >= custom.cards.length - 1}
-                  aria-label="Mover un bolsillo después"
-                  onClick={() => {
-                    let j = -1;
-                    act((cc) => void (j = ops.moveCard(cc, k, 1)));
-                    done(`Movida al bolsillo ${j + 1}.`);
-                  }}
-                >
-                  Mover ▶
-                </button>
-                <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, altOf: base.k })}>
-                  ＋ Añadir variante
-                </button>
-                <button class="btn quiet danger" onClick={() => setPending('del')}>
-                  {f.isAlt ? 'Quitar esta variante' : 'Quitar de la hoja'}
-                </button>
-              </>
+            {!own && (
+              <button class="btn quiet" aria-pressed={!!col.wish[ck]} onClick={() => act((cc) => void ops.toggleWish(cc, al, k))}>
+                {col.wish[ck] ? '★ Quitar de prioridad' : '☆ Marcar como prioridad'}
+              </button>
             )}
           </div>
         )}
 
-        {isBox && <BoxPlace b={f.box!} pending={pending} setPending={setPending} />}
+        <details class="more-opts">
+          <summary>
+            {isBox
+              ? 'Más opciones: darle bolsillo, precio, foto'
+              : 'Más opciones: precio, foto' + (custom && base ? ', editar' : '')}
+          </summary>
+          <div class="more-in">
+            <PriceTrend k={k} />
+            <details class="pman" open={!!man || auto == null}>
+              <summary>{man ? 'Precio puesto a mano' : 'Poner precio a mano'}</summary>
+              <form
+                class="pform"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const v = parseFloat(
+                    String((e.currentTarget.elements.namedItem('pman') as HTMLInputElement).value).replace(',', '.'),
+                  );
+                  if (!(v >= 0 && v < 100000)) return done('Escribe un precio válido, por ejemplo 12.50.', false);
+                  act((cc) => ops.setManual(cc, al, k, v));
+                  done('Precio guardado. Manda sobre el automático hasta que lo quites.');
+                }}
+              >
+                <label for="pman-in">Precio de mercado en dólares (míralo en TCGplayer)</label>
+                <div class="prow">
+                  <input
+                    id="pman-in"
+                    name="pman"
+                    inputMode="decimal"
+                    pattern="[0-9]+([.,][0-9]{1,2})?"
+                    maxLength={9}
+                    autoComplete="off"
+                    value={man ? String(man.v) : ''}
+                    placeholder={auto != null ? auto.toFixed(2) : '0.00'}
+                  />
+                  <button class="btn" type="submit">
+                    Guardar precio
+                  </button>
+                  {man && (
+                    <button
+                      class="btn quiet"
+                      type="button"
+                      onClick={() => {
+                        act((cc) => ops.clearManual(cc, al, k));
+                        done(auto != null ? 'Listo: vuelve a usar el precio automático.' : 'Precio quitado.');
+                      }}
+                    >
+                      {auto != null ? 'Volver al automático' : 'Quitar precio'}
+                    </button>
+                  )}
+                </div>
+                <p class="hint">
+                  Para cartas sin precio automático. El precio a mano manda sobre el automático hasta que lo quites.
+                </p>
+              </form>
+            </details>
+
+            <div class="actions">
+              <a class="btn" href={limitless(c)} target="_blank" rel="noopener noreferrer">
+                {c.url ? 'Ver carta ↗' : 'Buscar en Limitless ↗'}
+              </a>
+              <button class="btn" onClick={() => fileRef.current?.click()}>
+                {myPhoto ? 'Cambiar mi foto' : 'Poner mi foto'}
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
+              {myPhoto && (
+                <button
+                  class="btn quiet"
+                  onClick={async () => {
+                    await removePhoto(pk);
+                    setShowMine(false);
+                    done('Foto quitada.');
+                  }}
+                >
+                  Quitar mi foto
+                </button>
+              )}
+            </div>
+            {custom && base && (
+              <div class="cedit">
+                {pending === 'del' ? (
+                  <>
+                    <p class="msg warn">
+                      {f.isAlt
+                        ? `¿Quitar la variante «${title}», con su foto y su precio a mano? El bolsillo vuelve a la carta original.`
+                        : `¿Quitar «${title}» de la hoja, con su foto, su precio a mano y sus variantes?`}
+                    </p>
+                    <button
+                      class="btn danger"
+                      onClick={() => {
+                        const back = f.isAlt ? keyOf(sh!.id, base.k) : '';
+                        act((cc) => ops.deleteCard(cc, sheets.value, k));
+                        openKey.value = back;
+                      }}
+                    >
+                      Sí, quitarla
+                    </button>
+                    <button class="btn quiet" onClick={() => setPending('')}>
+                      No
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, cid: c.k })}>
+                      Editar datos
+                    </button>
+                    <button
+                      class="btn quiet"
+                      disabled={ci <= 0}
+                      aria-label="Mover un bolsillo antes"
+                      onClick={() => {
+                        let j = -1;
+                        act((cc) => void (j = ops.moveCard(cc, k, -1)));
+                        done(`Movida al bolsillo ${j + 1}.`);
+                      }}
+                    >
+                      ◀ Mover
+                    </button>
+                    <button
+                      class="btn quiet"
+                      disabled={ci < 0 || ci >= custom.cards.length - 1}
+                      aria-label="Mover un bolsillo después"
+                      onClick={() => {
+                        let j = -1;
+                        act((cc) => void (j = ops.moveCard(cc, k, 1)));
+                        done(`Movida al bolsillo ${j + 1}.`);
+                      }}
+                    >
+                      Mover ▶
+                    </button>
+                    <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, altOf: base.k })}>
+                      ＋ Añadir variante
+                    </button>
+                    <button class="btn quiet danger" onClick={() => setPending('del')}>
+                      {f.isAlt ? 'Quitar esta variante' : 'Quitar de la hoja'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {isBox && <BoxPlace b={f.box!} pending={pending} setPending={setPending} />}
+          </div>
+        </details>
         {msg && (
           <p class={`msg ${msg.ok ? 'ok' : 'warn'}`} role="status">
             {msg.text}
@@ -357,7 +371,11 @@ function nm0(s?: string) {
     .trim();
 }
 function numHead(s?: string) {
-  const m = /^([A-Z]*)0*(\d+)/.exec(String(s ?? '').toUpperCase().replace(/\s+/g, ''));
+  const m = /^([A-Z]*)0*(\d+)/.exec(
+    String(s ?? '')
+      .toUpperCase()
+      .replace(/\s+/g, ''),
+  );
   return m ? m[1] + m[2] : '';
 }
 
@@ -387,7 +405,9 @@ function BoxPlace({ b, pending, setPending }: { b: BoxCard; pending: string; set
   if (pending === 'boxdel')
     return (
       <div class="cedit">
-        <p class="msg warn">¿Quitar «{b.n}» de la caja, con su foto y su precio a mano? Úsalo si la vendiste, la cambiaste o la añadiste por error.</p>
+        <p class="msg warn">
+          ¿Quitar «{b.n}» de la caja, con su foto y su precio a mano? Úsalo si la vendiste, la cambiaste o la añadiste por error.
+        </p>
         <button
           class="btn danger"
           onClick={() => {
@@ -497,7 +517,10 @@ function VariantPick({ b }: { b: BoxCard }) {
   return (
     <div class="varpick">
       <div class="eyebrow">Hacer variante de…</div>
-      <p class="hint">¿Es otra versión de una carta que ya tiene bolsillo? Pásala como variante: comparten bolsillo y cambias entre las dos desde la ficha.</p>
+      <p class="hint">
+        ¿Es otra versión de una carta que ya tiene bolsillo? Pásala como variante: comparten bolsillo y cambias entre las dos
+        desde la ficha.
+      </p>
       <div class="prow">
         <select
           aria-label="Hoja de la variante"

@@ -53,7 +53,9 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
     .join(' ');
   const label = `Abrir ficha de ${title}${isBox ? ', en la caja' : ownReal ? ', la tienes' : ', te falta'}`;
   const tick = own && !preview ? <span class="tick" aria-hidden="true">✓</span> : null;
-  const midText = isBox ? 'En la caja' : preview ? 'En la hoja' : own ? c.mid || 'En tu carpeta' : 'Falta';
+  // La carta en gris ya dice que falta y la ✓ que la tienes: el precio solo se muestra en las que faltan.
+  const midText = isBox ? 'En la caja' : preview ? 'En la hoja' : own ? c.mid || 'En tu carpeta' : '';
+  const showPrice = !own && !isBox;
 
   if (art.src)
     return (
@@ -70,11 +72,12 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
         {tick}
         <span class="badge">
           {c.short || c.n}
-          {!own && <em>Falta</em>}
-          <em>
-            {money(price)}
-            <TrendMark k={k} />
-          </em>
+          {showPrice && (
+            <em>
+              {money(price)}
+              <TrendMark k={k} />
+            </em>
+          )}
         </span>
       </button>
     );
@@ -97,15 +100,20 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
           {c.n}
         </span>
       )}
-      <span class="mid">{midText}</span>
+      {midText && <span class="mid">{midText}</span>}
       <span class="foot">
         {foot && <span>{foot}</span>}
         <span class="set">
-          {line && !c.noNum ? `${line} · ` : ''}
-          <b class="px">
-            {money(price)}
-            <TrendMark k={k} />
-          </b>
+          {line && !c.noNum ? line : ''}
+          {showPrice && (
+            <>
+              {line && !c.noNum ? ' · ' : ''}
+              <b class="px">
+                {money(price)}
+                <TrendMark k={k} />
+              </b>
+            </>
+          )}
         </span>
       </span>
     </button>

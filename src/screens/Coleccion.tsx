@@ -1,10 +1,13 @@
 // La colección: una hoja a la vez (o la Caja, o «Crear hoja»), elegida en la tira de arriba.
 
 import { signal } from '@preact/signals';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { act, ops } from '../actions';
 import { haveAndMissing, isOwned, MAX_BOX, MAX_CARDS, MAX_SHEETS, POCKETS, sheetCount, slots, type Slot } from '../model/catalog';
 import { fmtDate, money, sumKeys } from '../model/money';
+import { today } from '../model/keys';
+import { priceRun } from '../prices';
 import type { SheetDef } from '../model/types';
 import { alias, binderOpen, collection, formView, isEmpty, openKey, prices, sheets } from '../store';
 import { Pocket } from '../ui/Pocket';
@@ -18,6 +21,33 @@ const arranging = signal('');
 const picked = signal('');
 /** Hojas en «Ver completa». */
 const previewing = signal<Set<string>>(new Set());
+/** Explicación de los precios (ⓘ) abierta. */
+const infoOpen = signal(false);
+
+/** $229.52 → «$230» para el resumen de arriba. */
+const money0 = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
+
+/** Descripción en una línea; «más» la abre completa (con las filas de la hoja). */
+function Desc({ children, extra }: { children: ComponentChildren; extra?: ComponentChildren }) {
+  const [open, setOpen] = useState(false);
+  const [long, setLong] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (el && !open) setLong(el.scrollWidth > el.clientWidth + 1);
+  });
+  return (
+    <div class={`sh-desc${open ? ' open' : ''}`}>
+      <p ref={ref}>{children}</p>
+      {open && extra}
+      {(long || extra || open) && (
+        <button class="linkish" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? 'menos' : 'más'}
+        </button>
+      )}
+    </div>
+  );
+}
 
 function secId(sheetId: string) {
   return `s-${sheetId.replace(':', '-')}`;
@@ -215,35 +245,35 @@ function SheetSection({ sh }: { sh: SheetDef }) {
             <h2>{sh.title ?? sh.name}</h2>
             <MoreMenu items={menu} name={sh.title ?? sh.name} />
           </div>
-          <p>
+          <p class="sh-stat">
             <span class={sh.theme}>
               {n} de {sl.length}
             </span>
             {' · '}
-            {sh.desc || (custom ? 'Hoja creada por ti.' : '')}{' '}
-            {alts.map((s) => (
-              <span key={s.slotKey}>
-                En el bolsillo de {s.base.n} estás probando <strong>{s.card.n}</strong>
-                {s.card.num ? ` ${s.card.num}` : ''}.{' '}
-              </span>
-            ))}
             {sl.length ? (
-              <>
-                {missKeys.length ? (
-                  <>
-                    Lo que falta costaría unos <strong>{money(miss.t)}</strong>
-                    {miss.none ? ` (sin contar ${miss.none} sin precio)` : ''}.
-                  </>
-                ) : (
-                  '¡Completa!'
-                )}
-              </>
+              missKeys.length ? (
+                <>
+                  lo que falta, unos <strong>{money(miss.t)}</strong>
+                  {miss.none ? ` (sin contar ${miss.none} sin precio)` : ''}
+                </>
+              ) : (
+                '¡Completa!'
+              )
             ) : (
-              'Todavía no tiene cartas: toca «Añadir carta».'
+              'todavía sin cartas: «⋯» → «Añadir carta»'
             )}
           </p>
           {sl.length > 0 && <Strip sl={sl} theme={sh.theme} />}
-          <Rows sl={sl} />
+          <Desc extra={sl.some((s) => s.row) ? <Rows sl={sl} /> : undefined}>
+            {sh.desc || (custom ? 'Hoja creada por ti.' : '')}
+            {alts.map((s) => (
+              <span key={s.slotKey}>
+                {' '}
+                En el bolsillo de {s.base.n} estás probando <strong>{s.card.n}</strong>
+                {s.card.num ? ` ${s.card.num}` : ''}.
+              </span>
+            ))}
+          </Desc>
         </div>
       </div>
       {isArr && (
@@ -439,64 +469,66 @@ export function Coleccion() {
   return (
     <>
       <header class="head">
-        <div class="eyebrow">Mi colección · {all.length} hojas</div>
-        <div class="head-top">
-          <h1>Ruta Pikachu</h1>
-          <div class="count" aria-label={`${have.length} cartas tuyas`}>
-            {have.length}
-            <small> cartas</small>
+        <h1 class="sr-only">Mi colección</h1>
+        <p class="sum">
+          <span>
+            <strong>{have.length}</strong> {have.length === 1 ? 'carta' : 'cartas'}
+          </span>
+          <span>
+            tienes <strong>{money0(vh.t)}</strong>
+          </span>
+          <span>
+            faltan <strong>{money0(vm.t)}</strong>
+          </span>
+          <button
+            class="info-btn"
+            aria-expanded={infoOpen.value}
+            aria-label="De dónde salen estos precios"
+            title="De dónde salen estos precios"
+            onClick={() => (infoOpen.value = !infoOpen.value)}
+          >
+            ⓘ
+          </button>
+        </p>
+        {infoOpen.value ? (
+          <div class="sum-info">
+            <p>
+              «Tienes» es lo que valen tus cartas y «faltan», lo que costaría completar tus hojas. Precio de mercado de TCGplayer en
+              dólares{prices.value.date ? `, al ${fmtDate(prices.value.date)}` : ''}.{' '}
+              {vh.none + vm.none
+                ? vh.none + vm.none === 1
+                  ? '1 carta aún sin precio. '
+                  : `${vh.none + vm.none} cartas aún sin precio. `
+                : ''}
+              Es una referencia, no lo que te pagarían.
+            </p>
+            <PriceStatus />
           </div>
-        </div>
+        ) : (
+          (priceRun.value?.running || prices.value.date !== today()) && <PriceStatus />
+        )}
         {pika && (
-          <>
-            <div class="strip" aria-label={`${pn} de 30 Pikachu`}>
+          <div class="pika">
+            <div class="strip" aria-label={`${pn} de ${pika.cards.length} Pikachu`}>
               {slots(pika, col).map((s) => (
                 <i key={s.key} class={isOwned(alias.value, col, s.key) ? 'on' : ''} title={s.card.label} />
               ))}
             </div>
-            <div class="sub">
-              <span>
-                {pn < pika.cards.length ? (
-                  <>
-                    Pikachu 30C: tienes <strong>{pn}</strong> de {pika.cards.length}. Cada sobre de 30C trae 1 Pikachu
-                    garantizado.
-                  </>
-                ) : (
-                  '¡Pikachu 30C completo!'
-                )}
-              </span>
-            </div>
-          </>
+            <span class="pika-t">
+              {pn < pika.cards.length ? (
+                <>
+                  Pikachu 30C: <strong>{pn}</strong> de {pika.cards.length}
+                </>
+              ) : (
+                '¡Pikachu 30C completo!'
+              )}
+            </span>
+          </div>
         )}
-        <div class="value" aria-label="Valor según TCGplayer">
-          <div>
-            <span class="eyebrow">Lo que tienes</span>
-            <strong>{money(vh.t)}</strong>
-          </div>
-          <div>
-            <span class="eyebrow">Lo que te falta costaría</span>
-            <strong>{money(vm.t)}</strong>
-          </div>
-          <p>
-            Precio de mercado de TCGplayer en dólares
-            {prices.value.date ? `, al ${fmtDate(prices.value.date)}` : ''}.{' '}
-            {vh.none + vm.none
-              ? vh.none + vm.none === 1
-                ? '1 carta aún sin precio. '
-                : `${vh.none + vm.none} cartas aún sin precio. `
-              : ''}
-            Es una referencia, no lo que te pagarían.
-          </p>
-          <PriceStatus />
-        </div>
         <div class="binder-cta">
           <button class="btn primary" onClick={() => (binderOpen.value = true)}>
             📖 Abrir mi binder
           </button>
-          <button class="btn" onClick={() => go('escanear')}>
-            📷 Escanear carta
-          </button>
-          <span>Hojea todas tus hojas como en un binder de verdad, o míralo completo.</span>
         </div>
       </header>
       <Nav items={nav} cur={cur} />
