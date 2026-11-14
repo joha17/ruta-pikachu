@@ -91,6 +91,8 @@ export interface BoxCard {
   url?: string;
   lang?: string;
   graded?: string;
+  /** La aparté para cambiarla o venderla. */
+  deal?: 'trade' | 'sell';
 }
 
 export interface SheetRename {
