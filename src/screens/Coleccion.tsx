@@ -17,6 +17,7 @@ import { PriceStatus } from '../ui/PriceStatus';
 import { go } from '../ui/router';
 import { syncConfigured, syncStatus } from '../sync/engine';
 import { currentSheet, showSheet } from '../ui/sheetView';
+import { sharing } from '../ui/Share';
 import { ValueChart } from '../ui/ValueChart';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
@@ -258,6 +259,10 @@ function SheetSection({ sh }: { sh: SheetDef }) {
       run: () => (formView.value = { kind: 'sheet', fixed: sh.id }),
     });
   if (sl.length) {
+    menu.push({
+      label: 'Compartir hoja',
+      run: () => (sharing.value = sh.id),
+    });
     menu.push({
       label: isPrev ? 'Ver mi progreso' : 'Ver completa',
       run: togglePreview,

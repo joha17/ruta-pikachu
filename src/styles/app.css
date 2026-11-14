@@ -290,6 +290,17 @@ dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
 .goal-acts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px}
 .goal-add{width:100%}
 
+/* Compartir hoja (ui/Share.tsx) y la vista de solo lectura (screens/Compartida.tsx). */
+.share-dlg .sheet-in{gap:12px}
+.share-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.share-head h2{margin:0;font-size:20px;overflow-wrap:anywhere}
+.share-head .close{position:static;flex:none}
+.share-prev{display:grid;place-items:center;min-height:160px;background:var(--bg);border-radius:10px;padding:8px}
+.share-prev img{max-width:100%;max-height:52dvh;border-radius:8px;display:block}
+.shared-note{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:var(--surface);border:1px solid var(--line);font-size:14px}
+.shared-h{margin:0;font-size:24px}
+.shared-grid .pocket{cursor:default}
+.shared-cta{margin-top:16px}
 /* Valor de la colección en el tiempo (Colección → «tienes $…»). */
 .sum-val{all:unset;cursor:pointer;white-space:nowrap;border-radius:6px}
 .sum-val strong{text-decoration:underline dotted;text-decoration-thickness:1.5px;text-underline-offset:4px}

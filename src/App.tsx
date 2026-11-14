@@ -3,6 +3,8 @@ import { useRegisterSW } from 'virtual:pwa-register/preact';
 import { backupDue } from './model/backup';
 import { isEmpty, ready, saveState, settings } from './store';
 import { go, route } from './ui/router';
+import { Compartida } from './screens/Compartida';
+import { ShareDialog } from './ui/Share';
 import './ui/theme';
 import { toast } from './actions';
 import { Coleccion } from './screens/Coleccion';
@@ -156,6 +158,8 @@ export function App() {
           <Compras />
         ) : r === 'metas' ? (
           <Metas />
+        ) : r === 'ver' ? (
+          <Compartida />
         ) : (
           <Coleccion />
         )}
@@ -169,6 +173,7 @@ export function App() {
         ))}
       </nav>
       <FichaDialog />
+      <ShareDialog />
       <Binder />
       {toast.value && (
         <div class={`toast${toast.value.ok ? '' : ' warn'}`} role="status">
