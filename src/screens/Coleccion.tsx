@@ -454,8 +454,6 @@ export function Coleccion() {
   const { have, missing } = haveAndMissing(all, col);
   const vh = sumKeys(col, prices.value, alias.value, have);
   const vm = sumKeys(col, prices.value, alias.value, missing);
-  const pika = all.find((s) => s.id === 'p');
-  const pn = pika ? sheetCount(alias.value, pika, col) : 0;
   const nav: Array<[string, string, string]> = all.map((s) => [
     s.id,
     s.short ?? s.name,
@@ -506,24 +504,6 @@ export function Coleccion() {
           </div>
         ) : (
           (priceRun.value?.running || prices.value.date !== today()) && <PriceStatus />
-        )}
-        {pika && (
-          <div class="pika">
-            <div class="strip" aria-label={`${pn} de ${pika.cards.length} Pikachu`}>
-              {slots(pika, col).map((s) => (
-                <i key={s.key} class={isOwned(alias.value, col, s.key) ? 'on' : ''} title={s.card.label} />
-              ))}
-            </div>
-            <span class="pika-t">
-              {pn < pika.cards.length ? (
-                <>
-                  Pikachu 30C: <strong>{pn}</strong> de {pika.cards.length}
-                </>
-              ) : (
-                '¡Pikachu 30C completo!'
-              )}
-            </span>
-          </div>
         )}
         <div class="binder-cta">
           <button class="btn primary" onClick={() => (binderOpen.value = true)}>
