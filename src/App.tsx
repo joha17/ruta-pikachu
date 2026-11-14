@@ -101,30 +101,18 @@ function UpdateBanner() {
   );
 }
 
-/** GIF de la cabecera, junto al logo (public/sprites). En pantallas angostas solo se ve Pikachu. */
-const SPRITES: Array<[file: string, name: string]> = [
-  ['pikachurun', 'Pikachu'],
-  ['gengar', 'Gengar'],
-  ['chandelure', 'Chandelure'],
-  ['duskull', 'Duskull'],
-  ['giratina', 'Giratina'],
-  ['rayquaza', 'Rayquaza'],
-];
-
+/** GIF de Pikachu en la cabecera, junto al logo (public/sprites). */
 function Sprites() {
   return (
     <div class="sprites" aria-hidden="true">
-      {SPRITES.map(([f, name]) => (
-        <img
-          key={f}
-          src={`${import.meta.env.BASE_URL}sprites/${f}.gif`}
-          alt=""
-          title={name}
-          height={32}
-          decoding="async"
-          onError={(e) => (e.currentTarget.style.display = 'none')}
-        />
-      ))}
+      <img
+        src={`${import.meta.env.BASE_URL}sprites/pikachurun.gif`}
+        alt=""
+        title="Pikachu"
+        height={32}
+        decoding="async"
+        onError={(e) => (e.currentTarget.style.display = 'none')}
+      />
     </div>
   );
 }

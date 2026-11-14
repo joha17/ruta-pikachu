@@ -140,6 +140,8 @@ export interface Collection {
   /** Objetivos agregados por mí. */
   myGoals: MyGoal[];
   goalSeq: number;
+  /** Avisos de precio: clave canónica → avisar si el precio de mercado baja de este valor (USD). */
+  alerts: Record<string, number>;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
 }
@@ -149,7 +151,7 @@ export interface PriceBook {
   /** Fecha del último precio automático, AAAA-MM-DD. */
   date: string;
   usd: Record<string, number>;
-  /** Fecha → clave → precio (o null si ese día no hubo dato). Máximo 60 días. */
+  /** Fecha → clave → precio (o null si ese día no hubo dato). Máximo un año. */
   hist: Record<string, Record<string, number | null>>;
   /** Fecha → valor de lo que tenía ese día (USD) y cuántas cartas con precio. Máximo un año. */
   value?: Record<string, { v: number; n: number }>;
@@ -206,6 +208,7 @@ export function emptyCollection(): Collection {
     hiddenGoals: {},
     myGoals: [],
     goalSeq: 0,
+    alerts: {},
     saved: '',
   };
 }

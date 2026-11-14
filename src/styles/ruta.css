@@ -314,3 +314,15 @@ dialog.sheet::backdrop{background:var(--backdrop)}
 .boxempty{padding:18px;border-radius:12px;background:var(--box);border:1.5px dashed var(--box-line);color:var(--muted);font-size:14px;margin:0;max-width:980px}
 .boxplace{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
 .boxplace select{font:500 14px var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:100%;min-width:0;flex:1 1 180px}
+.alert-box{border-top:1px solid var(--line);padding-top:10px}
+.alert-box summary{cursor:pointer;font-weight:600;font-size:14px}
+.alert-box summary:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:4px}
+.alert-box.hit summary{color:var(--ok)}
+.shop-alerts{border:1px solid var(--ok);border-radius:12px;padding:10px 12px;margin:0 0 14px;display:grid;gap:6px}
+.shop-alerts h3{margin:0;font-size:15px}
+.shop-alerts ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.shop-alerts button{all:unset;cursor:pointer;display:flex;justify-content:space-between;gap:10px;width:100%;font-size:14px;padding:4px 0}
+.shop-alerts button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:4px}
+.shop-alerts b{font-family:var(--f-mono);color:var(--ok);white-space:nowrap}
+.shop-row .bell{font-style:normal;font-size:.85em;margin-left:4px}
+.trendbox .trange{margin:2px 0 4px}

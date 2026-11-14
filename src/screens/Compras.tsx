@@ -2,6 +2,8 @@
 
 import { signal } from '@preact/signals';
 import { act, ops } from '../actions';
+import { currentHits } from '../alerts';
+import { alertOf } from '../model/alerts';
 import { fmtDate, money } from '../model/money';
 import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } from '../model/shop';
 import { alias, collection, openKey, prices, sheets } from '../store';
@@ -31,6 +33,40 @@ function setPrefs(p: Partial<{ sort: ShopSort; sheet: string }>) {
   }
 }
 
+function Bell({ k }: { k: string }) {
+  const lim = alertOf(collection.value, alias.value, k);
+  if (lim == null) return null;
+  const t = `Aviso si baja de ${money(lim)}`;
+  return (
+    <i class="bell" title={t} aria-label={t}>
+      🔔
+    </i>
+  );
+}
+
+/** Cartas con aviso que ya bajaron de mi límite. */
+function Hits() {
+  const hits = currentHits();
+  if (!hits.length) return null;
+  return (
+    <div class="shop-alerts" role="region" aria-label="Bajaron de tu precio">
+      <h3>🔔 Bajaron de tu precio</h3>
+      <ul>
+        {hits.map((h) => (
+          <li key={h.key}>
+            <button onClick={() => (openKey.value = h.key)}>
+              <span>{h.name}</span>
+              <span>
+                <b>{money(h.now)}</b> <small>límite {money(h.limit)}</small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function Row({ o, name }: { o: ShopItem; name: string }) {
   return (
     <li class={`shop-row${o.star ? ' starred' : ''}`}>
@@ -52,6 +88,7 @@ function Row({ o, name }: { o: ShopItem; name: string }) {
       <span class="sp">
         {money(o.p)}
         <TrendMark k={o.key} />
+        <Bell k={o.key} />
       </span>
     </li>
   );
@@ -89,13 +126,14 @@ export function Compras() {
           <h2>Lista de compras</h2>
           <p>
             Todo lo que te falta de todas las hojas, en un solo lugar. Toca ☆ para marcar las que vas a buscar primero: suben arriba con su
-            propio total. Toca una carta para abrir su ficha.
+            propio total. Toca una carta para abrir su ficha; ahí puedes pedir un aviso 🔔 si baja de precio.
           </p>
         </div>
         <button class="btn" onClick={copy}>
           {copied.value || 'Copiar esta lista'}
         </button>
       </div>
+      <Hits />
       <div class="shop-tools">
         <div class="chips" role="group" aria-label="Filtrar por hoja">
           <span class="lbl">Hoja:</span>

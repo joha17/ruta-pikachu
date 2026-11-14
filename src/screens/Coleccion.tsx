@@ -575,10 +575,6 @@ export function Coleccion() {
           </div>
         </section>
       )}
-      <p class="note">
-        Imágenes oficiales y precios: TCGdex (precio de mercado de TCGplayer). Las imágenes se muestran enlazadas desde
-        assets.tcgdex.net; tus fotos solo viven en este aparato. «Ver carta» abre la ficha en Limitless.
-      </p>
     </>
   );
 }
