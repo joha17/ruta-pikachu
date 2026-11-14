@@ -2,7 +2,7 @@
 // (la tienda pasa una copia) y devuelven qué fotos hay que mover o borrar.
 
 import { canon, findCard, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
-import { keyOf, localOfKey, sheetOfKey, today } from './keys';
+import { keyOf, localOfKey, newId, sheetOfKey, today } from './keys';
 import type { BoxCard, CardDef, Collection, CustomSheet, PriceBook, SheetDef } from './types';
 
 /** Qué hacer con las fotos después de un cambio. */
@@ -84,7 +84,7 @@ function pickFields<T extends object>(src: CardInput, keys: readonly string[]): 
 export function addBox(col: Collection, c: CardInput): BoxCard | null {
   if (col.box.length >= MAX_BOX) return null;
   col.boxSeq = (col.boxSeq || 0) + 1;
-  const b = { id: `b${col.boxSeq}`, ...pickFields<BoxCard>(c, BOX_FIELDS) } as BoxCard;
+  const b = { id: newId('b', col.boxSeq), ...pickFields<BoxCard>(c, BOX_FIELDS) } as BoxCard;
   col.box.push(b);
   return b;
 }
@@ -129,7 +129,7 @@ export function moveBoxToSheet(
   const sh = col.custom.find((s) => s.id === sid);
   if (!b || !sh || sh.cards.length >= MAX_CARDS) return null;
   sh.seq = (sh.seq || 0) + 1;
-  const nc: CardDef = { k: `c${sh.seq}`, ...pickFields<CardDef>(b, ['n', 'num', 'set', 'rar', 'tcg', 'url']) } as CardDef;
+  const nc: CardDef = { k: newId('c', sh.seq), ...pickFields<CardDef>(b, ['n', 'num', 'set', 'rar', 'tcg', 'url']) } as CardDef;
   sh.cards.push(nc);
   const from = `b:${id}`;
   const to = keyOf(`u:${sid}`, nc.k);
@@ -159,7 +159,7 @@ export function customOf(col: Collection, sheetId: string): CustomSheet | undefi
 export function createSheet(col: Collection, name: string, desc?: string): CustomSheet | null {
   if (col.custom.length >= MAX_SHEETS) return null;
   col.customSeq = (col.customSeq || 0) + 1;
-  const sh: CustomSheet = { id: `s${col.customSeq}`, name, seq: 0, cards: [] };
+  const sh: CustomSheet = { id: newId('s', col.customSeq), name, seq: 0, cards: [] };
   if (desc) sh.desc = desc;
   col.custom.push(sh);
   return sh;
@@ -203,7 +203,7 @@ export function addCard(col: Collection, sid: string, c: CardInput, altOf?: stri
   if (!sh) return null;
   if (!altOf && sh.cards.length >= MAX_CARDS) return null;
   sh.seq = (sh.seq || 0) + 1;
-  const nc = { k: `c${sh.seq}`, ...pickFields<CardDef>(c, CARD_FIELDS) } as CardDef;
+  const nc = { k: newId('c', sh.seq), ...pickFields<CardDef>(c, CARD_FIELDS) } as CardDef;
   if (altOf) {
     const slot = sh.cards.find((x) => x.k === altOf);
     if (!slot) return null;

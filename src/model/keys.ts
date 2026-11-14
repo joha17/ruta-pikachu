@@ -1,5 +1,18 @@
 // Claves de bolsillo y de carta. Ver el comentario de types.ts.
 
+/**
+ * Marca de este aparato para los ids nuevos ("b12" + "k3f"). Con la sincronización, dos
+ * aparatos sin conexión pueden crear a la vez la carta n.º 12 de la Caja; la marca evita
+ * que una pise a la otra. Sin sincronización queda vacía.
+ */
+let tag = '';
+export function setIdTag(t: string): void {
+  tag = /^[a-z0-9]{0,6}$/.test(t) ? t : '';
+}
+export function newId(prefix: string, seq: number): string {
+  return `${prefix}${seq}${tag}`;
+}
+
 /** Clave de una carta a partir de la hoja y su id local. */
 export function keyOf(sheetId: string, k: string): string {
   return sheetId.startsWith('u:') ? `u:${sheetId.slice(2)}.${k}` : `${sheetId}:${k}`;

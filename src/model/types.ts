@@ -137,6 +137,8 @@ export interface Photo {
   /** De dónde vino: el Artifact, el escáner o subida a mano. */
   from: 'artifact' | 'scan' | 'upload';
   added: string;
+  /** Huella del contenido (SHA-256, 32 hex) para sincronizar. Se calcula sola si falta. */
+  h?: string;
 }
 
 export interface GoalDef {

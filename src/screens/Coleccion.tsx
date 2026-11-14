@@ -10,6 +10,7 @@ import { alias, binderOpen, collection, formView, isEmpty, openKey, prices, shee
 import { Pocket } from '../ui/Pocket';
 import { PriceStatus } from '../ui/PriceStatus';
 import { go } from '../ui/router';
+import { syncConfigured, syncStatus } from '../sync/engine';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
 const arranging = signal('');
@@ -335,11 +336,16 @@ export function Coleccion() {
       <section class="panel empty-start">
         <h1>Tu colección</h1>
         <p>
-          Todavía no hay datos en este aparato. Restaura un respaldo que hiciste antes, o trae tu colección desde el Artifact de
-          claude.ai: tus cartas marcadas, hojas, Caja, precios y fotos.
+          Todavía no hay datos en este aparato. Si ya la usas en otro aparato, conecta Google Drive y se trae sola. También puedes
+          restaurar un respaldo, o traer tu colección desde el Artifact de claude.ai: tus cartas marcadas, hojas, Caja, precios y fotos.
         </p>
         <div class="row">
-          <button class="btn primary" onClick={() => go('respaldo')}>
+          {syncConfigured && syncStatus.value === 'off' && (
+            <button class="btn primary" onClick={() => go('respaldo')}>
+              Traer desde Google Drive
+            </button>
+          )}
+          <button class={`btn${syncConfigured && syncStatus.value === 'off' ? '' : ' primary'}`} onClick={() => go('respaldo')}>
             Restaurar un respaldo
           </button>
           <button class="btn" onClick={() => go('importar')}>

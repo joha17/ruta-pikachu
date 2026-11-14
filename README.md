@@ -41,6 +41,45 @@ El paquete lleva tus fotos: guárdalo **fuera** del repo.
 - Si hay colección y el último respaldo tiene más de 7 días (o nunca hubo), sale un aviso arriba.
 - Los respaldos llevan fotos personales: `.gitignore` ignora `ruta-pikachu-respaldo-*.json`.
 
+## Sincronizar con Google Drive
+
+Lo que se agrega en un aparato aparece en los demás (pestaña **Respaldo** → «Sincronizar con Google Drive»).
+
+- Inicio de sesión con Google en el navegador (Google Identity Services), sin servidor. Permiso
+  `drive.appdata`: la app solo ve su carpeta oculta en tu Drive, nunca tus archivos.
+- En Drive: `coleccion.json` (colección y precios a mano) y una `foto-<huella>` por foto.
+- **Combinar, no pisar** (`src/sync/merge.ts`): la colección se parte en elementos (cada carta
+  marcada, deseo, precio a mano, variante, orden de hoja, hoja propia, carta de hoja propia, carta de
+  la Caja y foto). Cada uno lleva la hora de su último cambio y gana el más reciente. Los borrados
+  quedan como marcas, así un aparato desactualizado no resucita lo borrado. Las horas se ponen
+  comparando con la última copia después de cada guardado, así que funciona sin conexión.
+- Los ids nuevos llevan una marca del aparato (`b12k3f`) para que dos aparatos sin conexión no
+  creen la misma carta n.º 12.
+- Se sincroniza al abrir, unos segundos después de cada cambio, al volver a la app, al recuperar la
+  conexión y cada 3 minutos mientras está abierta (`src/sync/engine.ts`).
+- Google da un permiso de una hora. Después, el indicador de arriba dice «☁ Sincronizar»: un toque
+  lo renueva (Google no deja renovarlo sin un toque en una app sin servidor). Los cambios se guardan
+  mientras tanto.
+- No viajan: la clave de Claude, el tema, los precios automáticos ni el historial.
+
+### Crear el ID de cliente (una sola vez)
+
+1. Entrar a <https://console.cloud.google.com> con tu cuenta de Google.
+2. Selector de proyecto → **Proyecto nuevo** → nombre `Ruta Pikachu` → **Crear**, y elegirlo.
+3. Buscar **Google Drive API** → **Habilitar**.
+4. **Google Auth Platform** (o «Pantalla de consentimiento de OAuth») → **Comenzar**: nombre
+   `Ruta Pikachu`, tu correo, público **Externo** → **Crear**.
+5. **Público** → «Usuarios de prueba» → **Add users** → tu Gmail.
+6. **Acceso a los datos** → **Agregar o quitar permisos** → marcar `.../auth/drive.appdata` → **Guardar**.
+7. **Clientes** → **Crear cliente** → **Aplicación web**. En **Orígenes autorizados de JavaScript**:
+   `https://joha17.github.io` (sin ruta ni barra final). Para probar en la PC agrega también
+   `http://localhost:5173`. Sin URI de redireccionamiento.
+8. Copiar el **ID de cliente** (`….apps.googleusercontent.com`) a `src/sync/config.ts`
+   (`CLIENT_ID_IN_CODE`). Es público, puede ir en el repo. El **secreto del cliente** no se usa y
+   nunca va al repo.
+
+La primera vez, Google avisa que «no verificó esta app»: es tu propia app; «Continuar».
+
 ## Publicar en GitHub Pages
 
 El workflow `.github/workflows/pages.yml` prueba, construye y publica en cada push a `main`.

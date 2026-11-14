@@ -7,6 +7,8 @@ import { BACKUP_DAYS, daysSince, parseBackup, summarize, type Backup } from '../
 import { isEmpty, settings } from '../store';
 import { go, route } from '../ui/router';
 import { Importar } from './Importar';
+import { Sincronizar } from './Sincronizar';
+import { syncOn } from '../sync/engine';
 
 const fecha = (iso: string) => (iso ? new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
 
@@ -165,6 +167,9 @@ function Restaurar() {
               Ojo: esto <b>reemplaza todo</b> lo que hay ahora en este aparato. Si no estás seguro, primero descarga un respaldo de lo actual.
             </p>
           )}
+          {syncOn.value && (
+            <p class="msg warn">Con la sincronización activa, tus otros aparatos también quedarán como este respaldo.</p>
+          )}
           <div class="row">
             <button class="btn primary" disabled={busy} onClick={() => void restore()}>
               {busy ? 'Restaurando…' : 'Restaurar en este aparato'}
@@ -199,10 +204,15 @@ export function Respaldo() {
       <section class="backup">
         <div class="section-head">
           <div>
-            <h2>Respaldo</h2>
-            <p>Tu colección vive solo en este aparato. Un respaldo es la forma de no perderla.</p>
+            <h2>Respaldo y sincronización</h2>
+            <p>
+              {syncOn.value
+                ? 'Tu colección se guarda en este aparato y se sincroniza con tu Google Drive. Un respaldo sigue siendo buena idea.'
+                : 'Tu colección vive solo en este aparato. Sincroniza con Drive o haz un respaldo para no perderla.'}
+            </p>
           </div>
         </div>
+        <Sincronizar />
         <Hacer />
         <Restaurar />
       </section>

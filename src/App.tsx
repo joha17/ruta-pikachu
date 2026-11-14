@@ -9,6 +9,8 @@ import { Coleccion } from './screens/Coleccion';
 import { Compras } from './screens/Compras';
 import { Escanear } from './screens/Escanear';
 import { Respaldo } from './screens/Respaldo';
+import { SyncChip } from './screens/Sincronizar';
+import { syncStatus } from './sync/engine';
 import { Metas } from './screens/Metas';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
@@ -26,6 +28,8 @@ function SaveChip() {
   if (s === 'saving') return <span class="chip">Guardando…</span>;
   if (s === 'pending') return <span class="chip warn">Sin guardar</span>;
   if (s === 'error') return <span class="chip warn">No se pudo guardar</span>;
+  // Con la sincronización activa, su indicador ya dice que está todo bien.
+  if (syncStatus.value !== 'off') return null;
   return <span class="chip ok" title="Todo está guardado en este aparato">Guardado</span>;
 }
 
@@ -83,6 +87,7 @@ export function App() {
         </a>
         <div class="topbar-r">
           <SaveChip />
+          <SyncChip />
           <button
             class="btn sm quiet"
             title={THEME_LABEL[theme]}

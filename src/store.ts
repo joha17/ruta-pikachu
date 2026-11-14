@@ -49,6 +49,12 @@ export async function boot(): Promise<void> {
   ready.value = true;
 }
 
+/** Avisos después de guardar la colección o cambiar fotos (la sincronización se cuelga aquí). */
+export const afterChange = new Set<() => void>();
+function changed(): void {
+  for (const f of afterChange) f();
+}
+
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 /** Cambia la colección y la guarda al rato (agrupa cambios seguidos). */
@@ -69,6 +75,7 @@ export async function flush(): Promise<void> {
   try {
     await store.saveCollection(collection.value);
     saveState.value = 'ok';
+    changed();
   } catch {
     saveState.value = 'error';
   }
@@ -83,6 +90,7 @@ export async function reloadPhotos(): Promise<void> {
   photoKeys.value = new Set(await store.photoKeys());
   for (const u of photoUrls.values()) URL.revokeObjectURL(u);
   photoUrls.clear();
+  changed();
 }
 
 const photoUrls = new Map<string, string>();

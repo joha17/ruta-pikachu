@@ -3,6 +3,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Collection, Photo, PriceBook } from './model/types';
 import type { MigrationReport } from './model/migrate';
+import type { PhotoMeta, SyncDoc } from './sync/merge';
+import type { Token } from './sync/drive';
 
 export interface Settings {
   theme?: 'light' | 'dark' | 'auto';
@@ -21,6 +23,20 @@ export interface ClaudeCfg {
   calls: number;
 }
 
+/** Sincronización con Google Drive. Solo de este aparato: nunca entra en un respaldo. */
+export interface SyncState {
+  on: boolean;
+  /** Marca de este aparato para ids nuevos (ver keys.ts). */
+  tag: string;
+  /** Última copia conocida, con la hora de cada cambio. */
+  doc: SyncDoc;
+  /** Fotos que el documento tiene y este aparato aún no pudo bajar. */
+  pending: Record<string, PhotoMeta>;
+  token?: Token;
+  /** Última sincronización completa (ISO). */
+  last?: string;
+}
+
 /** Respuesta de TCGdex guardada para no repetir llamadas (una por carta y día). */
 export interface TcgCacheEntry {
   id: string; // "en/sv10-229"
@@ -30,8 +46,8 @@ export interface TcgCacheEntry {
 
 interface RutaDB extends DBSchema {
   kv: {
-    key: 'collection' | 'prices' | 'settings' | 'claude';
-    value: Collection | PriceBook | Settings | ClaudeCfg;
+    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync';
+    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState;
   };
   photos: { key: string; value: Photo };
   tcg: { key: string; value: TcgCacheEntry };
@@ -75,6 +91,19 @@ export async function loadClaude(): Promise<ClaudeCfg | undefined> {
 }
 export async function saveClaude(c: ClaudeCfg): Promise<void> {
   await (await db()).put('kv', c, 'claude');
+}
+
+export async function loadSync(): Promise<SyncState | undefined> {
+  return (await (await db()).get('kv', 'sync')) as SyncState | undefined;
+}
+export async function saveSync(s: SyncState): Promise<void> {
+  await (await db()).put('kv', s, 'sync');
+}
+export async function clearSync(): Promise<void> {
+  await (await db()).delete('kv', 'sync');
+}
+export async function allPhotos(): Promise<Photo[]> {
+  return (await db()).getAll('photos');
 }
 
 export async function photoKeys(): Promise<string[]> {
