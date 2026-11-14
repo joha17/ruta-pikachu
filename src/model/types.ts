@@ -131,6 +131,8 @@ export interface Collection {
   protect: Record<string, true>;
   /** Hojas fijas quitadas (se pueden volver a mostrar). */
   hidden: Record<string, true>;
+  /** Cartas quitadas de hojas fijas, por su clave ("r:mewtwo"). Se pueden volver a mostrar. */
+  hiddenCards: Record<string, true>;
   /** Nombre y descripción cambiados de hojas fijas. */
   rename: Record<string, SheetRename>;
   /** Objetivos fijos (de listas.json) quitados. */
@@ -197,6 +199,7 @@ export function emptyCollection(): Collection {
     trade: {},
     protect: {},
     hidden: {},
+    hiddenCards: {},
     rename: {},
     hiddenGoals: {},
     myGoals: [],

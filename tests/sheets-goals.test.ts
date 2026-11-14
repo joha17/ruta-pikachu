@@ -83,6 +83,29 @@ describe('hojas propias', () => {
   });
 });
 
+describe('quitar una carta de una hoja fija', () => {
+  it('se oculta, lo marcado pasa a la Caja y se puede volver a mostrar', () => {
+    const col = emptyCollection();
+    const k = `r:${other.k}`;
+    col.owned[k] = true;
+    col.wish['r:moltres'] = true;
+    const res = ops.removeCard(col, emptyPrices(), allSheets(FIXED_SHEETS, col), k, noPhotos);
+    expect(res).toEqual({ moved: 1, photos: {} });
+    expect(col.hiddenCards).toEqual({ [k]: true });
+    expect(col.box.map((b) => b.n.includes(other.n))).toEqual([true]);
+    const shown = allSheets(FIXED_SHEETS, col).find((s) => s.id === 'r')!;
+    expect(shown.cards.some((c) => c.k === other.k)).toBe(false);
+    expect(shown.cards).toHaveLength(r.cards.length - 1);
+    // Moltres también está en la hoja de Egawa: quitarla de Team Rocket no la desmarca ni la manda a la Caja.
+    col.owned['r:moltres'] = true;
+    expect(ops.removeCard(col, emptyPrices(), allSheets(FIXED_SHEETS, col), 'r:moltres', noPhotos)).toEqual({ moved: 0, photos: {} });
+    expect(col.owned['r:moltres']).toBe(true);
+    ops.restoreCards(col, 'r');
+    expect(col.hiddenCards).toEqual({});
+    expect(allSheets(FIXED_SHEETS, col).find((s) => s.id === 'r')!.cards).toHaveLength(r.cards.length);
+  });
+});
+
 describe('objetivos', () => {
   it('agregar uno propio, quitar uno fijo y volver a mostrarlo', () => {
     const col = emptyCollection();
@@ -105,12 +128,14 @@ describe('sincronización de lo nuevo', () => {
   it('hojas quitadas, nombres, objetivos propios y quitados viajan y vuelven igual', () => {
     const col = emptyCollection();
     col.hidden.r = true;
+    col.hiddenCards['e:moltres'] = true;
     col.rename.p = { name: 'Mis Pikachu' };
     col.hiddenGoals.energias = true;
     ops.addGoal(col, 'Uno');
     ops.addGoal(col, 'Dos', 'detalle');
     const back = implode(baseline(explode(col), seqsOf(col)));
     expect(back.hidden).toEqual({ r: true });
+    expect(back.hiddenCards).toEqual({ 'e:moltres': true });
     expect(back.rename).toEqual({ p: { name: 'Mis Pikachu' } });
     expect(back.hiddenGoals).toEqual({ energias: true });
     expect(back.myGoals.map((g) => g.t)).toEqual(['Uno', 'Dos']);

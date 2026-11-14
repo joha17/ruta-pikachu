@@ -45,7 +45,7 @@ export function emptyDoc(): SyncDoc {
   return { kind: SYNC_KIND, version: SYNC_VERSION, atoms: {}, seqs: {} };
 }
 
-const SETS = ['owned', 'wish', 'goals', 'trade', 'protect', 'hidden', 'hiddenGoals'] as const;
+const SETS = ['owned', 'wish', 'goals', 'trade', 'protect', 'hidden', 'hiddenCards', 'hiddenGoals'] as const;
 
 /** JSON con las claves ordenadas: el mismo valor da siempre el mismo texto. */
 export function stable(v: unknown): string {

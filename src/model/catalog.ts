@@ -21,8 +21,11 @@ export function allSheets(fixed: SheetDef[], col: Collection): SheetDef[] {
   }));
   const hidden = col.hidden ?? {};
   const rename = col.rename ?? {};
+  const hc = col.hiddenCards ?? {};
+  const anyHc = Object.keys(hc).length > 0;
   return [...fixed]
     .filter((s) => !hidden[s.id])
+    .map((s) => (anyHc ? withoutHidden(s, hc) : s))
     .map((s) => {
       const r = rename[s.id];
       if (!r) return s;
@@ -34,6 +37,21 @@ export function allSheets(fixed: SheetDef[], col: Collection): SheetDef[] {
     })
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     .concat(own);
+}
+
+/** Hoja fija sin las cartas quitadas (un bolsillo quitado se lleva sus variantes). */
+function withoutHidden(s: SheetDef, hc: Record<string, true>): SheetDef {
+  if (!s.cards.some((c) => [c, ...(c.alts ?? [])].some((o) => hc[keyOf(s.id, o.k)]))) return s;
+  const cards = s.cards
+    .filter((c) => !hc[keyOf(s.id, c.k)])
+    .map((c) => {
+      if (!c.alts?.some((a) => hc[keyOf(s.id, a.k)])) return c;
+      const alts = c.alts.filter((a) => !hc[keyOf(s.id, a.k)]);
+      const out: CardDef = { ...c, alts };
+      if (!alts.length) delete out.alts;
+      return out;
+    });
+  return { ...s, cards };
 }
 
 /** Alias de cartas que son la misma carta física: "e:moltres" → "r:moltres". */

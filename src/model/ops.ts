@@ -417,6 +417,11 @@ export function removeSheet(
   return { moved: r.moved.length, photos: { ...r.photos, ...(remove.length ? { remove } : {}) } };
 }
 
+/** Vuelve a mostrar las cartas quitadas de una hoja fija. */
+export function restoreCards(col: Collection, sheetId: string): void {
+  for (const k of Object.keys(col.hiddenCards)) if (sheetOfKey(k) === sheetId) delete col.hiddenCards[k];
+}
+
 /** Vuelve a mostrar una hoja fija quitada (lo que se fue a la Caja se queda en la Caja). */
 export function restoreSheet(col: Collection, sheetId: string): void {
   delete col.hidden[sheetId];
@@ -441,10 +446,27 @@ export function removeCard(
   hasPhoto: (k: string) => boolean,
 ): RemoveResult {
   const f = findCard(sheets, col, key);
-  if (!f?.sheet || !f.slot || f.sheet.fixed) return { err: 'Solo se pueden quitar cartas de tus hojas.' };
+  if (!f?.sheet || !f.slot) return { err: 'No encontré esa carta en una hoja.' };
   const list = f.isAlt ? [{ key, card: f.card as CardDef }] : [f.slot, ...(f.slot.alts ?? [])].map((o) => ({ key: keyOf(f.sheet!.id, o.k), card: o }));
   const r = ownedToBox(col, prices, sheets, list, hasPhoto);
   if ('err' in r) return r;
+  if (f.sheet.fixed) {
+    // Hoja fija: la carta se oculta (se puede volver a mostrar); sus fotos se quedan.
+    const alias = aliases(sheets);
+    const elsewhere = usedKeys(sheets, alias, new Set(list.map((x) => x.key)));
+    for (const { key: k } of list) {
+      const ck = canon(alias, k);
+      if (!elsewhere.has(ck)) {
+        delete col.wish[ck];
+        delete col.owned[ck];
+      }
+      delete col.variant[k];
+    }
+    const slotKey = keyOf(f.sheet.id, f.slot.k);
+    if (f.isAlt && col.variant[slotKey] === key) delete col.variant[slotKey];
+    col.hiddenCards[key] = true;
+    return { moved: r.moved.length, photos: r.photos };
+  }
   const ch = deleteCard(col, sheets, key);
   const remove = (ch.remove ?? []).filter((k) => !r.moved.includes(canon(aliases(sheets), k)));
   return { moved: r.moved.length, photos: { ...r.photos, ...(remove.length ? { remove } : {}) } };

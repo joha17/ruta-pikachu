@@ -106,6 +106,38 @@ function CardSheet({ k }: { k: string }) {
   const custom = sh && !sh.fixed ? collection.value.custom.find((x) => `u:${x.id}` === sh.id) : undefined;
   const ci = custom && base ? custom.cards.findIndex((x) => x.k === base.k) : -1;
 
+  const delConfirm = () => (
+    <>
+      <p class="msg warn">
+        {f.isAlt
+          ? `¿Quitar la variante «${title}»? El bolsillo vuelve a la carta original.`
+          : `¿Quitar «${title}» de la hoja, con sus variantes?`}{' '}
+        {sh?.fixed
+          ? 'Si la tienes marcada, pasa a la caja con su foto y su precio. Puedes volver a mostrarla desde «Editar o quitar hoja».'
+          : 'Si la tienes marcada, pasa a la caja con su foto y su precio; si no, se borra.'}
+      </p>
+      <button
+        class="btn danger"
+        onClick={() => {
+          const back = f.isAlt && base ? keyOf(sh!.id, base.k) : '';
+          let res: ops.RemoveResult | undefined;
+          actAll((cc, pp) => {
+            res = ops.removeCard(cc, pp, sheets.value, k, hasPhoto);
+            return 'err' in res ? undefined : res.photos;
+          });
+          if (res && 'err' in res) return done(res.err, false);
+          openKey.value = back;
+          if (res && 'moved' in res && res.moved) say(res.moved === 1 ? 'Quitada de la hoja: pasó a la caja.' : `Quitadas de la hoja: ${res.moved} pasaron a la caja.`);
+        }}
+      >
+        Sí, quitarla
+      </button>
+      <button class="btn quiet" onClick={() => setPending('')}>
+        No
+      </button>
+    </>
+  );
+
   return (
     <div class="sheet-in">
       <button class="btn close" aria-label="Cerrar" onClick={() => (openKey.value = '')}>
@@ -293,33 +325,7 @@ function CardSheet({ k }: { k: string }) {
             {custom && base && (
               <div class="cedit">
                 {pending === 'del' ? (
-                  <>
-                    <p class="msg warn">
-                      {f.isAlt
-                        ? `¿Quitar la variante «${title}»? El bolsillo vuelve a la carta original.`
-                        : `¿Quitar «${title}» de la hoja, con sus variantes?`}{' '}
-                      Si la tienes marcada, pasa a la caja con su foto y su precio; si no, se borra.
-                    </p>
-                    <button
-                      class="btn danger"
-                      onClick={() => {
-                        const back = f.isAlt ? keyOf(sh!.id, base.k) : '';
-                        let res: ops.RemoveResult | undefined;
-                        actAll((cc, pp) => {
-                          res = ops.removeCard(cc, pp, sheets.value, k, hasPhoto);
-                          return 'err' in res ? undefined : res.photos;
-                        });
-                        if (res && 'err' in res) return done(res.err, false);
-                        openKey.value = back;
-                        if (res && 'moved' in res && res.moved) say(res.moved === 1 ? 'Quitada de la hoja: pasó a la caja.' : `Quitadas de la hoja: ${res.moved} pasaron a la caja.`);
-                      }}
-                    >
-                      Sí, quitarla
-                    </button>
-                    <button class="btn quiet" onClick={() => setPending('')}>
-                      No
-                    </button>
-                  </>
+                  delConfirm()
                 ) : (
                   <>
                     <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, cid: c.k })}>
@@ -356,6 +362,18 @@ function CardSheet({ k }: { k: string }) {
                       {f.isAlt ? 'Quitar esta variante' : 'Quitar de la hoja'}
                     </button>
                   </>
+                )}
+              </div>
+            )}
+
+            {sh?.fixed && base && (
+              <div class="cedit">
+                {pending === 'del' ? (
+                  delConfirm()
+                ) : (
+                  <button class="btn quiet danger" onClick={() => setPending('del')}>
+                    {f.isAlt ? 'Quitar esta variante' : 'Quitar de la hoja'}
+                  </button>
                 )}
               </div>
             )}

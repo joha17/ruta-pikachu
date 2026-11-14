@@ -281,6 +281,7 @@ export function Forms() {
     const editing = !!shown;
     const nc = shown?.cards.length ?? 0;
     const mine = shown ? sheetCount(alias.value, shown, col) : 0;
+    const hiddenN = fixedDef ? Object.keys(col.hiddenCards ?? {}).filter((k) => k.startsWith(`${fixedDef.id}:`)).length : 0;
     return (
       <div class="sheet-in solo">
         <button class="btn close" aria-label="Cerrar" onClick={closeAll}>
@@ -343,7 +344,27 @@ export function Forms() {
               </button>
             )}
           </form>
-          {fixedDef && <p class="hint">Las cartas de esta hoja vienen con la app y no se pueden cambiar una por una.</p>}
+          {fixedDef && (
+            <p class="hint">
+              Para quitar una carta de esta hoja, ábrela y toca «Quitar de la hoja».
+              {hiddenN > 0 && (
+                <>
+                  {' '}
+                  <button
+                    class="linkish"
+                    type="button"
+                    onClick={() => {
+                      act((c) => ops.restoreCards(c, fixedDef.id));
+                      closeAll();
+                      say(hiddenN === 1 ? 'La carta volvió a la hoja.' : `${hiddenN} cartas volvieron a la hoja.`);
+                    }}
+                  >
+                    Volver a mostrar {hiddenN === 1 ? 'la carta quitada' : `las ${hiddenN} cartas quitadas`}
+                  </button>
+                </>
+              )}
+            </p>
+          )}
           {shown && (
             <div class="cedit">
               {confirmDel ? (
