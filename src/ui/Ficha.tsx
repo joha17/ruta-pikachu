@@ -14,6 +14,8 @@ import { cachedCard } from '../tcgdex';
 import { markFailed, photoKeyOf, useArt } from './art';
 import { Forms } from './Forms';
 import { PriceTrend } from './Trend';
+import { TcgInfo } from './TcgInfo';
+import { Zoomable } from './Zoom';
 
 const LANG: Record<string, string> = { en: 'Inglés', ja: 'Japonés' };
 
@@ -111,12 +113,14 @@ function CardSheet({ k }: { k: string }) {
       </button>
       <div class={`sheet-img${img ? ' has-img' : ''}`}>
         {img ? (
-          <img
-            src={img}
-            alt={`Imagen de ${title}`}
-            referrerpolicy="no-referrer"
-            onError={() => art.kind === 'official' && !showMine && markFailed(img)}
-          />
+          <Zoomable src={img} alt={`Imagen de ${title}`}>
+            <img
+              src={img}
+              alt={`Imagen de ${title}`}
+              referrerpolicy="no-referrer"
+              onError={() => art.kind === 'official' && !showMine && markFailed(img)}
+            />
+          </Zoomable>
         ) : (
           <span>
             {c.tcg ? 'TCGdex no tiene imagen oficial de esta carta.' : 'Sin imagen.'}
@@ -146,6 +150,7 @@ function CardSheet({ k }: { k: string }) {
             </>
           ))}
         </dl>
+        {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
 
         {opts.length > 0 && sh && base && (

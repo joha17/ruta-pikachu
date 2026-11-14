@@ -19,6 +19,8 @@ import { candsFromAi, identifyReading, keysFor, localEntries, printedNum } from 
 import { alias, collection, formView, openKey, sheets } from '../store';
 import { seedPrice } from '../collect';
 import { cachedCard, fetchCard, imageUrl } from '../tcgdex';
+import { TcgInfo } from '../ui/TcgInfo';
+import { Zoomable } from '../ui/Zoom';
 
 interface Shot {
   id: number;
@@ -338,7 +340,9 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
   return (
     <div class="scan-picked">
       <div class="scan-shot">
-        {src ? <img src={src} alt={`Imagen oficial de ${c.brief.name}`} referrerpolicy="no-referrer" /> : <img src={shot.url} alt="Tu foto" />}
+        <Zoomable src={imageUrl(c.brief.image ?? full?.image, 'high') ?? shot.url} alt={src ? `Imagen oficial de ${c.brief.name}` : 'Tu foto'}>
+          {src ? <img src={src} alt={`Imagen oficial de ${c.brief.name}`} referrerpolicy="no-referrer" /> : <img src={shot.url} alt="Tu foto" />}
+        </Zoomable>
         <div>
           <dl class="meta">
             <dt>Carta</dt>
@@ -365,6 +369,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
           <p class="hint">Reconocida por {c.why.join(' y ')}.</p>
         </div>
       </div>
+      <TcgInfo tcg={c.brief.id} />
       {shot.ai && <AiAnswer r={shot.ai} />}
       {!shot.done && !shot.ai && claudeReady() && <AskClaude shot={shot} quiet />}
       {shot.done ? (

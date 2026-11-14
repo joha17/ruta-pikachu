@@ -248,3 +248,27 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
 .bf-val{margin-left:auto}
 .browse-f .bf-opt>span{font-size:14.5px;font-weight:500;color:var(--ink)}
 .browse-f .bf-opt input{padding:0;border:0;background:none;appearance:auto;-webkit-appearance:checkbox}
+
+/* Ficha: precios de TCGplayer por variante y datos del set (src/ui/TcgInfo.tsx). */
+.tcginfo{display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.tcginfo .eyebrow{margin-top:4px}
+.tcginfo .hint{margin:0;font-size:12.5px}
+.tcg-prices{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.tcg-prices table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.tcg-prices th,.tcg-prices td{padding:6px 7px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.tcg-prices thead th{font-size:12px;font-weight:600;color:var(--muted)}
+.tcg-prices th[scope="row"],.tcg-prices thead th:first-child{text-align:left;font-weight:600;white-space:normal}
+.tcg-prices tbody tr:last-child>*{border-bottom:0}
+.tcg-prices tr.is-main>*{font-weight:800}
+.tcg-set{display:flex;gap:10px;align-items:flex-start}
+.tcg-set img{flex:none;object-fit:contain;margin-top:2px}
+.tcg-set .meta{flex:1;min-width:0}
+
+/* Imagen en grande (src/ui/Zoom.tsx). */
+.zoom-btn{display:block;width:100%;height:100%;padding:0;border:0;background:none;cursor:zoom-in;border-radius:inherit}
+.zoom-btn img{display:block}
+dialog.zoom{border:none;padding:0;margin:0;background:transparent;width:100vw;height:100dvh;max-width:100vw;max-height:100dvh;display:none;place-items:center;cursor:zoom-out;overflow:hidden}
+dialog.zoom[open]{display:grid}
+dialog.zoom::backdrop{background:rgba(6,7,10,.92)}
+dialog.zoom img{width:auto;height:min(calc(100dvh - 32px),calc((100vw - 32px) * 88 / 63));max-width:none;max-height:none;aspect-ratio:63/88;object-fit:contain;border-radius:14px;border:0;background:var(--pocket);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}

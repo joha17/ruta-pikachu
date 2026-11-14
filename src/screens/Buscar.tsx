@@ -1,5 +1,7 @@
 // «Buscar»: todas las cartas de TCGdex con filtros, y guardarlas en la Caja o en una hoja.
 
+import { TcgInfo } from '../ui/TcgInfo';
+import { Zoomable } from '../ui/Zoom';
 import { signal } from '@preact/signals';
 import { Fragment } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -350,7 +352,9 @@ function Detalle({ c }: { c: BrowseResult }) {
       </button>
       <div class={`sheet-img${img ? ' has-img' : ''}`}>
         {img ? (
-          <img src={img} alt={`Imagen oficial de ${c.name}`} referrerpolicy="no-referrer" />
+          <Zoomable src={img} alt={`Imagen oficial de ${c.name}`}>
+            <img src={img} alt={`Imagen oficial de ${c.name}`} referrerpolicy="no-referrer" />
+          </Zoomable>
         ) : (
           <span>TCGdex no tiene imagen de esta carta.</span>
         )}
@@ -378,6 +382,7 @@ function Detalle({ c }: { c: BrowseResult }) {
           <dt>Precio</dt>
           <dd>{full ? (full.usd != null ? `${money(full.usd)} · TCGplayer` : 'Sin dato en TCGdex') : 'Buscando…'}</dd>
         </dl>
+        <TcgInfo tcg={c.id} />
         {done ? (
           <>
             <p class="msg ok" role="status">
