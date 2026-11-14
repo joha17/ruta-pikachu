@@ -1,9 +1,24 @@
 // Panel «Sincronizar con Google Drive» (en la pantalla Respaldo) y el indicador de arriba.
 
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { say } from '../actions';
 import { go } from '../ui/router';
-import { connect, disconnect, syncConfigured, syncLast, syncMsg, syncNowFromTap, syncStatus, type SyncStatus } from '../sync/engine';
+import { copySummary, type DailyCopy } from '../model/copies';
+import { fmtDate } from '../model/money';
+import {
+  connect,
+  disconnect,
+  driveCopies,
+  readCopy,
+  refreshCopies,
+  restoreCopy,
+  syncConfigured,
+  syncLast,
+  syncMsg,
+  syncNowFromTap,
+  syncStatus,
+  type SyncStatus,
+} from '../sync/engine';
 
 const LABEL: Record<SyncStatus, string> = {
   off: 'Apagada',
@@ -92,6 +107,84 @@ function Guia() {
   );
 }
 
+/** Copias diarias automáticas en Drive: ver y volver a una. */
+function Copias() {
+  const [open, setOpen] = useState<{ id: string; day: string; copy?: DailyCopy; err?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void refreshCopies();
+  }, []);
+  const list = driveCopies.value;
+
+  async function pick(id: string, day: string) {
+    setOpen({ id, day });
+    try {
+      setOpen({ id, day, copy: await readCopy(id) });
+    } catch (e) {
+      setOpen({ id, day, err: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  async function restore() {
+    if (!open?.copy) return;
+    setBusy(true);
+    try {
+      await restoreCopy(open.copy);
+      say(`Listo: tu colección volvió a como estaba el ${fmtDate(open.day)}.`);
+      setOpen(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div class="copias">
+      <h4>Copias diarias en Drive</h4>
+      <p class="hint">
+        Cada día que sincronizas se guarda sola una copia de tu colección (cartas, hojas, caja, metas y avisos), y quedan las últimas 7. Sirve para volver atrás si
+        borras algo por error. Las fotos y los precios no cambian al volver.
+      </p>
+      {list.length ? (
+        <ul>
+          {list.map((c) => (
+            <li key={c.id}>
+              <button class="btn sm quiet" aria-expanded={open?.id === c.id} onClick={() => (open?.id === c.id ? setOpen(null) : void pick(c.id, c.day))}>
+                {fmtDate(c.day)}
+              </button>
+              {open?.id === c.id && (
+                <div class="copia-ok">
+                  {open.err ? (
+                    <p class="msg warn">{open.err}</p>
+                  ) : !open.copy ? (
+                    <p class="hint">Abriendo la copia…</p>
+                  ) : (
+                    <>
+                      <p class="msg warn">
+                        Copia del {fmtDate(c.day)}: {copySummary(open.copy.collection)}. ¿Volver tu colección a como estaba ese día? Lo que hiciste después se pierde, también
+                        en tus otros aparatos.
+                      </p>
+                      <div class="row">
+                        <button class="btn danger" disabled={busy} onClick={() => void restore()}>
+                          Sí, volver a esta copia
+                        </button>
+                        <button class="btn quiet" onClick={() => setOpen(null)}>
+                          No
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p class="hint">Todavía no hay copias. La primera se guarda en la próxima sincronización.</p>
+      )}
+    </div>
+  );
+}
+
 export function Sincronizar() {
   const [busy, setBusy] = useState(false);
   const s = syncStatus.value;
@@ -157,6 +250,7 @@ export function Sincronizar() {
             </button>
           </div>
           <p class="hint">La clave de Claude, el tema y los precios automáticos no se sincronizan: cada aparato tiene los suyos.</p>
+          <Copias />
         </>
       )}
       {!syncConfigured && <Guia />}

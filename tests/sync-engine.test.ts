@@ -175,4 +175,36 @@ describe('motor de sincronización con Drive', () => {
     await d.db.saveSync({ ...st, token: { access: 'tok', exp: Date.now() + 3600e3 } });
     d.eng.stopSync();
   });
+
+  it('guarda una copia al día, deja 7 y se puede volver a una', async () => {
+    const day = new Date().toISOString().slice(0, 10);
+    // Copias viejas de días anteriores (9): al sincronizar quedan la de hoy y las 6 más nuevas.
+    for (let i = 1; i <= 9; i++) {
+      const d = new Date(Date.now() - i * 864e5).toISOString().slice(0, 10);
+      const id = `old${i}`;
+      drive.files.set(id, { id, name: `copia-${d}.json`, createdTime: new Date().toISOString(), data: new Blob(['{}']) });
+    }
+    const d = await device('cop');
+    await d.edit((c) => void d.actions.ops.toggle(c, d.A, 'p:9'));
+    await d.eng.syncNow();
+    const copies = drive.names().filter((n) => n.startsWith('copia-'));
+    expect(copies).toHaveLength(7);
+    expect(copies).toContain(`copia-${day}.json`);
+    expect(d.eng.driveCopies.value[0]!.day).toBe(day);
+    // La copia de hoy se hizo con lo que había; luego quito p:9 y vuelvo a la copia.
+    const todayCopy = d.eng.driveCopies.value[0]!;
+    const copy = await d.eng.readCopy(todayCopy.id);
+    const had = Object.keys(copy.collection.owned).sort();
+    await d.edit((c) => {
+      c.owned = {};
+    });
+    await d.eng.syncNow();
+    expect(drive.names().filter((n) => n === `copia-${day}.json`)).toHaveLength(1); // no hace otra el mismo día
+    await d.eng.restoreCopy(copy);
+    await d.eng.syncNow();
+    expect(Object.keys(d.store.collection.value.owned).sort()).toEqual(had);
+    const doc = await drive.doc();
+    for (const k of had) expect(doc.atoms[`owned:${k}`]!.v).toBe(true);
+    d.eng.stopSync();
+  });
 });

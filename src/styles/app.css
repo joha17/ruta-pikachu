@@ -290,6 +290,11 @@ dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
 .goal-acts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px}
 .goal-add{width:100%}
 
+/* Copias diarias en Drive (Respaldo → Sincronizar). */
+.copias{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px;margin-top:4px}
+.copias h4{margin:0;font-size:15px}
+.copias ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.copias .copia-ok{display:grid;gap:8px;margin-top:6px}
 /* Compartir hoja (ui/Share.tsx) y la vista de solo lectura (screens/Compartida.tsx). */
 .share-dlg .sheet-in{gap:12px}
 .share-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
