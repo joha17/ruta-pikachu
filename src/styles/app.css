@@ -12,12 +12,6 @@ body{min-height:100dvh;-webkit-tap-highlight-color:transparent}
 .brand span{white-space:nowrap}
 .topbar-r{display:flex;align-items:center;gap:6px;min-width:0}
 .topbar-r .chip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
-.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;padding:6px max(12px,env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--bg)}
-.tabs::-webkit-scrollbar{display:none}
-.tab{flex:0 0 auto;font:600 14px var(--f-body);color:var(--muted);background:transparent;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
-.tab:hover{color:var(--ink);background:var(--surface)}
-.tab[aria-current="page"]{background:var(--ink);color:var(--bg)}
-.tab:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
 .wrap{padding-top:20px}
 .empty-start{max-width:620px}
 .empty-start h1{font-size:clamp(28px,6vw,40px)}
@@ -134,3 +128,31 @@ dialog.sheet[open]{animation:none}
 /* Caja → variante de un bolsillo */
 .varpick{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
 .varpick .hint{margin:0}
+
+/* Más simple: barra de secciones abajo, ajustes en un ícono, una hoja a la vez */
+.iconbtn{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;border:0;background:transparent;color:var(--muted);cursor:pointer;flex:none}
+.iconbtn:hover{color:var(--ink);background:var(--surface)}
+.iconbtn[aria-current="page"]{color:var(--ink);background:var(--surface)}
+.iconbtn:focus-visible,.bb-item:focus-visible,.more-btn:focus-visible,.more-menu button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.ico{display:block;flex:none}
+.bottombar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;justify-content:center;
+  padding:4px max(8px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+  background:color-mix(in srgb,var(--bg) 92%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.bb-item{flex:1 1 0;max-width:140px;display:grid;justify-items:center;gap:2px;padding:6px 4px 4px;border:0;border-radius:10px;background:transparent;color:var(--muted);font:600 11.5px var(--f-body);cursor:pointer}
+.bb-item:hover{color:var(--ink)}
+.bb-item[aria-current="page"]{color:var(--ink)}
+.bb-item[aria-current="page"] .ico{color:var(--yellow-deep)}
+body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+.toast{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+.sync-chip.ok{min-width:34px;text-align:center}
+.sheet-view{scroll-margin-top:calc(110px + env(safe-area-inset-top,0px))}
+.sh-title{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sh-title h2{margin:0}
+.more{position:relative;flex:none}
+.more-btn{width:38px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:800 18px/1 var(--f-body);cursor:pointer;letter-spacing:1px}
+.more-btn[aria-expanded="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.more-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:25;min-width:210px;display:grid;padding:6px;border:1px solid var(--line);border-radius:12px;background:var(--surface);box-shadow:0 10px 28px rgba(0,0,0,.22)}
+.more-menu button{font:600 14px var(--f-body);text-align:left;padding:10px 12px;border:0;border-radius:8px;background:transparent;color:var(--ink);cursor:pointer}
+.more-menu button:hover{background:var(--bg)}
+.more-menu button:disabled{opacity:.5;cursor:default}
+.arr-hint{display:flex;flex-wrap:wrap;gap:8px;align-items:center}

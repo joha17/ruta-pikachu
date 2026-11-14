@@ -9,6 +9,7 @@ import { alias, collection, formView, openKey, sheets } from '../store';
 import { cleanQuery, MAX_SUGGESTIONS, searchByName, type Suggestion } from '../scan/names';
 import { loadSets } from '../scan/search';
 import { fetchCard, imageUrl } from '../tcgdex';
+import { showSheet } from './sheetView';
 
 function Fld(p: { id: string; label: string; val?: string; opt?: boolean; hint?: string; [k: string]: unknown }) {
   const { id, label, val, opt, hint, ...attrs } = p;
@@ -296,8 +297,7 @@ export function Forms() {
                 else newId = ops.createSheet(c, name, desc)?.id ?? '';
               });
               closeAll();
-              if (newId)
-                setTimeout(() => document.getElementById(`s-u-${newId}`)?.scrollIntoView({ behavior: 'smooth' }), 100);
+              if (newId) showSheet(`u:${newId}`);
             }}
           >
             <Fld

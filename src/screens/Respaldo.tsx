@@ -4,13 +4,20 @@ import { useEffect, useState } from 'preact/hooks';
 import { say } from '../actions';
 import { canShareFile, download, makeBackup, markBackedUp, restoreBackup, sizeText, type BackupFile } from '../backup';
 import { BACKUP_DAYS, daysSince, parseBackup, summarize, type Backup } from '../model/backup';
-import { isEmpty, settings } from '../store';
+import { isEmpty, settings, updateSettings } from '../store';
 import { go, route } from '../ui/router';
 import { Importar } from './Importar';
 import { Sincronizar } from './Sincronizar';
 import { syncOn } from '../sync/engine';
 
-const fecha = (iso: string) => (iso ? new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' }) : '');
+const fecha = (iso: string) =>
+  iso
+    ? new Date(iso).toLocaleDateString('es', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : '';
 
 function hace(d: number): string {
   return d === 0 ? 'hoy' : d === 1 ? 'ayer' : `hace ${d} días`;
@@ -61,7 +68,10 @@ function Hacer() {
     const f = made ?? (await prepare());
     if (!f) return;
     try {
-      await navigator.share({ files: [f.file], title: 'Respaldo de Ruta Pikachu' });
+      await navigator.share({
+        files: [f.file],
+        title: 'Respaldo de Ruta Pikachu',
+      });
       await markBackedUp();
       say('Respaldo compartido.');
     } catch (e) {
@@ -75,8 +85,8 @@ function Hacer() {
       <h3>Hacer un respaldo</h3>
       <LastBackup />
       <p>
-        Un archivo <b>.json</b> con todo: tus cartas, hojas, caja, precios, historial y tus fotos. Guárdalo fuera del celular (Drive, correo o
-        una computadora) por si pierdes o cambias de aparato.
+        Un archivo <b>.json</b> con todo: tus cartas, hojas, caja, precios, historial y tus fotos. Guárdalo fuera del celular
+        (Drive, correo o una computadora) por si pierdes o cambias de aparato.
       </p>
       <p class="hint">No lleva la clave de Claude: esa se queda solo en este aparato.</p>
       <div class="row">
@@ -164,7 +174,8 @@ function Restaurar() {
           </dl>
           {!isEmpty.value && (
             <p class="msg warn">
-              Ojo: esto <b>reemplaza todo</b> lo que hay ahora en este aparato. Si no estás seguro, primero descarga un respaldo de lo actual.
+              Ojo: esto <b>reemplaza todo</b> lo que hay ahora en este aparato. Si no estás seguro, primero descarga un respaldo
+              de lo actual.
             </p>
           )}
           {syncOn.value && (
@@ -194,6 +205,29 @@ function Restaurar() {
   );
 }
 
+const TEMAS = [
+  ['auto', 'Automático'],
+  ['light', 'Claro'],
+  ['dark', 'Oscuro'],
+] as const;
+
+function Tema() {
+  const t = settings.value.theme ?? 'auto';
+  return (
+    <div class="panel">
+      <h3>Tema</h3>
+      <div class="row" role="group" aria-label="Tema de la app">
+        {TEMAS.map(([id, label]) => (
+          <button key={id} class="btn sm" aria-pressed={t === id} onClick={() => void updateSettings({ theme: id })}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <p class="hint">«Automático» sigue el modo claro u oscuro del aparato.</p>
+    </div>
+  );
+}
+
 export function Respaldo() {
   // Desde «Importar desde el Artifact» (colección vacía) se baja directo a esa parte.
   useEffect(() => {
@@ -204,7 +238,7 @@ export function Respaldo() {
       <section class="backup">
         <div class="section-head">
           <div>
-            <h2>Respaldo y sincronización</h2>
+            <h2>Ajustes</h2>
             <p>
               {syncOn.value
                 ? 'Tu colección se guarda en este aparato y se sincroniza con tu Google Drive. Un respaldo sigue siendo buena idea.'
@@ -215,6 +249,7 @@ export function Respaldo() {
         <Sincronizar />
         <Hacer />
         <Restaurar />
+        <Tema />
       </section>
       <Importar />
     </>

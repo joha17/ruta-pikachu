@@ -1,7 +1,7 @@
-// La colección: todas las hojas, la Caja y «Crear hoja», con un menú fijo para saltar entre ellas.
+// La colección: una hoja a la vez (o la Caja, o «Crear hoja»), elegida en la tira de arriba.
 
 import { signal } from '@preact/signals';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops } from '../actions';
 import { haveAndMissing, isOwned, MAX_BOX, MAX_CARDS, MAX_SHEETS, POCKETS, sheetCount, slots, type Slot } from '../model/catalog';
 import { fmtDate, money, sumKeys } from '../model/money';
@@ -11,6 +11,7 @@ import { Pocket } from '../ui/Pocket';
 import { PriceStatus } from '../ui/PriceStatus';
 import { go } from '../ui/router';
 import { syncConfigured, syncStatus } from '../sync/engine';
+import { currentSheet, showSheet } from '../ui/sheetView';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
 const arranging = signal('');
@@ -20,6 +21,65 @@ const previewing = signal<Set<string>>(new Set());
 
 function secId(sheetId: string) {
   return `s-${sheetId.replace(':', '-')}`;
+}
+
+type MenuItem = { label: string; run: () => void; disabled?: boolean };
+
+/** Botón «⋯» con las opciones de una hoja. Se cierra al elegir, al tocar fuera o con Escape. */
+function MoreMenu({ items, name }: { items: MenuItem[]; name: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        ref.current?.querySelector<HTMLButtonElement>('.more-btn')?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc);
+    ref.current?.querySelector<HTMLButtonElement>('.more-menu button:not(:disabled)')?.focus();
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+  if (!items.length) return null;
+  return (
+    <div class="more" ref={ref}>
+      <button
+        class="more-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Opciones de ${name}`}
+        title="Opciones de esta hoja"
+        onClick={() => setOpen(!open)}
+      >
+        ⋯
+      </button>
+      {open && (
+        <div class="more-menu" role="menu" aria-label={`Opciones de ${name}`}>
+          {items.map((it) => (
+            <button
+              key={it.label}
+              role="menuitem"
+              disabled={it.disabled}
+              onClick={() => {
+                setOpen(false);
+                it.run();
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function pick(sh: SheetDef | null, key: string) {
@@ -100,11 +160,61 @@ function SheetSection({ sh }: { sh: SheetDef }) {
     return (sh.pageLabel ?? sh.name) + (big ? ` · hoja ${i + 1}` : '');
   };
 
+  const togglePreview = () => {
+    const s = new Set(previewing.value);
+    if (s.has(sh.id)) s.delete(sh.id);
+    else {
+      s.add(sh.id);
+      if (isArr) arranging.value = '';
+    }
+    previewing.value = s;
+  };
+  const toggleArrange = () => {
+    picked.value = '';
+    arranging.value = isArr ? '' : sh.id;
+    if (!isArr && isPrev) {
+      const s = new Set(previewing.value);
+      s.delete(sh.id);
+      previewing.value = s;
+    }
+  };
+  const menu: MenuItem[] = [];
+  if (custom) {
+    menu.push({
+      label: sh.cards.length < MAX_CARDS ? 'Añadir carta' : 'Añadir carta (hoja llena)',
+      run: () => (formView.value = { kind: 'card', sid }),
+      disabled: !canAdd,
+    });
+    menu.push({
+      label: 'Editar hoja',
+      run: () => (formView.value = { kind: 'sheet', sid }),
+    });
+  }
+  if (sl.length) {
+    menu.push({
+      label: isPrev ? 'Ver mi progreso' : 'Ver completa',
+      run: togglePreview,
+    });
+    if (sh.id !== 'p')
+      menu.push({
+        label: isArr ? 'Terminar de ordenar' : 'Ordenar bolsillos',
+        run: toggleArrange,
+      });
+    if (sh.fixed && collection.value.order[sh.id])
+      menu.push({
+        label: 'Volver al orden original',
+        run: () => act((c) => ops.resetOrder(c, sh.id)),
+      });
+  }
+
   return (
-    <section id={secId(sh.id)} class={isArr ? 'arranging' : ''}>
+    <section id={secId(sh.id)} class={`sheet-view${isArr ? ' arranging' : ''}`}>
       <div class="section-head">
         <div>
-          <h2>{sh.title ?? sh.name}</h2>
+          <div class="sh-title">
+            <h2>{sh.title ?? sh.name}</h2>
+            <MoreMenu items={menu} name={sh.title ?? sh.name} />
+          </div>
           <p>
             <span class={sh.theme}>
               {n} de {sl.length}
@@ -134,67 +244,28 @@ function SheetSection({ sh }: { sh: SheetDef }) {
           </p>
           {sl.length > 0 && <Strip sl={sl} theme={sh.theme} />}
           <Rows sl={sl} />
-          {custom && (
-            <div class="us-tools">
-              <button class="btn" disabled={!canAdd} onClick={() => (formView.value = { kind: 'card', sid })}>
-                Añadir carta
-              </button>
-              <button class="btn quiet" onClick={() => (formView.value = { kind: 'sheet', sid })}>
-                Editar hoja
-              </button>
-            </div>
-          )}
         </div>
       </div>
-      {sl.length > 0 && (
-        <div class="arr-bar" role="group" aria-label="Opciones de esta hoja">
-          <button
-            class="btn quiet sm"
-            aria-pressed={isPrev}
-            onClick={() => {
-              const s = new Set(previewing.value);
-              if (s.has(sh.id)) s.delete(sh.id);
-              else {
-                s.add(sh.id);
-                if (isArr) arranging.value = '';
-              }
-              previewing.value = s;
-            }}
-          >
-            {isPrev ? 'Ver mi progreso' : 'Ver completa'}
-          </button>
-          {sh.id !== 'p' && (
-            <button
-              class="btn quiet sm"
-              aria-pressed={isArr}
-              onClick={() => {
-                picked.value = '';
-                arranging.value = isArr ? '' : sh.id;
-                if (!isArr && isPrev) {
-                  const s = new Set(previewing.value);
-                  s.delete(sh.id);
-                  previewing.value = s;
-                }
-              }}
-            >
-              {isArr ? '✓ Listo' : '⇄ Ordenar'}
-            </button>
-          )}
-          {isArr && sh.fixed && collection.value.order[sh.id] && (
-            <button class="btn quiet sm" onClick={() => act((c) => ops.resetOrder(c, sh.id))}>
-              Volver al orden original
-            </button>
-          )}
-        </div>
-      )}
       {isArr && (
         <p class="arr-hint" role="status">
-          {picked.value
-            ? 'Ahora toca el bolsillo con el que la quieres intercambiar (o la misma carta para soltarla).'
-            : 'Toca una carta y luego otra: se cambian de bolsillo. Pulsa «Listo» cuando termines.'}
+          <span>
+            {picked.value
+              ? 'Ahora toca el bolsillo con el que la quieres intercambiar (o la misma carta para soltarla).'
+              : 'Toca una carta y luego otra: se cambian de bolsillo.'}
+          </span>
+          <button class="btn sm primary" onClick={toggleArrange}>
+            ✓ Listo
+          </button>
         </p>
       )}
-      {isPrev && <p class="arr-hint">Vista previa: así se vería esta hoja con todas las cartas. No cambia nada de tu colección.</p>}
+      {isPrev && (
+        <p class="arr-hint">
+          <span>Vista previa: así se vería esta hoja con todas las cartas. No cambia nada de tu colección.</span>
+          <button class="btn sm" onClick={togglePreview}>
+            Ver mi progreso
+          </button>
+        </p>
+      )}
       <div class={sh.id === 'p' ? 'binder' : 'us-pages'}>
         {pages.map((pg, i) => (
           <div class="page single" key={i}>
@@ -214,7 +285,12 @@ function SheetSection({ sh }: { sh: SheetDef }) {
                     onPick={(k) => pick(sh, k)}
                   />
                 ) : cell.kind === 'add' ? (
-                  <button key="add" class="pocket addp" disabled={!canAdd} onClick={() => (formView.value = { kind: 'card', sid })}>
+                  <button
+                    key="add"
+                    class="pocket addp"
+                    disabled={!canAdd}
+                    onClick={() => (formView.value = { kind: 'card', sid })}
+                  >
                     <b aria-hidden="true">+</b>
                     {sh.cards.length < MAX_CARDS ? 'Añadir carta' : 'Hoja llena'}
                   </button>
@@ -233,9 +309,14 @@ function SheetSection({ sh }: { sh: SheetDef }) {
 function BoxSection() {
   const col = collection.value;
   const B = col.box;
-  const val = sumKeys(col, prices.value, alias.value, B.map((b) => `b:${b.id}`));
+  const val = sumKeys(
+    col,
+    prices.value,
+    alias.value,
+    B.map((b) => `b:${b.id}`),
+  );
   return (
-    <section id="s-box">
+    <section id="s-box" class="sheet-view">
       <div class="section-head">
         <div>
           <h2>📦 Caja · por acomodar</h2>
@@ -273,56 +354,39 @@ function BoxSection() {
   );
 }
 
-function Nav({ items }: { items: Array<[string, string, string]> }) {
+/** Tira para elegir la hoja a la vista. La elegida se mantiene visible al deslizar la tira. */
+function Nav({ items, cur }: { items: Array<[string, string, string]>; cur: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    let tick = false;
-    const mark = () => {
-      tick = false;
-      const nav = ref.current;
-      if (!nav) return;
-      const lim = nav.getBoundingClientRect().bottom + 24;
-      let cur = '';
-      for (const [id] of items) {
-        const el = document.getElementById(id);
-        if (el && el.getBoundingClientRect().top <= lim) cur = id;
-      }
-      cur ||= items[0]?.[0] ?? '';
-      for (const b of nav.querySelectorAll<HTMLButtonElement>('.navi')) {
-        const on = b.dataset.goto === cur;
-        if (on) b.setAttribute('aria-current', 'true');
-        else b.removeAttribute('aria-current');
-        const inner = nav.querySelector('.nav-in') as HTMLElement;
-        if (on && inner) {
-          const l = b.offsetLeft;
-          const r = l + b.offsetWidth;
-          if (l < inner.scrollLeft) inner.scrollLeft = l - 8;
-          else if (r > inner.scrollLeft + inner.clientWidth) inner.scrollLeft = r - inner.clientWidth + 8;
-        }
-      }
-    };
-    const onScroll = () => {
-      if (!tick) {
-        tick = true;
-        requestAnimationFrame(mark);
-      }
-    };
-    mark();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  });
+    const inner = ref.current?.querySelector<HTMLElement>('.nav-in');
+    const b = inner?.querySelector<HTMLElement>('.navi[aria-current="true"]');
+    if (!inner || !b) return;
+    const l = b.offsetLeft;
+    const r = l + b.offsetWidth;
+    if (l < inner.scrollLeft) inner.scrollLeft = l - 8;
+    else if (r > inner.scrollLeft + inner.clientWidth) inner.scrollLeft = r - inner.clientWidth + 8;
+  }, [cur]);
   return (
-    <nav class="nav" aria-label="Ir a una hoja" ref={ref}>
+    <nav class="nav" aria-label="Elegir hoja" ref={ref}>
       <div class="nav-in">
         {items.map(([id, label, n]) => (
           <button
             key={id}
             class="navi"
-            data-goto={id}
-            onClick={() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            aria-current={id === cur ? 'true' : undefined}
+            onClick={() => {
+              arranging.value = '';
+              picked.value = '';
+              showSheet(id);
+              // Si ya bajaste, la hoja nueva empieza justo debajo de la tira.
+              requestAnimationFrame(() => {
+                const v = document.querySelector('.sheet-view, #s-new');
+                if (v && v.getBoundingClientRect().top < 0) v.scrollIntoView({ block: 'start' });
+              });
+            }}
           >
             {label}
-            <small>{n}</small>
+            {n && <small>{n}</small>}
           </button>
         ))}
       </div>
@@ -337,7 +401,8 @@ export function Coleccion() {
         <h1>Tu colección</h1>
         <p>
           Todavía no hay datos en este aparato. Si ya la usas en otro aparato, conecta Google Drive y se trae sola. También puedes
-          restaurar un respaldo, o traer tu colección desde el Artifact de claude.ai: tus cartas marcadas, hojas, Caja, precios y fotos.
+          restaurar un respaldo, o traer tu colección desde el Artifact de claude.ai: tus cartas marcadas, hojas, Caja, precios y
+          fotos.
         </p>
         <div class="row">
           {syncConfigured && syncStatus.value === 'off' && (
@@ -362,11 +427,14 @@ export function Coleccion() {
   const pika = all.find((s) => s.id === 'p');
   const pn = pika ? sheetCount(alias.value, pika, col) : 0;
   const nav: Array<[string, string, string]> = all.map((s) => [
-    secId(s.id),
+    s.id,
     s.short ?? s.name,
     `${sheetCount(alias.value, s, col)}/${s.cards.length}`,
   ]);
-  nav.push(['s-box', 'Caja', String(col.box.length)], ['s-new', '＋ Hoja', col.custom.length ? '' : 'nueva']);
+  nav.push(['box', 'Caja', String(col.box.length)], ['new', '＋ Hoja', '']);
+  // La hoja guardada puede ya no existir (la borraste): entonces, la primera.
+  const cur = nav.some(([id]) => id === currentSheet.value) ? currentSheet.value : (nav[0]?.[0] ?? 'box');
+  const curSheet = all.find((s) => s.id === cur);
 
   return (
     <>
@@ -390,7 +458,8 @@ export function Coleccion() {
               <span>
                 {pn < pika.cards.length ? (
                   <>
-                    Pikachu 30C: tienes <strong>{pn}</strong> de {pika.cards.length}. Cada sobre de 30C trae 1 Pikachu garantizado.
+                    Pikachu 30C: tienes <strong>{pn}</strong> de {pika.cards.length}. Cada sobre de 30C trae 1 Pikachu
+                    garantizado.
                   </>
                 ) : (
                   '¡Pikachu 30C completo!'
@@ -409,8 +478,14 @@ export function Coleccion() {
             <strong>{money(vm.t)}</strong>
           </div>
           <p>
-            Precio de mercado de TCGplayer en dólares{prices.value.date ? `, al ${fmtDate(prices.value.date)}` : ''}.{' '}
-            {vh.none + vm.none ? vh.none + vm.none === 1 ? '1 carta aún sin precio. ' : `${vh.none + vm.none} cartas aún sin precio. ` : ''}Es una referencia, no lo que te pagarían.
+            Precio de mercado de TCGplayer en dólares
+            {prices.value.date ? `, al ${fmtDate(prices.value.date)}` : ''}.{' '}
+            {vh.none + vm.none
+              ? vh.none + vm.none === 1
+                ? '1 carta aún sin precio. '
+                : `${vh.none + vm.none} cartas aún sin precio. `
+              : ''}
+            Es una referencia, no lo que te pagarían.
           </p>
           <PriceStatus />
         </div>
@@ -424,27 +499,27 @@ export function Coleccion() {
           <span>Hojea todas tus hojas como en un binder de verdad, o míralo completo.</span>
         </div>
       </header>
-      <Nav items={nav} />
-      {all.map((sh) => (
-        <SheetSection key={sh.id} sh={sh} />
-      ))}
-      <BoxSection />
-      <section id="s-new">
-        <div class="newsheet">
-          <h2>Crear una hoja</h2>
-          <p class="hint">
-            Arma tu propia hoja de 9 bolsillos: un set, un artista, un Pokémon favorito… Le pones nombre y vas añadiendo cartas con
-            su número, set y precio. Aparece en el menú, en los totales y en la lista de compras.
-          </p>
-          {col.custom.length < MAX_SHEETS ? (
-            <button class="btn primary us" onClick={() => (formView.value = { kind: 'sheet' })}>
-              ＋ Crear hoja
-            </button>
-          ) : (
-            <p class="hint">Llegaste al máximo de {MAX_SHEETS} hojas.</p>
-          )}
-        </div>
-      </section>
+      <Nav items={nav} cur={cur} />
+      {curSheet && <SheetSection key={curSheet.id} sh={curSheet} />}
+      {cur === 'box' && <BoxSection />}
+      {cur === 'new' && (
+        <section id="s-new" class="sheet-view">
+          <div class="newsheet">
+            <h2>Crear una hoja</h2>
+            <p class="hint">
+              Arma tu propia hoja de 9 bolsillos: un set, un artista, un Pokémon favorito… Le pones nombre y vas añadiendo cartas
+              con su número, set y precio. Aparece en el menú, en los totales y en la lista de compras.
+            </p>
+            {col.custom.length < MAX_SHEETS ? (
+              <button class="btn primary us" onClick={() => (formView.value = { kind: 'sheet' })}>
+                ＋ Crear hoja
+              </button>
+            ) : (
+              <p class="hint">Llegaste al máximo de {MAX_SHEETS} hojas.</p>
+            )}
+          </div>
+        </section>
+      )}
       <p class="note">
         Imágenes oficiales y precios: TCGdex (precio de mercado de TCGplayer). Las imágenes se muestran enlazadas desde
         assets.tcgdex.net; tus fotos solo viven en este aparato. «Ver carta» abre la ficha en Limitless.
@@ -452,4 +527,3 @@ export function Coleccion() {
     </>
   );
 }
-

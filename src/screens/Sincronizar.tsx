@@ -32,7 +32,8 @@ export function SyncChip() {
   const s = syncStatus.value;
   if (s === 'off') return null;
   const cls = s === 'ok' ? ' ok' : s === 'syncing' ? '' : ' warn';
-  const short = s === 'ok' ? 'Sincronizado' : s === 'syncing' ? 'Sincronizando…' : s === 'pending' ? 'Por subir' : s === 'offline' ? 'Sin conexión' : s === 'login' ? 'Sincronizar' : 'Error al sincronizar';
+  // Todo al día: solo la nube, sin texto. Los demás estados sí se explican.
+  const short = s === 'ok' ? '' : s === 'syncing' ? 'Sincronizando…' : s === 'pending' ? 'Por subir' : s === 'offline' ? 'Sin conexión' : s === 'login' ? 'Sincronizar' : 'Error al sincronizar';
   const title = `Google Drive: ${LABEL[s]}${syncLast.value ? ` · última vez ${cuando(syncLast.value)}` : ''}`;
   return (
     <button
@@ -41,7 +42,7 @@ export function SyncChip() {
       aria-label={title}
       onClick={() => (s === 'login' ? void syncNowFromTap() : go('respaldo'))}
     >
-      ☁ {short}
+      ☁{short ? ` ${short}` : ''}
     </button>
   );
 }
