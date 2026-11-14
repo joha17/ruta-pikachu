@@ -12,6 +12,7 @@ import type { BoxCard, CardDef } from '../model/types';
 import { alias, collection, formView, openKey, prices, sheets } from '../store';
 import { cachedCard } from '../tcgdex';
 import { markFailed, photoKeyOf, useArt } from './art';
+import { AlertForm } from './AlertForm';
 import { Forms } from './Forms';
 import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
@@ -245,6 +246,7 @@ function CardSheet({ k }: { k: string }) {
             )}
           </div>
         )}
+        {!isBox && !own && <AlertForm k={k} />}
 
         <details class="more-opts">
           <summary>

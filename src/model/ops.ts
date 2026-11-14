@@ -29,6 +29,14 @@ export function toggleWish(col: Collection, alias: Record<string, string>, key: 
   return !!col.wish[k];
 }
 
+/** Pone o quita (con null) el aviso de precio de una carta. */
+export function setAlert(col: Collection, alias: Record<string, string>, key: string, v: number | null): void {
+  const k = canon(alias, key);
+  col.alerts ??= {};
+  if (v == null || !(v > 0)) delete col.alerts[k];
+  else col.alerts[k] = Math.round(v * 100) / 100;
+}
+
 export function setManual(col: Collection, alias: Record<string, string>, key: string, v: number): void {
   col.manual[canon(alias, key)] = { v: Math.round(v * 100) / 100, d: today() };
 }

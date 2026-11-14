@@ -140,6 +140,8 @@ export interface Collection {
   /** Objetivos agregados por mí. */
   myGoals: MyGoal[];
   goalSeq: number;
+  /** Avisos de precio: clave canónica → avisar si el precio de mercado baja de este valor (USD). */
+  alerts: Record<string, number>;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
 }
@@ -204,6 +206,7 @@ export function emptyCollection(): Collection {
     hiddenGoals: {},
     myGoals: [],
     goalSeq: 0,
+    alerts: {},
     saved: '',
   };
 }
