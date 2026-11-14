@@ -183,6 +183,7 @@ function CardSheet({ k }: { k: string }) {
             </>
           ))}
         </dl>
+        <PriceTrend k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
 
@@ -254,7 +255,6 @@ function CardSheet({ k }: { k: string }) {
               : 'Más opciones: precio, foto' + (custom && base ? ', editar' : '')}
           </summary>
           <div class="more-in">
-            <PriceTrend k={k} />
             <details class="pman" open={!!man || auto == null}>
               <summary>{man ? 'Precio puesto a mano' : 'Poner precio a mano'}</summary>
               <form
