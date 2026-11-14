@@ -18,7 +18,7 @@ export const ready = signal(false);
 export const openKey = signal<string>('');
 export type FormView =
   | { kind: 'box'; bid?: string; pre?: Record<string, string> }
-  | { kind: 'sheet'; sid?: string }
+  | { kind: 'sheet'; sid?: string; fixed?: string }
   | { kind: 'card'; sid: string; cid?: string; altOf?: string; pre?: Record<string, string> };
 export const formView = signal<FormView | null>(null);
 export const binderOpen = signal(false);
@@ -42,7 +42,8 @@ export async function boot(): Promise<void> {
     store.photoKeys(),
     loadTcgCache(),
   ]);
-  if (c) collection.value = c;
+  // Campos nuevos que una colección guardada antes todavía no tiene.
+  if (c) collection.value = { ...emptyCollection(), ...c };
   if (p) prices.value = p;
   settings.value = s;
   photoKeys.value = new Set(k);

@@ -1,9 +1,9 @@
 // Cambios sobre la colección. Funciones puras: modifican el objeto que reciben
 // (la tienda pasa una copia) y devuelven qué fotos hay que mover o borrar.
 
-import { canon, findCard, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
+import { aliases, canon, findCard, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
 import { keyOf, localOfKey, newId, sheetOfKey, today } from './keys';
-import type { BoxCard, CardDef, Collection, CustomSheet, PriceBook, SheetDef } from './types';
+import type { BoxCard, CardDef, Collection, CustomSheet, MyGoal, PriceBook, SheetDef } from './types';
 
 /** Qué hacer con las fotos después de un cambio. */
 export interface PhotoChanges {
@@ -304,4 +304,194 @@ export function cardFromForm(v: Record<string, string>): { err: string } | { c: 
   }
   for (const k of Object.keys(c) as Array<keyof CardInput>) if (!c[k] && k !== 'n') delete c[k];
   return { c, price };
+}
+
+// ---- Quitar hojas y cartas sin perder lo que tengo ----
+
+export type RemoveResult = { err: string } | { moved: number; photos: PhotoChanges };
+
+/** Claves canónicas que usan las hojas, sin contar las claves de `skip`. */
+function usedKeys(sheets: SheetDef[], alias: Record<string, string>, skip: Set<string>): Set<string> {
+  const out = new Set<string>();
+  for (const sh of sheets)
+    for (const c of sh.cards)
+      for (const o of [c, ...(c.alts ?? [])]) {
+        const k = keyOf(sh.id, o.k);
+        if (!skip.has(k)) out.add(canon(alias, k));
+      }
+  return out;
+}
+
+/**
+ * Pasa a la Caja las cartas marcadas de `keys` que ninguna otra hoja usa (con su precio a mano,
+ * su historial de precios y su foto). Las que otra hoja sí usa (espejos) se quedan marcadas allí.
+ * Devuelve las claves que se fueron a la Caja o un error si no caben.
+ */
+function ownedToBox(
+  col: Collection,
+  prices: PriceBook,
+  sheets: SheetDef[],
+  keys: Array<{ key: string; card: CardDef }>,
+  hasPhoto: (k: string) => boolean,
+): { err: string } | { moved: string[]; photos: PhotoChanges } {
+  const alias = aliases(sheets);
+  const elsewhere = usedKeys(sheets, alias, new Set(keys.map((x) => x.key)));
+  const go = new Map<string, { card: CardDef; raw: string[] }>();
+  for (const { key, card } of keys) {
+    const k = canon(alias, key);
+    if (!col.owned[k] || elsewhere.has(k)) continue;
+    const g = go.get(k);
+    if (g) g.raw.push(key);
+    else go.set(k, { card, raw: [key] });
+  }
+  if (col.box.length + go.size > MAX_BOX)
+    return { err: `No caben en la caja: ${go.size} cartas marcadas y la caja tiene lugar para ${MAX_BOX - col.box.length}.` };
+  const move: Array<[string, string]> = [];
+  for (const [k, { card, raw }] of go) {
+    const b = addBox(col, {
+      ...pickFields<BoxCard>(card as unknown as CardInput, BOX_FIELDS),
+      n: `${card.prefix ?? ''}${card.n}`.trim() || card.n,
+    })!;
+    const to = `b:${b.id}`;
+    delete col.owned[k];
+    delete col.wish[k];
+    if (col.manual[k]) {
+      col.manual[to] = col.manual[k];
+      delete col.manual[k];
+    }
+    if (prices.usd[k] != null) {
+      prices.usd[to] = prices.usd[k];
+      delete prices.usd[k];
+    }
+    for (const day of Object.values(prices.hist))
+      if (k in day) {
+        day[to] = day[k]!;
+        delete day[k];
+      }
+    const from = [k, ...raw].find((x) => hasPhoto(x));
+    if (from) move.push([from, to]);
+  }
+  return { moved: [...go.keys()], photos: move.length ? { move } : {} };
+}
+
+function sheetKeys(sh: SheetDef): Array<{ key: string; card: CardDef }> {
+  const out: Array<{ key: string; card: CardDef }> = [];
+  for (const c of sh.cards) for (const o of [c, ...(c.alts ?? [])]) out.push({ key: keyOf(sh.id, o.k), card: o });
+  return out;
+}
+
+/**
+ * Quita una hoja. Las cartas marcadas pasan a la Caja. Una hoja fija solo se oculta (se puede
+ * volver a mostrar); una hoja propia se borra con sus fotos y precios a mano de lo que no tenía.
+ */
+export function removeSheet(
+  col: Collection,
+  prices: PriceBook,
+  sheets: SheetDef[],
+  sheetId: string,
+  hasPhoto: (k: string) => boolean,
+): RemoveResult {
+  const sh = sheets.find((s) => s.id === sheetId);
+  if (!sh) return { err: 'No encontré esa hoja.' };
+  const keys = sheetKeys(sh);
+  const r = ownedToBox(col, prices, sheets, keys, hasPhoto);
+  if ('err' in r) return r;
+  const alias = aliases(sheets);
+  const elsewhere = usedKeys(sheets, alias, new Set(keys.map((x) => x.key)));
+  const remove: string[] = [];
+  for (const { key } of keys) {
+    delete col.variant[key];
+    const k = canon(alias, key);
+    if (elsewhere.has(k)) continue;
+    delete col.wish[k];
+    if (!sh.fixed) {
+      delete col.owned[k];
+      delete col.manual[k];
+      delete col.manual[key];
+      if (!r.moved.includes(k)) remove.push(key);
+    }
+  }
+  delete col.order[sheetId];
+  if (sh.fixed) col.hidden[sheetId] = true;
+  else col.custom = col.custom.filter((s) => `u:${s.id}` !== sheetId);
+  return { moved: r.moved.length, photos: { ...r.photos, ...(remove.length ? { remove } : {}) } };
+}
+
+/** Vuelve a mostrar las cartas quitadas de una hoja fija. */
+export function restoreCards(col: Collection, sheetId: string): void {
+  for (const k of Object.keys(col.hiddenCards)) if (sheetOfKey(k) === sheetId) delete col.hiddenCards[k];
+}
+
+/** Vuelve a mostrar una hoja fija quitada (lo que se fue a la Caja se queda en la Caja). */
+export function restoreSheet(col: Collection, sheetId: string): void {
+  delete col.hidden[sheetId];
+}
+
+/** Cambia nombre y descripción: en una hoja propia, la hoja; en una fija, se guarda aparte. */
+export function renameSheet(col: Collection, fixed: SheetDef | undefined, sheetId: string, name: string, desc?: string): void {
+  if (!fixed) return editSheet(col, sheetId, name, desc);
+  if (name === fixed.name && (desc ?? '') === (fixed.desc ?? '')) delete col.rename[sheetId];
+  else col.rename[sheetId] = desc ? { name, desc } : { name };
+}
+
+/**
+ * Quita una carta de una hoja propia. Si estaba marcada (ella o sus variantes, si es un
+ * bolsillo), pasa a la Caja en vez de perderse.
+ */
+export function removeCard(
+  col: Collection,
+  prices: PriceBook,
+  sheets: SheetDef[],
+  key: string,
+  hasPhoto: (k: string) => boolean,
+): RemoveResult {
+  const f = findCard(sheets, col, key);
+  if (!f?.sheet || !f.slot) return { err: 'No encontré esa carta en una hoja.' };
+  const list = f.isAlt ? [{ key, card: f.card as CardDef }] : [f.slot, ...(f.slot.alts ?? [])].map((o) => ({ key: keyOf(f.sheet!.id, o.k), card: o }));
+  const r = ownedToBox(col, prices, sheets, list, hasPhoto);
+  if ('err' in r) return r;
+  if (f.sheet.fixed) {
+    // Hoja fija: la carta se oculta (se puede volver a mostrar); sus fotos se quedan.
+    const alias = aliases(sheets);
+    const elsewhere = usedKeys(sheets, alias, new Set(list.map((x) => x.key)));
+    for (const { key: k } of list) {
+      const ck = canon(alias, k);
+      if (!elsewhere.has(ck)) {
+        delete col.wish[ck];
+        delete col.owned[ck];
+      }
+      delete col.variant[k];
+    }
+    const slotKey = keyOf(f.sheet.id, f.slot.k);
+    if (f.isAlt && col.variant[slotKey] === key) delete col.variant[slotKey];
+    col.hiddenCards[key] = true;
+    return { moved: r.moved.length, photos: r.photos };
+  }
+  const ch = deleteCard(col, sheets, key);
+  const remove = (ch.remove ?? []).filter((k) => !r.moved.includes(canon(aliases(sheets), k)));
+  return { moved: r.moved.length, photos: { ...r.photos, ...(remove.length ? { remove } : {}) } };
+}
+
+// ---- Objetivos propios ----
+
+export function addGoal(col: Collection, t: string, d?: string): MyGoal | null {
+  const title = t.trim().slice(0, 120);
+  if (!title) return null;
+  col.goalSeq = (col.goalSeq || 0) + 1;
+  const g: MyGoal = { id: newId('g', col.goalSeq), t: title };
+  const desc = d?.trim().slice(0, 240);
+  if (desc) g.d = desc;
+  col.myGoals = [...(col.myGoals ?? []), g];
+  return g;
+}
+
+/** Quita un objetivo: el mío se borra; uno fijo se oculta. */
+export function removeGoal(col: Collection, id: string, fixedIds: string[]): void {
+  delete col.goals[id];
+  if (fixedIds.includes(id)) col.hiddenGoals[id] = true;
+  else col.myGoals = (col.myGoals ?? []).filter((g) => g.id !== id);
+}
+
+export function restoreGoals(col: Collection): void {
+  col.hiddenGoals = {};
 }
