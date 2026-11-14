@@ -70,6 +70,8 @@ export default defineConfig({
         // El lector (ocr/) y el SDK de Claude (sdk-*.js) se bajan solo al usarlos; Claude sin internet no sirve.
         globIgnores: ['**/node_modules/**', 'ocr/**', 'assets/sdk-*.js'],
         navigateFallback: 'index.html',
+        // Abre la app al tocar un aviso de precio (public/sw-alertas.js).
+        importScripts: ['sw-alertas.js'],
         navigateFallbackDenylist: [/\/ocr\//],
         runtimeCaching: [
           {
