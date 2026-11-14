@@ -1,9 +1,9 @@
-// Historial de precios (60 días) y tendencia ▲▼, como en el Artifact.
+// Historial de precios (un año) y tendencia ▲▼, como en el Artifact.
 import { canon } from './catalog';
 import { manualOf } from './money';
 import type { Collection, PriceBook } from './types';
 
-export const HIST_DAYS = 60;
+export const HIST_DAYS = 365;
 const DAY = 864e5;
 
 export interface Point {
@@ -21,6 +21,31 @@ export function histSeries(pr: PriceBook, alias: Record<string, string>, key: st
       return typeof v === 'number' ? { d, v } : null;
     })
     .filter((p): p is Point => p !== null);
+}
+
+/** Rangos de la gráfica de la ficha, en días. */
+export const RANGES = [30, 90, 365] as const;
+export type Range = (typeof RANGES)[number];
+
+/** Los puntos de los últimos `days` días, contando el último día con precio. */
+export function lastDays(s: Point[], days: number): Point[] {
+  if (!s.length) return s;
+  const limit = Date.parse(s[s.length - 1]!.d) - (days - 1) * DAY;
+  return s.filter((p) => Date.parse(p.d) >= limit);
+}
+
+/** Días que cubre la serie, del primero al último (1 si es un solo día). */
+export function spanDays(s: Point[]): number {
+  return s.length ? Math.round((Date.parse(s[s.length - 1]!.d) - Date.parse(s[0]!.d)) / DAY) + 1 : 0;
+}
+
+/** Cambio del primer al último punto (para el rango elegido en la gráfica). */
+export function changeOf(s: Point[]): Trend | null {
+  if (s.length < 2 || !s[0]!.v) return null;
+  const from = s[0]!;
+  const to = s[s.length - 1]!;
+  const pct = ((to.v - from.v) / from.v) * 100;
+  return { pct, from, to, days: Math.round((Date.parse(to.d) - Date.parse(from.d)) / DAY), dir: Math.abs(pct) < 5 ? 0 : pct > 0 ? 1 : -1 };
 }
 
 export interface Trend {
@@ -86,7 +111,7 @@ export function lastPriceDate(pr: PriceBook, alias: Record<string, string>, key:
  * - Con precio: pasa a ser el precio automático y entra al historial.
  * - Sin precio (TCGdex no lo tiene): queda en el historial como vacío y se conserva el último
  *   precio conocido, que la ficha muestra con su fecha.
- * - Borra del historial los días de hace más de 60 días.
+ * - Borra del historial los días de hace más de un año.
  */
 export function recordDay(pr: PriceBook, day: string, results: Record<string, number | null>): void {
   const h = (pr.hist[day] ??= {});

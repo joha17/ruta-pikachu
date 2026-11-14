@@ -11,6 +11,8 @@ export interface Settings {
   lastBackup?: string;
   migratedAt?: string;
   migration?: MigrationReport;
+  /** Avisos de precio ya notificados en este aparato: clave → precio del último aviso. */
+  alertsNotified?: Record<string, number>;
 }
 
 /** Respaldo con Claude. Va aparte de los ajustes para que la clave nunca entre en un respaldo. */

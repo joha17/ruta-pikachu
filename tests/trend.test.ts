@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { histSeries, lastPriceDate, pruneHist, recordDay, trendOf, trendText } from '../src/model/trend';
+import { changeOf, histSeries, lastDays, lastPriceDate, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
 import { emptyCollection, emptyPrices, type PriceBook } from '../src/model/types';
 
 const AL = { 'e:moltres': 'r:moltres' };
@@ -46,8 +46,8 @@ describe('tendencia del precio', () => {
 });
 
 describe('guardar los precios del día', () => {
-  it('actualiza el precio, conserva el último conocido si hoy no hay y recorta a 60 días', () => {
-    const p = book({ '2026-09-01': 1, '2026-11-12': 2 });
+  it('actualiza el precio, conserva el último conocido si hoy no hay y recorta a un año', () => {
+    const p = book({ '2025-09-01': 1, '2026-11-12': 2 });
     p.usd['p:5'] = 2;
     p.usd['p:6'] = 7;
     p.date = '2026-11-12';
@@ -55,7 +55,7 @@ describe('guardar los precios del día', () => {
     expect(p.usd).toEqual({ 'p:5': 2.5, 'p:6': 7 });
     expect(p.hist['2026-11-13']).toEqual({ 'p:5': 2.5, 'p:6': null });
     expect(p.date).toBe('2026-11-13');
-    expect(p.hist['2026-09-01']).toBeUndefined();
+    expect(p.hist['2025-09-01']).toBeUndefined();
     expect(lastPriceDate(p, AL, 'p:6')).toBe('');
   });
 
@@ -74,9 +74,33 @@ describe('guardar los precios del día', () => {
     expect(lastPriceDate({ date: '2026-11-01', usd: {}, hist: {} }, AL, 'p:9')).toBe('2026-11-01');
   });
 
-  it('se queda con 60 días contando hoy', () => {
-    const p = book({ '2026-09-14': 1, '2026-09-15': 1, '2026-11-13': 1 });
+  it('se queda con un año (365 días contando hoy)', () => {
+    const p = book({ '2025-11-13': 1, '2025-11-14': 1, '2026-09-15': 1, '2026-11-13': 1 });
     pruneHist(p, '2026-11-13');
-    expect(Object.keys(p.hist).sort()).toEqual(['2026-09-15', '2026-11-13']);
+    expect(Object.keys(p.hist).sort()).toEqual(['2025-11-14', '2026-09-15', '2026-11-13']);
+  });
+});
+
+describe('rangos de la gráfica', () => {
+  const s = [
+    { d: '2026-01-01', v: 10 },
+    { d: '2026-09-01', v: 20 },
+    { d: '2026-10-20', v: 30 },
+    { d: '2026-11-13', v: 15 },
+  ];
+  it('lastDays corta desde el último día con precio', () => {
+    expect(lastDays(s, 30).map((p) => p.d)).toEqual(['2026-10-20', '2026-11-13']);
+    expect(lastDays(s, 90).map((p) => p.d)).toEqual(['2026-09-01', '2026-10-20', '2026-11-13']);
+    expect(lastDays(s, 365)).toHaveLength(4);
+    expect(lastDays([], 30)).toEqual([]);
+  });
+  it('spanDays y changeOf', () => {
+    expect(spanDays(s)).toBe(317);
+    expect(spanDays([])).toBe(0);
+    const c = changeOf(lastDays(s, 30))!;
+    expect(c.dir).toBe(-1);
+    expect(Math.round(c.pct)).toBe(-50);
+    expect(c.days).toBe(24);
+    expect(changeOf([s[0]!])).toBeNull();
   });
 });

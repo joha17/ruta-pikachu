@@ -17,6 +17,7 @@ import { PriceStatus } from '../ui/PriceStatus';
 import { go } from '../ui/router';
 import { syncConfigured, syncStatus } from '../sync/engine';
 import { currentSheet, showSheet } from '../ui/sheetView';
+import { ValueChart } from '../ui/ValueChart';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
 const arranging = signal('');
@@ -25,6 +26,7 @@ const picked = signal('');
 const previewing = signal<Set<string>>(new Set());
 /** Explicación de los precios (ⓘ) abierta. */
 const infoOpen = signal(false);
+const valueOpen = signal(false);
 
 /** $229.52 → «$230» para el resumen de arriba. */
 const money0 = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
@@ -554,9 +556,14 @@ export function Coleccion() {
           <span>
             <strong>{have.length}</strong> {have.length === 1 ? 'carta' : 'cartas'}
           </span>
-          <span>
-            tienes <strong>{money0(vh.t)}</strong>
-          </span>
+          <button
+            class="sum-val"
+            aria-expanded={valueOpen.value}
+            title="Ver cómo ha cambiado el valor de tu colección"
+            onClick={() => (valueOpen.value = !valueOpen.value)}
+          >
+            tienes <strong>{money0(vh.t)}</strong> <span aria-hidden="true">📈</span>
+          </button>
           <span>
             faltan <strong>{money0(vm.t)}</strong>
           </span>
@@ -570,6 +577,7 @@ export function Coleccion() {
             ⓘ
           </button>
         </p>
+        {valueOpen.value && <ValueChart />}
         {infoOpen.value ? (
           <div class="sum-info">
             <p>
@@ -615,10 +623,6 @@ export function Coleccion() {
           </div>
         </section>
       )}
-      <p class="note">
-        Imágenes oficiales y precios: TCGdex (precio de mercado de TCGplayer). Las imágenes se muestran enlazadas desde
-        assets.tcgdex.net; tus fotos solo viven en este aparato. «Ver carta» abre la ficha en Limitless.
-      </p>
     </>
   );
 }

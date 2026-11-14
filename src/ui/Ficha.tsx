@@ -13,6 +13,7 @@ import type { BoxCard, CardDef } from '../model/types';
 import { alias, collection, formView, openKey, prices, sheets } from '../store';
 import { cachedCard } from '../tcgdex';
 import { markFailed, photoKeyOf, useArt } from './art';
+import { AlertForm } from './AlertForm';
 import { Forms } from './Forms';
 import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
@@ -183,6 +184,7 @@ function CardSheet({ k }: { k: string }) {
             </>
           ))}
         </dl>
+        <PriceTrend k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
 
@@ -245,6 +247,7 @@ function CardSheet({ k }: { k: string }) {
             )}
           </div>
         )}
+        {!isBox && !own && <AlertForm k={k} />}
 
         {isBox && <DealPick b={f.box!} />}
 
@@ -255,7 +258,6 @@ function CardSheet({ k }: { k: string }) {
               : 'Más opciones: precio, foto' + (custom && base ? ', editar' : '')}
           </summary>
           <div class="more-in">
-            <PriceTrend k={k} />
             <details class="pman" open={!!man || auto == null}>
               <summary>{man ? 'Precio puesto a mano' : 'Poner precio a mano'}</summary>
               <form

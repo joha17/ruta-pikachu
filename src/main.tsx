@@ -11,10 +11,12 @@ import { App } from './App';
 import { wirePriceUpdates } from './prices';
 import { boot } from './store';
 import { initSync } from './sync/engine';
+import { wireValueSnapshots } from './value';
 
 render(<App />, document.getElementById('app')!);
 // Al terminar de abrir la colección: precios del día (una vez al día, nunca en bucle).
 void boot().then(() => {
   wirePriceUpdates();
+  wireValueSnapshots();
   void initSync();
 });
