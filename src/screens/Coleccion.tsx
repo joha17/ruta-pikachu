@@ -3,7 +3,8 @@
 import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { act, ops } from '../actions';
+import { act, ops, say } from '../actions';
+import { FIXED_SHEETS } from '../data';
 import { haveAndMissing, isOwned, MAX_BOX, MAX_CARDS, MAX_SHEETS, POCKETS, sheetCount, slots, type Slot } from '../model/catalog';
 import { fmtDate, money, sumKeys } from '../model/money';
 import { today } from '../model/keys';
@@ -51,6 +52,35 @@ function Desc({ children, extra }: { children: ComponentChildren; extra?: Compon
 
 function secId(sheetId: string) {
   return `s-${sheetId.replace(':', '-')}`;
+}
+
+/** Hojas fijas que quitaste, para volver a mostrarlas. */
+function HiddenSheets() {
+  const col = collection.value;
+  const list = FIXED_SHEETS.filter((s) => col.hidden?.[s.id]);
+  if (!list.length) return null;
+  return (
+    <div class="hidden-sheets">
+      <h3>Hojas quitadas</h3>
+      <p class="hint">Si la vuelves a mostrar, las cartas que pasaron a la caja se quedan en la caja.</p>
+      <ul>
+        {list.map((s) => (
+          <li key={s.id}>
+            <span>{col.rename?.[s.id]?.name ?? s.title ?? s.name}</span>
+            <button
+              class="btn sm"
+              onClick={() => {
+                act((c) => ops.restoreSheet(c, s.id));
+                say('La hoja volvió al menú.');
+              }}
+            >
+              Volver a mostrar
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 type MenuItem = { label: string; run: () => void; disabled?: boolean };
@@ -216,10 +246,14 @@ function SheetSection({ sh }: { sh: SheetDef }) {
       disabled: !canAdd,
     });
     menu.push({
-      label: 'Editar hoja',
+      label: 'Editar o quitar hoja',
       run: () => (formView.value = { kind: 'sheet', sid }),
     });
-  }
+  } else
+    menu.push({
+      label: 'Editar o quitar hoja',
+      run: () => (formView.value = { kind: 'sheet', fixed: sh.id }),
+    });
   if (sl.length) {
     menu.push({
       label: isPrev ? 'Ver mi progreso' : 'Ver completa',
@@ -454,8 +488,6 @@ export function Coleccion() {
   const { have, missing } = haveAndMissing(all, col);
   const vh = sumKeys(col, prices.value, alias.value, have);
   const vm = sumKeys(col, prices.value, alias.value, missing);
-  const pika = all.find((s) => s.id === 'p');
-  const pn = pika ? sheetCount(alias.value, pika, col) : 0;
   const nav: Array<[string, string, string]> = all.map((s) => [
     s.id,
     s.short ?? s.name,
@@ -507,24 +539,6 @@ export function Coleccion() {
         ) : (
           (priceRun.value?.running || prices.value.date !== today()) && <PriceStatus />
         )}
-        {pika && (
-          <div class="pika">
-            <div class="strip" aria-label={`${pn} de ${pika.cards.length} Pikachu`}>
-              {slots(pika, col).map((s) => (
-                <i key={s.key} class={isOwned(alias.value, col, s.key) ? 'on' : ''} title={s.card.label} />
-              ))}
-            </div>
-            <span class="pika-t">
-              {pn < pika.cards.length ? (
-                <>
-                  Pikachu 30C: <strong>{pn}</strong> de {pika.cards.length}
-                </>
-              ) : (
-                '¡Pikachu 30C completo!'
-              )}
-            </span>
-          </div>
-        )}
         <div class="binder-cta">
           <button class="btn primary" onClick={() => (binderOpen.value = true)}>
             📖 Abrir mi binder
@@ -549,6 +563,7 @@ export function Coleccion() {
             ) : (
               <p class="hint">Llegaste al máximo de {MAX_SHEETS} hojas.</p>
             )}
+            <HiddenSheets />
           </div>
         </section>
       )}

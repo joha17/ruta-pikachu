@@ -185,9 +185,6 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
 .info-btn:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
 .sum-info{display:grid;gap:4px;max-width:62ch}
 .sum-info p{margin:0;font-size:13.5px;color:var(--muted)}
-.pika{display:grid;gap:6px}
-.pika-t{font-size:14px;color:var(--muted)}
-.pika-t strong{color:var(--ink)}
 .sh-stat{margin:4px 0 0;color:var(--muted)}
 .sh-stat strong{color:var(--ink)}
 .sh-desc{display:flex;align-items:baseline;gap:8px;margin-top:8px;max-width:62ch;color:var(--muted);font-size:14px}
@@ -280,3 +277,17 @@ dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
 @media (min-width:620px){.sprites img:not(:first-child){display:block}}
 .topbar-r{flex:none}
 @media (max-width:619px){.sprites{gap:4px}.sprites img{height:26px}}
+
+/* Hojas fijas quitadas (Colección → ＋ Hoja). */
+.hidden-sheets{width:100%;display:grid;gap:6px;margin-top:8px;padding-top:12px;border-top:1px solid var(--line)}
+.hidden-sheets h3{margin:0;font-size:15px}
+.hidden-sheets .hint{margin:0}
+.hidden-sheets ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.hidden-sheets li{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+/* Metas: quitar y agregar objetivos. */
+.checks li.removable{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+.checks li.removable .rm{width:32px;height:32px;font-size:18px;margin-top:2px}
+.checks li.removable .rm:hover{color:var(--ink)}
+.goal-acts{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin-top:10px}
+.goal-add{width:100%}

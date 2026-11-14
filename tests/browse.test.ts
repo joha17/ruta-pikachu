@@ -6,6 +6,9 @@ import {
   NO_FILTERS,
   rarityLabel,
   rarityOptions,
+  raritiesIn,
+  rarityChoices,
+  loadSetRarities,
   setOptions,
   toggleValue,
   toResults,
@@ -111,5 +114,43 @@ describe('pestaña Buscar', () => {
     expect(b).toBe(a);
     expect(calls).toHaveLength(1);
     expect(await browse(NO_FILTERS, SETS, get)).toEqual([]);
+  });
+});
+
+describe('rarezas del set elegido', () => {
+  it('saca las rarezas de las cartas del set y descarta las de otros sets', () => {
+    const cards = [
+      { id: 'sv10-1', rarity: 'Common' },
+      { id: 'sv10-229', rarity: 'Special illustration rare' },
+      { id: 'sv10-2', rarity: 'Common' },
+      { id: 'sv10.5w-1', rarity: 'Black White Rare' },
+      { id: 'xsv10-3', rarity: 'Rare' },
+      { id: 'sv10-9', rarity: 'None' },
+      { id: 'sv10-10' },
+    ];
+    expect(raritiesIn(cards, 'sv10').sort()).toEqual(['Common', 'Special illustration rare']);
+  });
+  it('ofrece solo las del set, más las ya marcadas; si no se supo, todas', () => {
+    const all = ['Common', 'Rare', 'Illustration rare', 'Hyper rare'];
+    expect(rarityChoices(all, [], [])).toEqual(all);
+    expect(rarityChoices(all, [['Rare', 'Common']], [])).toEqual(['Common', 'Rare']);
+    expect(rarityChoices(all, [['Rare'], ['Hyper rare']], ['Illustration rare'])).toEqual(['Rare', 'Hyper rare', 'Illustration rare']);
+    expect(rarityChoices(all, [['Rare'], null], [])).toEqual(all);
+  });
+  it('una consulta por set; si falla, null y se puede reintentar', async () => {
+    const qs: string[] = [];
+    const ok = async (q: string) => {
+      qs.push(q);
+      return { data: { cards: [{ id: 'me01-1', rarity: 'Common' }] } };
+    };
+    expect(await loadSetRarities('me01', ok)).toEqual(['Common']);
+    expect(await loadSetRarities('me01', ok)).toEqual(['Common']);
+    expect(qs).toEqual(['{ cards(filters: { id: "me01-" }) { id rarity } }']);
+    const bad = async () => {
+      throw new Error('x');
+    };
+    expect(await loadSetRarities('sv09', bad)).toBeNull();
+    expect(await loadSetRarities('sv09', ok)).toEqual([]);
+    expect(await loadSetRarities('a"b', ok)).toBeNull();
   });
 });

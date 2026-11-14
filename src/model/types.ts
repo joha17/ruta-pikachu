@@ -93,6 +93,18 @@ export interface BoxCard {
   graded?: string;
 }
 
+export interface SheetRename {
+  name: string;
+  desc?: string;
+}
+
+/** Objetivo propio (se marca a mano). */
+export interface MyGoal {
+  id: string; // "g1"
+  t: string;
+  d?: string;
+}
+
 export interface ManualPrice {
   v: number;
   /** Fecha AAAA-MM-DD. */
@@ -117,6 +129,17 @@ export interface Collection {
   goals: Record<string, true>;
   trade: Record<string, true>;
   protect: Record<string, true>;
+  /** Hojas fijas quitadas (se pueden volver a mostrar). */
+  hidden: Record<string, true>;
+  /** Cartas quitadas de hojas fijas, por su clave ("r:mewtwo"). Se pueden volver a mostrar. */
+  hiddenCards: Record<string, true>;
+  /** Nombre y descripción cambiados de hojas fijas. */
+  rename: Record<string, SheetRename>;
+  /** Objetivos fijos (de listas.json) quitados. */
+  hiddenGoals: Record<string, true>;
+  /** Objetivos agregados por mí. */
+  myGoals: MyGoal[];
+  goalSeq: number;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
 }
@@ -175,6 +198,12 @@ export function emptyCollection(): Collection {
     goals: {},
     trade: {},
     protect: {},
+    hidden: {},
+    hiddenCards: {},
+    rename: {},
+    hiddenGoals: {},
+    myGoals: [],
+    goalSeq: 0,
     saved: '',
   };
 }
