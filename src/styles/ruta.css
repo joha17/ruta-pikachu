@@ -314,3 +314,4 @@ dialog.sheet::backdrop{background:var(--backdrop)}
 .boxempty{padding:18px;border-radius:12px;background:var(--box);border:1.5px dashed var(--box-line);color:var(--muted);font-size:14px;margin:0;max-width:980px}
 .boxplace{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
 .boxplace select{font:500 14px var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:100%;min-width:0;flex:1 1 180px}
+.trendbox .trange{margin:2px 0 4px}

@@ -149,7 +149,7 @@ export interface PriceBook {
   /** Fecha del último precio automático, AAAA-MM-DD. */
   date: string;
   usd: Record<string, number>;
-  /** Fecha → clave → precio (o null si ese día no hubo dato). Máximo 60 días. */
+  /** Fecha → clave → precio (o null si ese día no hubo dato). Máximo un año. */
   hist: Record<string, Record<string, number | null>>;
 }
 
