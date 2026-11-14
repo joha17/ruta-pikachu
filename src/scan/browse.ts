@@ -188,3 +188,66 @@ export async function loadRarities(get: (p: string) => Promise<unknown> = getJso
   }
   return FIRST;
 }
+
+// ---- Rarezas que hay en los sets elegidos ----
+// La lista de cartas de un set (REST) no trae la rareza; la API GraphQL de TCGdex sí, en una sola
+// llamada por set: `cards(filters: { id: "sv10-" })` devuelve todas las cartas cuyo id contiene
+// "sv10-". (No se usa `set(id)`, que falla con las cartas sin rareza.)
+
+export const GRAPHQL = 'https://api.tcgdex.net/v2/graphql';
+export type PostQuery = (query: string) => Promise<unknown>;
+
+const postGraphql: PostQuery = async (query) => {
+  const r = await fetch(GRAPHQL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ query }),
+    referrerPolicy: 'no-referrer',
+  });
+  if (!r.ok) throw new Error(`TCGdex respondió ${r.status}`);
+  return r.json();
+};
+
+/** Rarezas distintas de las cartas de un set (el filtro por id puede traer cartas de otros sets: se descartan). */
+export function raritiesIn(cards: unknown, setId: string): string[] {
+  if (!Array.isArray(cards)) return [];
+  const out = new Set<string>();
+  for (const c of cards as Array<{ id?: unknown; rarity?: unknown }>) {
+    if (typeof c?.id !== 'string' || typeof c.rarity !== 'string' || !c.rarity || c.rarity === 'None') continue;
+    const local = c.id.slice(setId.length + 1);
+    if (!c.id.startsWith(`${setId}-`) || setIdOf({ id: c.id, localId: local, name: '' }) !== setId) continue;
+    out.add(c.rarity);
+  }
+  return [...out];
+}
+
+const setRarMem = new Map<string, Promise<string[] | null>>();
+
+/** Rarezas de un set (una llamada por set y visita). null si no se pudo saber. */
+export function loadSetRarities(setId: string, post: PostQuery = postGraphql): Promise<string[] | null> {
+  if (!/^[\w.-]+$/.test(setId)) return Promise.resolve(null);
+  const hit = setRarMem.get(setId);
+  if (hit) return hit;
+  const p = post(`{ cards(filters: { id: "${setId}-" }) { id rarity } }`)
+    .then((r) => {
+      const cards = (r as { data?: { cards?: unknown } } | null)?.data?.cards;
+      if (!Array.isArray(cards)) throw new Error('sin datos');
+      return raritiesIn(cards, setId);
+    })
+    .catch(() => {
+      setRarMem.delete(setId); // que se pueda reintentar
+      return null;
+    });
+  setRarMem.set(setId, p);
+  return p;
+}
+
+/**
+ * Rarezas que se ofrecen: sin set elegido, todas; con sets, solo las de esos sets (más las ya
+ * marcadas, para poder quitarlas). Si de algún set no se supo, todas.
+ */
+export function rarityChoices(all: string[], perSet: Array<string[] | null>, selected: string[]): string[] {
+  if (!perSet.length || perSet.some((r) => r == null)) return all;
+  const inSets = new Set(perSet.flat() as string[]);
+  return [...new Set([...all.filter((r) => inSets.has(r)), ...inSets, ...selected])];
+}
