@@ -153,6 +153,8 @@ export interface PriceBook {
   usd: Record<string, number>;
   /** Fecha → clave → precio (o null si ese día no hubo dato). Máximo un año. */
   hist: Record<string, Record<string, number | null>>;
+  /** Fecha → valor de lo que tenía ese día (USD) y cuántas cartas con precio. Máximo un año. */
+  value?: Record<string, { v: number; n: number }>;
 }
 
 /** Foto propia de una carta, guardada en el aparato. */

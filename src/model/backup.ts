@@ -98,6 +98,7 @@ export function parseBackup(text: string): Backup {
     date: typeof p.date === 'string' ? p.date : '',
     usd: isObj(p.usd) ? (p.usd as PriceBook['usd']) : {},
     hist: isObj(p.hist) ? (p.hist as PriceBook['hist']) : {},
+    ...(isObj(p.value) ? { value: p.value as NonNullable<PriceBook['value']> } : {}),
   };
   const photos: BackupPhoto[] = [];
   for (const ph of Array.isArray(raw.photos) ? raw.photos : []) {
