@@ -45,6 +45,18 @@ export function actWithPrices(fn: (c: typeof collection.value, p: typeof prices.
   void store.savePrices(p);
 }
 
+/** Cambia colección y precios, y luego mueve o borra las fotos (quitar hojas o cartas a la Caja). */
+export function actAll(fn: (c: typeof collection.value, p: typeof prices.value) => PhotoChanges | void): void {
+  const p = structuredClone(prices.value);
+  let ch: PhotoChanges | undefined;
+  update((c) => {
+    ch = fn(c, p) ?? undefined;
+  });
+  prices.value = p;
+  void store.savePrices(p);
+  if (ch) void applyPhotos(ch);
+}
+
 /** Reduce una foto a máx. 1600 px y la guarda como JPEG (o la deja igual si ya es pequeña). */
 export async function shrink(file: Blob, max = 1600): Promise<Blob> {
   try {

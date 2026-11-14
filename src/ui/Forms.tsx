@@ -1,8 +1,9 @@
 // Formularios: carta en la Caja, hoja propia (crear, editar, borrar) y carta de hoja propia.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { act, ops, say } from '../actions';
-import { findCard } from '../model/catalog';
+import { act, actAll, hasPhoto, ops, say } from '../actions';
+import { FIXED_SHEETS } from '../data';
+import { findCard, sheetCount } from '../model/catalog';
 import { keyOf } from '../model/keys';
 import type { BoxCard, CardDef } from '../model/types';
 import { alias, collection, formView, openKey, sheets } from '../store';
@@ -273,16 +274,21 @@ export function Forms() {
   }
 
   if (fv.kind === 'sheet') {
-    const sh = fv.sid ? col.custom.find((s) => s.id === fv.sid) : undefined;
-    const nc = sh?.cards.length ?? 0;
+    const own = fv.sid ? col.custom.find((s) => s.id === fv.sid) : undefined;
+    const fixedDef = fv.fixed ? FIXED_SHEETS.find((s) => s.id === fv.fixed) : undefined;
+    const sheetId = fixedDef ? fixedDef.id : own ? `u:${own.id}` : '';
+    const shown = sheetId ? sheets.value.find((s) => s.id === sheetId) : undefined;
+    const editing = !!shown;
+    const nc = shown?.cards.length ?? 0;
+    const mine = shown ? sheetCount(alias.value, shown, col) : 0;
     return (
       <div class="sheet-in solo">
         <button class="btn close" aria-label="Cerrar" onClick={closeAll}>
           ×
         </button>
         <div class="sheet-body">
-          <div class="eyebrow">{sh ? 'Editar hoja' : 'Hoja nueva'}</div>
-          <h3 id="sheet-title">{sh ? sh.name : 'Crear una hoja'}</h3>
+          <div class="eyebrow">{editing ? 'Editar hoja' : 'Hoja nueva'}</div>
+          <h3 id="sheet-title">{shown ? shown.name : 'Crear una hoja'}</h3>
           <form
             class="cform"
             onSubmit={(e) => {
@@ -293,7 +299,8 @@ export function Forms() {
               if (!name) return setErr('Ponle un nombre a la hoja.');
               let newId = '';
               act((c) => {
-                if (sh) ops.editSheet(c, sh.id, name, desc);
+                if (fixedDef) ops.renameSheet(c, fixedDef, fixedDef.id, name, desc);
+                else if (own) ops.editSheet(c, own.id, name, desc);
                 else newId = ops.createSheet(c, name, desc)?.id ?? '';
               });
               closeAll();
@@ -303,7 +310,7 @@ export function Forms() {
             <Fld
               id="name"
               label="Nombre de la hoja"
-              val={sh?.name}
+              val={shown?.name}
               hint="Por ejemplo: Eeveelutions, Paldea Evolved, Arte de Mitsuhiro Arita."
               maxLength={60}
               required
@@ -312,35 +319,63 @@ export function Forms() {
               <label for="f-desc">
                 Descripción <small>(opcional)</small>
               </label>
-              <textarea id="f-desc" name="desc" maxLength={240} value={sh?.desc ?? ''} />
+              <textarea id="f-desc" name="desc" maxLength={240} value={shown?.desc ?? ''} />
             </div>
             <div class="row">
               <button class="btn primary us" type="submit">
-                {sh ? 'Guardar cambios' : 'Crear hoja'}
+                {editing ? 'Guardar cambios' : 'Crear hoja'}
               </button>
               <button class="btn quiet" type="button" onClick={closeAll}>
                 Cancelar
               </button>
             </div>
+            {fixedDef && col.rename[fixedDef.id] && (
+              <button
+                class="linkish"
+                type="button"
+                onClick={() => {
+                  act((c) => ops.renameSheet(c, fixedDef, fixedDef.id, fixedDef.name, fixedDef.desc));
+                  closeAll();
+                  say('La hoja volvió a su nombre original.');
+                }}
+              >
+                Volver al nombre original («{fixedDef.name}»)
+              </button>
+            )}
           </form>
-          {sh && (
+          {fixedDef && <p class="hint">Las cartas de esta hoja vienen con la app y no se pueden cambiar una por una.</p>}
+          {shown && (
             <div class="cedit">
               {confirmDel ? (
                 <>
                   <p class="msg warn">
-                    ¿Borrar «{sh.name}»
-                    {nc ? (nc === 1 ? ' y su carta (con su foto y su precio a mano)' : ` y sus ${nc} cartas (con sus fotos y precios a mano)`) : ''}?
-                    No se puede deshacer.
+                    ¿Quitar «{shown.name}»?{' '}
+                    {mine
+                      ? mine === 1
+                        ? 'La carta que tienes marcada pasa a la caja. '
+                        : `Las ${mine} cartas que tienes marcadas pasan a la caja. `
+                      : ''}
+                    {fixedDef
+                      ? 'Puedes volver a mostrarla desde «＋ Hoja».'
+                      : nc > mine
+                        ? 'Las que no tienes se borran, con sus fotos y precios a mano. No se puede deshacer.'
+                        : 'No se puede deshacer.'}
                   </p>
                   <button
                     class="btn danger"
                     onClick={() => {
-                      act((c) => ops.deleteSheet(c, sh.id));
+                      let res: ops.RemoveResult | undefined;
+                      actAll((c, p) => {
+                        res = ops.removeSheet(c, p, sheets.value, sheetId, hasPhoto);
+                        return 'err' in res ? undefined : res.photos;
+                      });
+                      if (res && 'err' in res) return setErr(res.err);
                       closeAll();
-                      say('Hoja borrada.');
+                      const n = res && 'moved' in res ? res.moved : 0;
+                      say(n ? `Hoja quitada. ${n === 1 ? '1 carta pasó' : `${n} cartas pasaron`} a la caja.` : 'Hoja quitada.');
                     }}
                   >
-                    Sí, borrar la hoja
+                    Sí, quitar la hoja
                   </button>
                   <button class="btn quiet" onClick={() => setConfirmDel(false)}>
                     No, dejarla
@@ -348,7 +383,7 @@ export function Forms() {
                 </>
               ) : (
                 <button class="btn quiet danger" onClick={() => setConfirmDel(true)}>
-                  Borrar esta hoja
+                  Quitar esta hoja
                 </button>
               )}
             </div>

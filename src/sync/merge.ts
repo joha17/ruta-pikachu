@@ -10,7 +10,7 @@
 // última copia conocida (`stamp`) y lo que cambió recibe la hora de ahora. Así ninguna
 // operación de la colección tiene que saber que existe la sincronización.
 
-import type { BoxCard, CardDef, Collection, CustomSheet, ManualPrice } from '../model/types';
+import type { BoxCard, CardDef, Collection, CustomSheet, ManualPrice, MyGoal, SheetRename } from '../model/types';
 import { emptyCollection } from '../model/types';
 
 export const SYNC_KIND = 'ruta-pikachu-sync';
@@ -45,7 +45,7 @@ export function emptyDoc(): SyncDoc {
   return { kind: SYNC_KIND, version: SYNC_VERSION, atoms: {}, seqs: {} };
 }
 
-const SETS = ['owned', 'wish', 'goals', 'trade', 'protect'] as const;
+const SETS = ['owned', 'wish', 'goals', 'trade', 'protect', 'hidden', 'hiddenGoals'] as const;
 
 /** JSON con las claves ordenadas: el mismo valor da siempre el mismo texto. */
 export function stable(v: unknown): string {
@@ -71,13 +71,15 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
     for (const c of sh.cards) out[`card:${sh.id}.${c.k}`] = c;
   }
   for (const b of col.box ?? []) out[`box:${b.id}`] = b;
+  for (const [k, v] of Object.entries(col.rename ?? {})) out[`rename:${k}`] = v;
+  for (const g of col.myGoals ?? []) out[`mygoal:${g.id}`] = g;
   for (const [k, p] of Object.entries(photos)) out[`photo:${k}`] = p;
   return out;
 }
 
 /** Contadores de la colección, para que nunca se repita un id. */
 export function seqsOf(col: Collection): Record<string, number> {
-  const s: Record<string, number> = { customSeq: col.customSeq || 0, boxSeq: col.boxSeq || 0 };
+  const s: Record<string, number> = { customSeq: col.customSeq || 0, boxSeq: col.boxSeq || 0, goalSeq: col.goalSeq || 0 };
   for (const sh of col.custom ?? []) s[`s:${sh.id}`] = sh.seq || 0;
   return s;
 }
@@ -176,6 +178,7 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
   const sheets = new Map<string, { name: string; desc?: string; cards: string[] }>();
   const cards = new Map<string, Map<string, CardDef>>();
   const box: BoxCard[] = [];
+  const goals: MyGoal[] = [];
   for (const [key, v] of Object.entries(liveValues(doc))) {
     const i = key.indexOf(':');
     const kind = key.slice(0, i);
@@ -191,6 +194,8 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
       if (!cards.has(sid)) cards.set(sid, new Map());
       cards.get(sid)!.set(k.slice(dot + 1), v as CardDef);
     } else if (kind === 'box') box.push(v as BoxCard);
+    else if (kind === 'rename') col.rename[k] = v as SheetRename;
+    else if (kind === 'mygoal') goals.push(v as MyGoal);
   }
   const seqs = doc.seqs;
   for (const sid of [...sheets.keys()].sort(byId)) {
@@ -209,6 +214,8 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
   col.box = box.sort((a, b) => byId(a.id, b.id));
   col.customSeq = Math.max(seqs.customSeq ?? 0, ...col.custom.map((s) => seqNum(s.id)));
   col.boxSeq = Math.max(seqs.boxSeq ?? 0, ...col.box.map((b) => seqNum(b.id)));
+  col.myGoals = goals.sort((a, b) => byId(a.id, b.id));
+  col.goalSeq = Math.max(seqs.goalSeq ?? 0, ...col.myGoals.map((g) => seqNum(g.id)));
   return col;
 }
 

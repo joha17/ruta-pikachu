@@ -2,7 +2,7 @@
 // mi foto, y lo propio de la Caja y de las hojas propias.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { act, actWithPrices, applyPhotos, hasPhoto, ops, removePhoto, savePhoto, say } from '../actions';
+import { act, actAll, actWithPrices, applyPhotos, hasPhoto, ops, removePhoto, savePhoto, say } from '../actions';
 import { canon, findCard, isOwned, MAX_CARDS, slots } from '../model/catalog';
 import { keyOf, sheetOfKey } from '../model/keys';
 import { autoUsd, fmtDate, manualOf, money, usd } from '../model/money';
@@ -296,15 +296,22 @@ function CardSheet({ k }: { k: string }) {
                   <>
                     <p class="msg warn">
                       {f.isAlt
-                        ? `¿Quitar la variante «${title}», con su foto y su precio a mano? El bolsillo vuelve a la carta original.`
-                        : `¿Quitar «${title}» de la hoja, con su foto, su precio a mano y sus variantes?`}
+                        ? `¿Quitar la variante «${title}»? El bolsillo vuelve a la carta original.`
+                        : `¿Quitar «${title}» de la hoja, con sus variantes?`}{' '}
+                      Si la tienes marcada, pasa a la caja con su foto y su precio; si no, se borra.
                     </p>
                     <button
                       class="btn danger"
                       onClick={() => {
                         const back = f.isAlt ? keyOf(sh!.id, base.k) : '';
-                        act((cc) => ops.deleteCard(cc, sheets.value, k));
+                        let res: ops.RemoveResult | undefined;
+                        actAll((cc, pp) => {
+                          res = ops.removeCard(cc, pp, sheets.value, k, hasPhoto);
+                          return 'err' in res ? undefined : res.photos;
+                        });
+                        if (res && 'err' in res) return done(res.err, false);
                         openKey.value = back;
+                        if (res && 'moved' in res && res.moved) say(res.moved === 1 ? 'Quitada de la hoja: pasó a la caja.' : `Quitadas de la hoja: ${res.moved} pasaron a la caja.`);
                       }}
                     >
                       Sí, quitarla

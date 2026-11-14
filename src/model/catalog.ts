@@ -19,7 +19,21 @@ export function allSheets(fixed: SheetDef[], col: Collection): SheetDef[] {
     fixed: false,
     cards: s.cards,
   }));
-  return [...fixed].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).concat(own);
+  const hidden = col.hidden ?? {};
+  const rename = col.rename ?? {};
+  return [...fixed]
+    .filter((s) => !hidden[s.id])
+    .map((s) => {
+      const r = rename[s.id];
+      if (!r) return s;
+      // El nombre cambiado manda también sobre el título largo y el corto del menú.
+      const out: SheetDef = { ...s, name: r.name, title: r.name, short: r.name };
+      if (r.desc) out.desc = r.desc;
+      else delete out.desc;
+      return out;
+    })
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .concat(own);
 }
 
 /** Alias de cartas que son la misma carta física: "e:moltres" → "r:moltres". */
