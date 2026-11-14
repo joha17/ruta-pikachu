@@ -2,7 +2,7 @@
 // mi foto, y lo propio de la Caja y de las hojas propias.
 
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { act, actWithPrices, applyPhotos, hasPhoto, ops, removePhoto, savePhoto } from '../actions';
+import { act, actWithPrices, applyPhotos, hasPhoto, ops, removePhoto, savePhoto, say } from '../actions';
 import { canon, findCard, isOwned, MAX_CARDS, slots } from '../model/catalog';
 import { keyOf, sheetOfKey } from '../model/keys';
 import { autoUsd, fmtDate, manualOf, money, usd } from '../model/money';
@@ -457,6 +457,7 @@ function BoxPlace({ b, pending, setPending }: { b: BoxCard; pending: string; set
         ) : (
           <p class="hint">Crea una hoja propia para darle bolsillo.</p>
         )}
+        <VariantPick b={b} />
       </div>
       <div class="cedit">
         <button class="btn quiet" onClick={() => (formView.value = { kind: 'box', bid: b.id })}>
@@ -467,6 +468,77 @@ function BoxPlace({ b, pending, setPending }: { b: BoxCard; pending: string; set
         </button>
       </div>
     </>
+  );
+}
+
+/** Bolsillo de una hoja propia que parece la misma carta (mismo nombre, o uno contiene al otro). */
+function guessSlot(b: BoxCard): { sid: string; k: string } | null {
+  const n = nm0(b.n);
+  let loose: { sid: string; k: string } | null = null;
+  for (const sh of collection.value.custom)
+    for (const c of sh.cards) {
+      const cn = nm0(c.n);
+      if (cn === n) return { sid: sh.id, k: c.k };
+      if (!loose && n && cn && (cn.includes(n) || n.includes(cn))) loose = { sid: sh.id, k: c.k };
+    }
+  return loose;
+}
+
+/** «Hacer variante de…»: la carta de la Caja pasa a un bolsillo de una hoja propia como variante. */
+function VariantPick({ b }: { b: BoxCard }) {
+  const custom = collection.value.custom.filter((s) => s.cards.length);
+  const guess = guessSlot(b);
+  const [sid, setSid] = useState(guess?.sid ?? '');
+  const [slot, setSlot] = useState(guess?.k ?? '');
+  if (!custom.length) return null;
+  const sh = custom.find((s) => s.id === sid) ?? custom[0]!;
+  const sk = sh.cards.find((c) => c.k === slot)?.k ?? sh.cards[0]!.k;
+  const target = sh.cards.find((c) => c.k === sk)!;
+  return (
+    <div class="varpick">
+      <div class="eyebrow">Hacer variante de…</div>
+      <p class="hint">¿Es otra versión de una carta que ya tiene bolsillo? Pásala como variante: comparten bolsillo y cambias entre las dos desde la ficha.</p>
+      <div class="prow">
+        <select
+          aria-label="Hoja de la variante"
+          value={sh.id}
+          onChange={(e) => {
+            setSid(e.currentTarget.value);
+            setSlot('');
+          }}
+        >
+          {custom.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+        <select aria-label="Bolsillo de la variante" value={sk} onChange={(e) => setSlot(e.currentTarget.value)}>
+          {sh.cards.map((c, i) => (
+            <option key={c.k} value={c.k}>
+              {i + 1}. {c.n}
+              {c.num ? ` · ${c.num}` : ''}
+            </option>
+          ))}
+        </select>
+        <button
+          class="btn"
+          onClick={() => {
+            let r: ReturnType<typeof ops.boxToVariant> = null;
+            actWithPrices((cc, pp) => {
+              r = ops.boxToVariant(cc, pp, b.id, sh.id, sk);
+            });
+            const res = r as ReturnType<typeof ops.boxToVariant>;
+            if (!res) return;
+            void applyPhotos(res.photos);
+            openKey.value = res.key;
+            say(`Ahora es variante de ${target.n} en «${sh.name}».`);
+          }}
+        >
+          Hacer variante
+        </button>
+      </div>
+    </div>
   );
 }
 

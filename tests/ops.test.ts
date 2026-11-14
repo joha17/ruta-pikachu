@@ -85,6 +85,37 @@ describe('Caja', () => {
   });
 });
 
+describe('caja → variante', () => {
+  it('pasa la carta como variante de un bolsillo con su precio, historial y foto', () => {
+    const col = emptyCollection();
+    const pr = emptyPrices();
+    const sh = ops.createSheet(col, 'Hoja de N')!;
+    ops.addCard(col, sh.id, { n: "N's Reshiram", tcg: 'sv09-167' });
+    col.owned['u:s1.c1'] = true;
+    const b = ops.addBox(col, { n: "N's Reshiram", num: '154/217', tcg: 'me02.5-154', lang: 'en' })!;
+    col.manual['b:b1'] = { v: 0.5, d: '2026-11-14' };
+    pr.usd['b:b1'] = 0.2;
+    pr.hist['2026-11-13'] = { 'b:b1': 0.2 };
+    const r = ops.boxToVariant(col, pr, b.id, sh.id, 'c1')!;
+    expect(r).toEqual({ key: 'u:s1.c2', photos: { move: [['b:b1', 'u:s1.c2']] } });
+    expect(col.box).toEqual([]);
+    expect(col.custom[0].cards).toHaveLength(1);
+    expect(col.custom[0].cards[0].alts).toEqual([{ k: 'c2', n: "N's Reshiram", num: '154/217', tcg: 'me02.5-154', lang: 'en' }]);
+    expect(col.owned).toEqual({ 'u:s1.c1': true, 'u:s1.c2': true });
+    expect(col.variant).toEqual({}); // el bolsillo sigue mostrando la carta de antes
+    expect(col.manual).toEqual({ 'u:s1.c2': { v: 0.5, d: '2026-11-14' } });
+    expect(pr.usd['u:s1.c2']).toBe(0.2);
+    expect(pr.hist['2026-11-13']).toEqual({ 'u:s1.c2': 0.2 });
+  });
+  it('no hace nada si el bolsillo no existe', () => {
+    const col = emptyCollection();
+    const sh = ops.createSheet(col, 'H')!;
+    ops.addBox(col, { n: 'X' });
+    expect(ops.boxToVariant(col, emptyPrices(), 'b1', sh.id, 'c9')).toBeNull();
+    expect(col.box).toHaveLength(1);
+  });
+});
+
 describe('hojas propias', () => {
   it('crear, añadir cartas y variantes, mover, quitar y borrar', () => {
     const col = emptyCollection();

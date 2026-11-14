@@ -125,15 +125,37 @@ export function moveBoxToSheet(
   id: string,
   sid: string,
 ): { key: string; photos: PhotoChanges } | null {
+  return boxInto(col, prices, id, sid);
+}
+
+/**
+ * Pasa una carta de la Caja a un bolsillo de una hoja propia como variante (queda marcada como
+ * mía; el bolsillo sigue mostrando lo que mostraba). Lleva su foto, su precio a mano y su historial.
+ */
+export function boxToVariant(
+  col: Collection,
+  prices: PriceBook,
+  id: string,
+  sid: string,
+  slotK: string,
+): { key: string; photos: PhotoChanges } | null {
+  return boxInto(col, prices, id, sid, slotK);
+}
+
+function boxInto(col: Collection, prices: PriceBook, id: string, sid: string, altOf?: string): { key: string; photos: PhotoChanges } | null {
   const b = col.box.find((x) => x.id === id);
-  const sh = col.custom.find((s) => s.id === sid);
-  if (!b || !sh || sh.cards.length >= MAX_CARDS) return null;
+  const sh = customOf(col, sid);
+  if (!b || !sh) return null;
+  const slot = altOf ? sh.cards.find((c) => c.k === altOf) : undefined;
+  if (altOf ? !slot : sh.cards.length >= MAX_CARDS) return null;
   sh.seq = (sh.seq || 0) + 1;
-  const nc: CardDef = { k: newId('c', sh.seq), ...pickFields<CardDef>(b, ['n', 'num', 'set', 'rar', 'tcg', 'url']) } as CardDef;
-  sh.cards.push(nc);
+  const nc: CardDef = { k: newId('c', sh.seq), ...pickFields<CardDef>(b, ['n', 'num', 'set', 'rar', 'tcg', 'url', 'lang', 'graded']) } as CardDef;
+  if (slot) slot.alts = [...(slot.alts ?? []), nc];
+  else sh.cards.push(nc);
   const from = `b:${id}`;
-  const to = keyOf(`u:${sid}`, nc.k);
+  const to = keyOf(`u:${sh.id}`, nc.k);
   col.owned[to] = true;
+  delete col.wish[to];
   if (col.manual[from]) {
     col.manual[to] = col.manual[from];
     delete col.manual[from];

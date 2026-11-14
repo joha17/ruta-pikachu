@@ -11,7 +11,7 @@ import * as store from '../db';
 import type { SyncState } from '../db';
 import { setIdTag, today } from '../model/keys';
 import { afterChange, collection, flush, reloadPhotos } from '../store';
-import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, PHOTO_PREFIX, revoke, signIn, type DriveFile } from './drive';
+import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, PHOTO_PREFIX, signIn, type DriveFile } from './drive';
 import {
   baseline,
   explode,
@@ -194,17 +194,18 @@ export async function syncNowFromTap(): Promise<void> {
   await syncNow();
 }
 
-/** «Desconectar»: deja de sincronizar en este aparato. Lo de Drive y lo de aquí se quedan. */
+/**
+ * «Desconectar»: deja de sincronizar en este aparato. Lo de Drive y lo de aquí se quedan.
+ * No se revoca el permiso en Google: eso desconectaría también a los demás aparatos.
+ */
 export async function disconnect(): Promise<void> {
   await queue;
-  const tok = state?.token?.access;
   stopSync();
   state = null;
   await store.clearSync();
   setIdTag('');
   syncLast.value = '';
   setStatus('off');
-  if (tok) await revoke(tok);
 }
 
 /** Deja de escuchar cambios y relojes (al desconectar, y en las pruebas). */

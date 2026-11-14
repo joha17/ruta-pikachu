@@ -130,3 +130,7 @@ dialog.sheet[open]{animation:none}
 .sugg-opt b{display:block;font-size:14.5px}
 .sugg-opt small{display:block;font-size:12.5px;color:var(--muted);font-family:var(--f-mono)}
 .sugg-msg{margin:0;padding:10px;font-size:13.5px;color:var(--muted)}
+
+/* Caja → variante de un bolsillo */
+.varpick{display:grid;gap:6px;border-top:1px dashed var(--line);padding-top:10px;margin-top:4px}
+.varpick .hint{margin:0}
