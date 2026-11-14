@@ -5,6 +5,7 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { FIXED_SHEETS } from '../data';
+import { boxDupes, dealText, type Deal } from '../model/box';
 import { haveAndMissing, isOwned, MAX_BOX, MAX_CARDS, MAX_SHEETS, POCKETS, sheetCount, slots, type Slot } from '../model/catalog';
 import { fmtDate, money, sumKeys } from '../model/money';
 import { today } from '../model/keys';
@@ -370,14 +371,32 @@ function SheetSection({ sh }: { sh: SheetDef }) {
   );
 }
 
+const boxFilter = signal<'all' | 'dupe' | Deal>('all');
+const boxCopied = signal('');
+
 function BoxSection() {
   const col = collection.value;
-  const B = col.box;
+  const dupes = boxDupes(sheets.value, col, alias.value);
+  const nDupe = Object.keys(dupes).length;
+  const nTrade = col.box.filter((b) => b.deal === 'trade').length;
+  const nSell = col.box.filter((b) => b.deal === 'sell').length;
+  let f = boxFilter.value;
+  if ((f === 'dupe' && !nDupe) || (f === 'trade' && !nTrade) || (f === 'sell' && !nSell)) f = 'all';
+  const B = f === 'all' ? col.box : f === 'dupe' ? col.box.filter((b) => dupes[b.id]) : col.box.filter((b) => b.deal === f);
+  async function copyDeal(d: Deal) {
+    try {
+      await navigator.clipboard.writeText(dealText(col, prices.value, alias.value, d));
+      boxCopied.value = 'Copiada';
+    } catch {
+      boxCopied.value = 'No se pudo copiar';
+    }
+    setTimeout(() => (boxCopied.value = ''), 1800);
+  }
   const val = sumKeys(
     col,
     prices.value,
     alias.value,
-    B.map((b) => `b:${b.id}`),
+    col.box.map((b) => `b:${b.id}`),
   );
   return (
     <section id="s-box" class="sheet-view">
@@ -386,29 +405,58 @@ function BoxSection() {
           <h2>📦 Caja · por acomodar</h2>
           <p>
             <span class="bx">
-              {B.length} {B.length === 1 ? 'carta' : 'cartas'}
+              {col.box.length} {col.box.length === 1 ? 'carta' : 'cartas'}
             </span>{' '}
             · Cartas que ya tienes pero que todavía no tienen bolsillo en el binder. Cuentan en lo que tienes
-            {B.length ? (
+            {col.box.length ? (
               <>
                 {' '}
                 (unos <strong>{money(val.t)}</strong>
                 {val.none ? `, sin contar ${val.none} sin precio` : ''})
               </>
             ) : null}
-            . Toca una para darle bolsillo cuando le encuentres lugar.
+            . Toca una para darle bolsillo, o márcala para cambiar o vender.
           </p>
           <div class="us-tools">
-            <button class="btn" disabled={B.length >= MAX_BOX} onClick={() => (formView.value = { kind: 'box' })}>
+            <button class="btn" disabled={col.box.length >= MAX_BOX} onClick={() => (formView.value = { kind: 'box' })}>
               ＋ Añadir a la caja
             </button>
           </div>
+          {nDupe + nTrade + nSell > 0 && (
+            <div class="box-tools">
+              <div class="chips" role="group" aria-label="Filtrar la caja">
+                <button class="chipf" aria-pressed={f === 'all'} onClick={() => (boxFilter.value = 'all')}>
+                  Todas<small>{col.box.length}</small>
+                </button>
+                {nDupe > 0 && (
+                  <button class="chipf" aria-pressed={f === 'dupe'} onClick={() => (boxFilter.value = 'dupe')}>
+                    Repetidas<small>{nDupe}</small>
+                  </button>
+                )}
+                {nTrade > 0 && (
+                  <button class="chipf" aria-pressed={f === 'trade'} onClick={() => (boxFilter.value = 'trade')}>
+                    Para cambiar<small>{nTrade}</small>
+                  </button>
+                )}
+                {nSell > 0 && (
+                  <button class="chipf" aria-pressed={f === 'sell'} onClick={() => (boxFilter.value = 'sell')}>
+                    Para vender<small>{nSell}</small>
+                  </button>
+                )}
+              </div>
+              {(f === 'trade' || f === 'sell') && (
+                <button class="btn sm" onClick={() => copyDeal(f as Deal)}>
+                  {boxCopied.value || 'Copiar esta lista'}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {B.length ? (
         <div class="boxgrid">
           {B.map((b) => (
-            <Pocket key={b.id} k={`b:${b.id}`} card={b} theme="bx" onPick={(k) => (openKey.value = k)} />
+            <Pocket key={b.id} k={`b:${b.id}`} card={b} theme="bx" dupe={!!dupes[b.id]} onPick={(k) => (openKey.value = k)} />
           ))}
         </div>
       ) : (

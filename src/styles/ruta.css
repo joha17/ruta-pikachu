@@ -314,3 +314,10 @@ dialog.sheet::backdrop{background:var(--backdrop)}
 .boxempty{padding:18px;border-radius:12px;background:var(--box);border:1.5px dashed var(--box-line);color:var(--muted);font-size:14px;margin:0;max-width:980px}
 .boxplace{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
 .boxplace select{font:500 14px var(--f-body);padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);max-width:100%;min-width:0;flex:1 1 180px}
+.pocket .vtag.deal{left:6px;right:auto}
+.pocket .vtag.trade{background:var(--ok);color:#fff}
+.pocket .vtag.sell{background:var(--yellow);color:var(--yellow-ink)}
+.pocket .vtag.dupe{background:var(--scrim);color:var(--on-scrim)}
+.dealpick{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:10px}
+.box-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 12px}
+.pocket .mid.deal-trade,.pocket .mid.deal-sell,.pocket .mid.deal-dupe{font-weight:800}

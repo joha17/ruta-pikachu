@@ -6,6 +6,7 @@ import { act, actAll, actWithPrices, applyPhotos, hasPhoto, ops, removePhoto, sa
 import { canon, findCard, isOwned, MAX_CARDS, slots } from '../model/catalog';
 import { keyOf, sheetOfKey } from '../model/keys';
 import { autoUsd, fmtDate, manualOf, money, usd } from '../model/money';
+import { boxDupes, boxMatchIn, DEAL_LABEL, nm0, setDeal, type Deal } from '../model/box';
 import { cardTitle } from '../model/shop';
 import { lastPriceDate } from '../model/trend';
 import type { BoxCard, CardDef } from '../model/types';
@@ -245,6 +246,8 @@ function CardSheet({ k }: { k: string }) {
           </div>
         )}
 
+        {isBox && <DealPick b={f.box!} />}
+
         <details class="more-opts">
           <summary>
             {isBox
@@ -391,38 +394,34 @@ function CardSheet({ k }: { k: string }) {
   );
 }
 
-/** Normaliza un nombre o número para comparar. */
-function nm0(s?: string) {
-  return String(s ?? '')
-    .toLowerCase()
-    .replace(/[’`]/g, "'")
-    .replace(/[^a-z0-9' ]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-function numHead(s?: string) {
-  const m = /^([A-Z]*)0*(\d+)/.exec(
-    String(s ?? '')
-      .toUpperCase()
-      .replace(/\s+/g, ''),
+/** Caja: ¿me la quedo, la cambio o la vendo? Y si es repetida, lo dice. */
+function DealPick({ b }: { b: BoxCard }) {
+  const dupes = boxDupes(sheets.value, collection.value, alias.value);
+  const d = dupes[b.id];
+  const where = d ? (d.startsWith('b:') ? 'otra igual en la caja' : `la tienes en «${sheets.value.find((s) => s.id === sheetOfKey(d))?.name ?? ''}»`) : '';
+  const opts: Array<[Deal | null, string]> = [
+    [null, 'Me la quedo'],
+    ['trade', DEAL_LABEL.trade],
+    ['sell', DEAL_LABEL.sell],
+  ];
+  return (
+    <div class="dealpick">
+      <div class="eyebrow">¿Qué haces con ella?</div>
+      {d && <p class="msg">Repetida: {where}. Buena para cambiar o vender.</p>}
+      <div class="chips" role="group" aria-label="Qué haces con esta carta">
+        {opts.map(([v, l]) => (
+          <button key={l} class="chipf" aria-pressed={(b.deal ?? null) === v} onClick={() => act((c) => setDeal(c, b.id, v))}>
+            {l}
+          </button>
+        ))}
+      </div>
+    </div>
   );
-  return m ? m[1] + m[2] : '';
 }
 
-/** ¿Hay un bolsillo en alguna hoja para esta carta de la Caja? (por id de TCGdex o por nombre y número). */
+/** ¿Hay un bolsillo en alguna hoja para esta carta de la Caja? */
 export function boxMatch(b: BoxCard): string {
-  const hits: string[] = [];
-  for (const sh of sheets.value)
-    for (const c of sh.cards)
-      for (const o of [c, ...(c.alts ?? [])]) {
-        const k = keyOf(sh.id, o.k);
-        if (b.tcg && o.tcg === b.tcg) return k;
-        const h = numHead(b.num);
-        const n = nm0(b.n);
-        const on = nm0(o.n);
-        if (h && n && numHead(o.num) === h && on && (on.includes(n) || n.includes(on))) hits.push(k);
-      }
-  return hits.length === 1 ? hits[0] : '';
+  return boxMatchIn(sheets.value, b);
 }
 
 function BoxPlace({ b, pending, setPending }: { b: BoxCard; pending: string; setPending: (s: string) => void }) {
