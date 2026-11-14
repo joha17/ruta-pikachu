@@ -185,9 +185,6 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
 .info-btn:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
 .sum-info{display:grid;gap:4px;max-width:62ch}
 .sum-info p{margin:0;font-size:13.5px;color:var(--muted)}
-.pika{display:grid;gap:6px}
-.pika-t{font-size:14px;color:var(--muted)}
-.pika-t strong{color:var(--ink)}
 .sh-stat{margin:4px 0 0;color:var(--muted)}
 .sh-stat strong{color:var(--ink)}
 .sh-desc{display:flex;align-items:baseline;gap:8px;margin-top:8px;max-width:62ch;color:var(--muted);font-size:14px}
