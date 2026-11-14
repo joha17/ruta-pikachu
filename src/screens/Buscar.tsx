@@ -26,6 +26,8 @@ import {
   type ListFilter,
   type BrowseResult,
   loadRarities,
+  loadSetRarities,
+  rarityChoices,
 } from '../scan/browse';
 import type { SetBrief } from '../scan/match';
 import { loadSets, localEntries } from '../scan/search';
@@ -40,6 +42,17 @@ const status = signal<'idle' | 'loading' | 'error' | 'offline'>('idle');
 const selected = signal<BrowseResult | null>(null);
 const setList = signal<SetBrief[]>([]);
 const rarList = signal<string[]>([]);
+/** Rarezas de cada set elegido (undefined = cargando, null = no se pudo saber). */
+const setRars = signal<Record<string, string[] | null | undefined>>({});
+
+/** Pide las rarezas de los sets elegidos que aún no se conocen. */
+function loadRarsFor(ids: string[]) {
+  for (const id of ids) {
+    if (id in setRars.value) continue;
+    setRars.value = { ...setRars.value, [id]: undefined };
+    void loadSetRarities(id).then((r) => (setRars.value = { ...setRars.value, [id]: r }));
+  }
+}
 
 let seq = 0;
 async function run(f: BrowseFilters) {
@@ -180,10 +193,17 @@ function Pick({ k, label, none, opts, find }: { k: ListFilter; label: string; no
 
 function Filtros() {
   const f = filters.value;
-  const rarOpts: Opt[] = rarityOptions(rarList.value).map((r) => ({
+  useEffect(() => loadRarsFor(f.set), [f.set.join('|')]);
+  const perSet = f.set.map((id) => setRars.value[id]);
+  const rarLoading = perSet.some((r) => r === undefined);
+  const rarFromSet = f.set.length > 0 && !rarLoading && perSet.every((r) => r != null);
+  const rarRaw = rarityOptions(rarLoading ? rarList.value : rarityChoices(rarList.value, perSet as Array<string[] | null>, f.rarity));
+  // Los títulos de grupo solo si hay de los dos (en un set viejo no hay «más buscadas»).
+  const twoGroups = rarRaw.some((r) => r.group === 'top') && rarRaw.some((r) => r.group === 'rest');
+  const rarOpts: Opt[] = rarRaw.map((r) => ({
     value: r.value,
     label: rarityLabel(r.value),
-    group: r.group === 'top' ? 'Más buscadas' : 'Todas las demás',
+    group: twoGroups ? (r.group === 'top' ? 'Más buscadas' : 'Todas las demás') : undefined,
   }));
   const setOpts: Opt[] = setOptions(setList.value).map((s) => ({ value: s.id, label: s.name }));
   const any = f.name || f.set.length || f.rarity.length || f.type.length || f.category.length;
@@ -211,7 +231,12 @@ function Filtros() {
         />
       </label>
       <Pick k="set" label="Set" none="Todos los sets" opts={setOpts} find="Buscar set: Destined, 151, Prismatic…" />
-      <Pick k="rarity" label="Rareza" none="Todas" opts={rarOpts} />
+      <Pick
+        k="rarity"
+        label={rarFromSet ? (f.set.length === 1 ? 'Rareza (de este set)' : 'Rareza (de estos sets)') : 'Rareza'}
+        none="Todas"
+        opts={rarOpts}
+      />
       <Chips k="type" label="Tipo" opts={TYPES.map(([value, label]) => ({ value, label }))} />
       <Chips k="category" label="Categoría" opts={CATEGORIES.map(([value, label]) => ({ value, label }))} />
       <p class="hint bf-tip">Puedes elegir varios en cada filtro: salen las cartas que tengan cualquiera de ellos.</p>
