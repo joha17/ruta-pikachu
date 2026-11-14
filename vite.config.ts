@@ -78,7 +78,7 @@ export default defineConfig({
             options: { cacheName: 'lector-ocr', expiration: { maxEntries: 10 } },
           },
           {
-            // Los GIF de la cabecera (public/sprites) no se precargan al instalar: se guardan la primera vez que se ven.
+            // El GIF de la cabecera (public/sprites) no se precarga al instalar: se guarda la primera vez que se ven.
             urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.includes('/sprites/'),
             handler: 'CacheFirst',
             options: { cacheName: 'sprites', expiration: { maxEntries: 20 } },
