@@ -2,7 +2,7 @@
 
 import { useState } from 'preact/hooks';
 import { fmtDate, manualOf, money } from '../model/money';
-import { daysText, histSeries, trendOf, trendText, type Point } from '../model/trend';
+import { changeOf, daysText, histSeries, lastDays, RANGES, spanDays, trendOf, trendText, type Point, type Range } from '../model/trend';
 import { alias, collection, prices } from '../store';
 
 export function TrendMark({ k }: { k: string }) {
@@ -31,14 +31,23 @@ function geometry(s: Point[]) {
   return { mn, mx, pts };
 }
 
+const RANGE_LABEL: Record<Range, string> = { 30: '30 días', 90: '90 días', 365: '1 año' };
+
 export function PriceTrend({ k }: { k: string }) {
   const [hover, setHover] = useState<number | null>(null);
+  const [range, setRange] = useState<Range>(90);
   const col = collection.value;
   const pr = prices.value;
   const al = alias.value;
-  const s = histSeries(pr, al, k);
-  const t = trendOf(col, pr, al, k);
+  const full = histSeries(pr, al, k);
   if (manualOf(col, al, k)) return null;
+  // Solo los rangos con al menos dos precios y que muestran algo distinto: «90 días» si hay más de
+  // 30 días de historial, «1 año» si hay más de 90.
+  const span = spanDays(full);
+  const ranges = RANGES.filter((r, i) => lastDays(full, r).length >= 2 && (i === 0 || span > RANGES[i - 1]!));
+  const cur: Range = ranges.length > 1 ? (ranges.includes(range) ? range : ranges[ranges.length - 1]!) : 365;
+  const s = lastDays(full, cur);
+  const t = s.length >= 2 ? changeOf(s) : null;
   if (s.length < 2)
     return (
       <div class="trendbox">
@@ -51,8 +60,8 @@ export function PriceTrend({ k }: { k: string }) {
   const { mn, mx, pts } = geometry(s);
   const d = pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(' ');
   const lp = pts[pts.length - 1]!;
-  const span = t ? ` en ${daysText(t.days)} (${money(t.from.v)} → ${money(t.to.v)})` : '';
-  const line = t?.dir ? `${t.dir > 0 ? '▲ Subió' : '▼ Bajó'} ${Math.abs(t.pct).toFixed(0)} %${span}` : `Sin cambios importantes${span}`;
+  const when = t ? ` en ${daysText(t.days)} (${money(t.from.v)} → ${money(t.to.v)})` : '';
+  const line = t?.dir ? `${t.dir > 0 ? '▲ Subió' : '▼ Bajó'} ${Math.abs(t.pct).toFixed(0)} %${when}` : `Sin cambios importantes${when}`;
   const hp = hover != null ? pts[hover] : null;
 
   function pick(clientX: number, el: SVGSVGElement) {
@@ -72,7 +81,24 @@ export function PriceTrend({ k }: { k: string }) {
 
   return (
     <div class="trendbox">
-      <div class="eyebrow">Tendencia del precio · {daysText(s.length)}</div>
+      <div class="eyebrow">Tendencia del precio</div>
+      {ranges.length > 1 && (
+        <div class="chips trange" role="group" aria-label="Rango de la gráfica">
+          {ranges.map((r) => (
+            <button
+              key={r}
+              class="chipf"
+              aria-pressed={cur === r}
+              onClick={() => {
+                setHover(null);
+                setRange(r);
+              }}
+            >
+              {RANGE_LABEL[r]}
+            </button>
+          ))}
+        </div>
+      )}
       <div class="tline">{line}</div>
       <svg
         class="spark"

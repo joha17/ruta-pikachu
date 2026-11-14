@@ -6,6 +6,7 @@
 //   o cuando tocas «Actualizar precios», y nunca dos veces a la vez.
 
 import { signal } from '@preact/signals';
+import { checkAlerts } from './alerts';
 import { savePrices } from './db';
 import { allKeys, canon, findCard } from './model/catalog';
 import { today } from './model/keys';
@@ -74,6 +75,7 @@ export async function refreshPrices(): Promise<void> {
     recordDay(p, day, results);
     prices.value = p;
     await savePrices(p);
+    await checkAlerts();
   }
   run.running = false;
   priceRun.value = { ...run };
