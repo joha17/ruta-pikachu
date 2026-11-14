@@ -9,8 +9,9 @@
 import { computed, signal } from '@preact/signals';
 import * as store from '../db';
 import type { SyncState } from '../db';
+import { buildCopy, copyDay, copyName, COPY_PREFIX, parseCopy, planCopies, type DailyCopy } from '../model/copies';
 import { setIdTag, today } from '../model/keys';
-import { afterChange, collection, flush, reloadPhotos } from '../store';
+import { afterChange, collection, flush, reloadPhotos, update } from '../store';
 import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, PHOTO_PREFIX, signIn, type DriveFile } from './drive';
 import {
   baseline,
@@ -305,6 +306,8 @@ async function runSync(): Promise<void> {
       if (now - Date.parse(f.createdTime ?? '') > ORPHAN_MS) await drive.remove(f.id);
     }
 
+    await dailyCopy(drive, files);
+
     state.last = new Date().toISOString();
     syncLast.value = state.last;
     await save();
@@ -318,4 +321,72 @@ async function runSync(): Promise<void> {
     } else if (e instanceof DriveError && e.offline) setStatus('offline');
     else setStatus('error', msgOf(e));
   }
+}
+
+// ---- Copias diarias ----
+
+/** Copias que hay en Drive, de la más nueva a la más vieja. */
+export const driveCopies = signal<Array<{ id: string; day: string }>>([]);
+
+function noteCopies(files: DriveFile[]): void {
+  driveCopies.value = files
+    .filter((f) => copyDay(f.name))
+    .map((f) => ({ id: f.id, day: copyDay(f.name) }))
+    .sort((a, b) => b.day.localeCompare(a.day));
+}
+
+/**
+ * Después de sincronizar: si hoy no hay copia, guarda una con la colección ya combinada y borra
+ * las que pasen de 7. Si falla, no detiene la sincronización (se intenta la próxima vez).
+ */
+async function dailyCopy(drive: Drive, files: DriveFile[]): Promise<void> {
+  const copies = files.filter((f) => f.name.startsWith(COPY_PREFIX));
+  noteCopies(copies);
+  try {
+    const plan = planCopies(
+      copies.map((f) => f.name),
+      today(),
+    );
+    const out = copies.filter((f) => !plan.drop.includes(f.name));
+    if (plan.make) {
+      const body = new Blob([JSON.stringify(buildCopy(collection.value, new Date()))], { type: 'application/json' });
+      const id = await drive.create(copyName(today()), body);
+      out.push({ id, name: copyName(today()) });
+    }
+    for (const f of copies) if (plan.drop.includes(f.name)) await drive.remove(f.id);
+    noteCopies(out);
+  } catch {
+    /* sin copia hoy: se intenta en la próxima sincronización */
+  }
+}
+
+/** Lista las copias de Drive (para la pantalla Respaldo). */
+export async function refreshCopies(): Promise<void> {
+  if (!state?.on || !tokenOk() || !navigator.onLine) return;
+  try {
+    const files = await new Drive(state.token!.access).list();
+    noteCopies(files.filter((f) => f.name.startsWith(COPY_PREFIX)));
+  } catch {
+    /* se queda la lista que había */
+  }
+}
+
+/** Baja una copia de Drive para ver qué tiene antes de restaurarla. */
+export async function readCopy(id: string): Promise<DailyCopy> {
+  if (!state?.on || !tokenOk()) throw new Error('Toca «Sincronizar» para volver a entrar a Google Drive.');
+  const text = await (await new Drive(state.token!.access).read(id)).text();
+  return parseCopy(text);
+}
+
+/**
+ * Vuelve la colección a como estaba en esa copia. Las fotos y los precios de este aparato se quedan.
+ * Cuenta como un cambio nuevo, así que la sincronización lo lleva a los demás aparatos.
+ */
+export async function restoreCopy(copy: DailyCopy): Promise<void> {
+  update((c) => {
+    const next = copy.collection;
+    for (const k of Object.keys(c) as Array<keyof typeof c>) delete c[k];
+    Object.assign(c, structuredClone(next));
+  }, 0);
+  await flush();
 }
