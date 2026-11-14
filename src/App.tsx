@@ -3,6 +3,8 @@ import { useRegisterSW } from 'virtual:pwa-register/preact';
 import { backupDue } from './model/backup';
 import { isEmpty, ready, saveState, settings } from './store';
 import { go, route } from './ui/router';
+import { Compartida } from './screens/Compartida';
+import { ShareDialog } from './ui/Share';
 import './ui/theme';
 import { toast } from './actions';
 import { Coleccion } from './screens/Coleccion';
@@ -101,30 +103,18 @@ function UpdateBanner() {
   );
 }
 
-/** GIF de la cabecera, junto al logo (public/sprites). En pantallas angostas solo se ve Pikachu. */
-const SPRITES: Array<[file: string, name: string]> = [
-  ['pikachurun', 'Pikachu'],
-  ['gengar', 'Gengar'],
-  ['chandelure', 'Chandelure'],
-  ['duskull', 'Duskull'],
-  ['giratina', 'Giratina'],
-  ['rayquaza', 'Rayquaza'],
-];
-
+/** GIF de Pikachu en la cabecera, junto al logo (public/sprites). */
 function Sprites() {
   return (
     <div class="sprites" aria-hidden="true">
-      {SPRITES.map(([f, name]) => (
-        <img
-          key={f}
-          src={`${import.meta.env.BASE_URL}sprites/${f}.gif`}
-          alt=""
-          title={name}
-          height={32}
-          decoding="async"
-          onError={(e) => (e.currentTarget.style.display = 'none')}
-        />
-      ))}
+      <img
+        src={`${import.meta.env.BASE_URL}sprites/pikachurun.gif`}
+        alt=""
+        title="Pikachu"
+        height={32}
+        decoding="async"
+        onError={(e) => (e.currentTarget.style.display = 'none')}
+      />
     </div>
   );
 }
@@ -168,6 +158,8 @@ export function App() {
           <Compras />
         ) : r === 'metas' ? (
           <Metas />
+        ) : r === 'ver' ? (
+          <Compartida />
         ) : (
           <Coleccion />
         )}
@@ -181,6 +173,7 @@ export function App() {
         ))}
       </nav>
       <FichaDialog />
+      <ShareDialog />
       <Binder />
       {toast.value && (
         <div class={`toast${toast.value.ok ? '' : ' warn'}`} role="status">

@@ -1,6 +1,6 @@
 // Sincronización entre aparatos: la parte pura (sin red ni IndexedDB).
 //
-// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, variante,
+// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, aviso de precio, variante,
 // orden de hoja, hoja propia, carta de hoja propia, carta de la Caja y foto. Cada átomo
 // lleva la hora de su último cambio. Al combinar dos copias gana, átomo por átomo, el cambio
 // más reciente. Un borrado deja una marca (átomo sin valor) para que un aparato
@@ -64,6 +64,7 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   for (const [k, v] of Object.entries(col.variant ?? {})) out[`variant:${k}`] = v;
   for (const [k, v] of Object.entries(col.order ?? {})) out[`order:${k}`] = v;
   for (const [k, v] of Object.entries(col.manual ?? {})) out[`manual:${k}`] = v;
+  for (const [k, v] of Object.entries(col.alerts ?? {})) out[`alert:${k}`] = v;
   for (const sh of col.custom ?? []) {
     const head: Record<string, unknown> = { name: sh.name, cards: sh.cards.map((c) => c.k) };
     if (sh.desc) head.desc = sh.desc;
@@ -187,6 +188,7 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
     else if (kind === 'variant') col.variant[k] = v as string;
     else if (kind === 'order') col.order[k] = v as string[];
     else if (kind === 'manual') col.manual[k] = v as ManualPrice;
+    else if (kind === 'alert') col.alerts[k] = v as number;
     else if (kind === 'sheet') sheets.set(k, v as { name: string; desc?: string; cards: string[] });
     else if (kind === 'card') {
       const dot = k.indexOf('.');

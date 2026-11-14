@@ -1,5 +1,6 @@
 // Un bolsillo de la hoja: imagen (oficial o mía) con etiqueta, o la ficha en texto si no hay imagen.
 
+import { DEAL_LABEL } from '../model/box';
 import { isOwned, type Slot } from '../model/catalog';
 import { money, usd } from '../model/money';
 import { cardTitle } from '../model/shop';
@@ -18,10 +19,12 @@ interface Props {
   /** «Ver completa»: todas como si las tuviera. */
   preview?: boolean;
   picked?: boolean;
+  /** Caja: ya la tengo en una hoja (o es otra copia de una carta de la caja). */
+  dupe?: boolean;
   onPick: (key: string) => void;
 }
 
-export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }: Props) {
+export function Pocket({ k, card, theme, sheet, slot, preview, picked, dupe, onPick }: Props) {
   const c = card as CardDef & BoxCard;
   const isBox = k.startsWith('b:');
   const ownReal = isOwned(alias.value, collection.value, k);
@@ -30,7 +33,14 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
   const art = useArt(k, c.tcg, 'low');
   const title = cardTitle(c);
   const nAlts = slot?.base.alts?.length ?? 0;
-  const vtag = nAlts ? (
+  const deal = isBox ? (card as BoxCard).deal : undefined;
+  const boxTag =
+    deal || dupe ? (
+      <span class={`vtag deal ${deal ?? 'dupe'}`} title={deal ? DEAL_LABEL[deal] : 'Repetida: ya la tienes'}>
+        {deal === 'trade' ? '⇄ Cambio' : deal === 'sell' ? '$ Venta' : 'Repetida'}
+      </span>
+    ) : null;
+  const vtag = isBox ? boxTag : nAlts ? (
     slot!.isAlt ? (
       <span class="vtag alt" title="Estás probando una variante en este bolsillo">
         Variante
@@ -51,10 +61,10 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
   ]
     .filter(Boolean)
     .join(' ');
-  const label = `Abrir ficha de ${title}${isBox ? ', en la caja' : ownReal ? ', la tienes' : ', te falta'}`;
+  const label = `Abrir ficha de ${title}${isBox ? `, en la caja${deal ? `, ${DEAL_LABEL[deal].toLowerCase()}` : dupe ? ', repetida' : ''}` : ownReal ? ', la tienes' : ', te falta'}`;
   const tick = own && !preview ? <span class="tick" aria-hidden="true">✓</span> : null;
   // La carta en gris ya dice que falta y la ✓ que la tienes: el precio solo se muestra en las que faltan.
-  const midText = isBox ? 'En la caja' : preview ? 'En la hoja' : own ? c.mid || 'En tu carpeta' : '';
+  const midText = isBox ? (deal === 'trade' ? '⇄ Para cambiar' : deal === 'sell' ? '$ Para vender' : dupe ? 'Repetida' : 'En la caja') : preview ? 'En la hoja' : own ? c.mid || 'En tu carpeta' : '';
   const showPrice = !own && !isBox;
 
   if (art.src)
@@ -87,7 +97,7 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
   const line = (sheet?.fixed ? c.num : [c.set, c.num].filter(Boolean).join(' · ')) || '';
   return (
     <button class={cls} data-key={k} aria-label={label} onClick={() => onPick(k)}>
-      {vtag}
+      {!isBox && vtag}
       {tick}
       {c.label ? (
         <span class="no">
@@ -100,7 +110,7 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, onPick }:
           {c.n}
         </span>
       )}
-      {midText && <span class="mid">{midText}</span>}
+      {midText && <span class={`mid${deal || dupe ? ` deal-${deal ?? 'dupe'}` : ''}`}>{midText}</span>}
       <span class="foot">
         {foot && <span>{foot}</span>}
         <span class="set">
