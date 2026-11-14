@@ -6,6 +6,7 @@ import { go, route } from './ui/router';
 import './ui/theme';
 import { toast } from './actions';
 import { Coleccion } from './screens/Coleccion';
+import { Buscar } from './screens/Buscar';
 import { Compras } from './screens/Compras';
 import { Escanear } from './screens/Escanear';
 import { Respaldo } from './screens/Respaldo';
@@ -18,6 +19,7 @@ import { FichaDialog } from './ui/Ficha';
 // Íconos de línea simples (24×24), del color del texto.
 const ICON: Record<string, string> = {
   inicio: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  buscar: 'M10.5 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13zM15.5 15.5 20 20',
   escanear: 'M4 8h3l2-3h6l2 3h3v11H4zM12 10.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
   compras: 'M3 4h2l2.4 11h10.2L20 7H6.2M9 20a1 1 0 1 0 0-.01M17 20a1 1 0 1 0 0-.01',
   metas: 'M5 21V4M5 4h12l-2.5 4L17 12H5',
@@ -35,6 +37,7 @@ function Icon({ name }: { name: string }) {
 
 const NAV: Array<[string, string]> = [
   ['inicio', 'Colección'],
+  ['buscar', 'Buscar'],
   ['escanear', 'Escanear'],
   ['compras', 'Compras'],
   ['metas', 'Metas'],
@@ -128,6 +131,8 @@ export function App() {
       <main class="wrap">
         {r === 'respaldo' || r === 'importar' ? (
           <Respaldo />
+        ) : r === 'buscar' ? (
+          <Buscar />
         ) : r === 'escanear' ? (
           <Escanear />
         ) : r === 'compras' ? (

@@ -16,9 +16,8 @@ import type { Identified } from '../scan/identify';
 import type { Cand } from '../scan/match';
 import { ocrProgress, ocrState, readCard, warmUp } from '../scan/ocr';
 import { candsFromAi, identifyReading, keysFor, localEntries, printedNum } from '../scan/search';
-import { alias, collection, formView, openKey, prices, sheets } from '../store';
-import { savePrices } from '../db';
-import { today } from '../model/keys';
+import { alias, collection, formView, openKey, sheets } from '../store';
+import { seedPrice } from '../collect';
 import { cachedCard, fetchCard, imageUrl } from '../tcgdex';
 
 interface Shot {
@@ -289,17 +288,6 @@ function preFromAi(r: AiResult): Record<string, string> & { n: string } {
   if (a.graded) pre.graded = a.graded;
   if (a.tcg) pre.tcg = a.tcg;
   return pre;
-}
-
-/** La carta nueva entra con el precio que ya trajo TCGdex (sin esperar a la actualización diaria). */
-function seedPrice(key: string, tcgId: string) {
-  const v = cachedCard(tcgId)?.usd;
-  if (v == null) return;
-  const p = structuredClone(prices.value);
-  p.usd[key] = v;
-  (p.hist[today()] ??= {})[key] = v;
-  prices.value = p;
-  void savePrices(p);
 }
 
 async function keepPhoto(shot: Shot, key: string) {
