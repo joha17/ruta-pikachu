@@ -49,7 +49,10 @@ describe('migración (datos de ejemplo)', () => {
 });
 
 const REF = resolve(__dirname, '../../referencia/ruta-pikachu-artefacto.html');
-describe.skipIf(!existsSync(REF))('migración (copia real del Artifact)', () => {
+// La copia real del Artifact vive fuera del repo (datos personales): sin ella, esta parte no corre.
+// (Con skipIf el cuerpo del describe se ejecuta igual al recolectar, y leería un archivo que no existe.)
+(existsSync(REF) ? describe : describe.skip)('migración (copia real del Artifact)', () => {
+  if (!existsSync(REF)) return void it('necesita referencia/ruta-pikachu-artefacto.html', () => undefined);
   const { state, prices } = parseArtifactHtml(readFileSync(REF, 'utf8'));
   const r = migrate(FIXED_SHEETS, state, prices);
   const sheets = allSheets(FIXED_SHEETS, r.collection);
