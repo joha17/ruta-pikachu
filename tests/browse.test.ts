@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { browse, buildQuery, canSearch, NO_FILTERS, rarityLabel, rarityOptions, setOptions, toResults } from '../src/scan/browse';
+import {
+  browse,
+  buildQuery,
+  canSearch,
+  NO_FILTERS,
+  rarityLabel,
+  rarityOptions,
+  setOptions,
+  toggleValue,
+  toResults,
+} from '../src/scan/browse';
 import type { Brief, SetBrief } from '../src/scan/match';
 
 // Orden de TCGdex: de viejo a nuevo.
@@ -11,21 +21,42 @@ const SETS: SetBrief[] = [
 ];
 
 describe('pestaña Buscar', () => {
-  it('arma la consulta con igual exacto para set, rareza y categoría', () => {
-    expect(buildQuery({ ...NO_FILTERS, rarity: 'Illustration rare', type: 'Fire' })).toBe(
-      'en/cards?rarity=eq%3AIllustration%20rare&types=Fire',
+  it('arma la consulta con igual exacto para cada filtro', () => {
+    expect(buildQuery({ ...NO_FILTERS, rarity: ['Illustration rare'], type: ['Fire'] })).toBe(
+      'en/cards?rarity=eq%3AIllustration%20rare&types=eq%3AFire',
     );
-    expect(buildQuery({ name: '  Mega  Absol ', set: 'sv10', rarity: '', type: '', category: 'Trainer' })).toBe(
+    expect(buildQuery({ name: '  Mega  Absol ', set: ['sv10'], rarity: [], type: [], category: ['Trainer'] })).toBe(
       'en/cards?name=Mega%20Absol&set.id=eq%3Asv10&category=eq%3ATrainer',
     );
   });
 
+  it('varios valores en un filtro: «eq:a|b», ordenados y sin repetir', () => {
+    const f = {
+      ...NO_FILTERS,
+      rarity: ['Special illustration rare', 'Illustration rare', 'Illustration rare'],
+      set: ['sv10', 'sv09'],
+    };
+    expect(buildQuery(f)).toBe(
+      'en/cards?set.id=eq%3Asv09%7Csv10&rarity=eq%3AIllustration%20rare%7CSpecial%20illustration%20rare',
+    );
+    // El mismo filtro elegido en otro orden usa la misma consulta.
+    expect(buildQuery({ ...f, set: ['sv09', 'sv10'] })).toBe(buildQuery(f));
+  });
+
+  it('toggleValue pone y quita sin tocar el original', () => {
+    const a = toggleValue(NO_FILTERS, 'type', 'Fire');
+    const b = toggleValue(a, 'type', 'Water');
+    expect(b.type).toEqual(['Fire', 'Water']);
+    expect(toggleValue(b, 'type', 'Fire').type).toEqual(['Water']);
+    expect(NO_FILTERS.type).toEqual([]);
+  });
+
   it('pide algo que acote: solo la categoría no basta', () => {
     expect(canSearch(NO_FILTERS)).toBe(false);
-    expect(canSearch({ ...NO_FILTERS, category: 'Pokemon' })).toBe(false);
+    expect(canSearch({ ...NO_FILTERS, category: ['Pokemon', 'Trainer'] })).toBe(false);
     expect(canSearch({ ...NO_FILTERS, name: 'ab' })).toBe(false);
     expect(canSearch({ ...NO_FILTERS, name: 'abs' })).toBe(true);
-    expect(canSearch({ ...NO_FILTERS, type: 'Fire' })).toBe(true);
+    expect(canSearch({ ...NO_FILTERS, type: ['Fire'] })).toBe(true);
   });
 
   it('quita TCG Pocket y ordena: sets nuevos primero, luego por número', () => {
@@ -73,7 +104,7 @@ describe('pestaña Buscar', () => {
       calls.push(p);
       return [{ id: 'sv10-229', localId: '229', name: "Team Rocket's Moltres ex" }];
     };
-    const f = { ...NO_FILTERS, set: 'sv10', rarity: 'Special illustration rare' };
+    const f = { ...NO_FILTERS, set: ['sv10'], rarity: ['Special illustration rare'] };
     const a = await browse(f, SETS, get);
     const b = await browse({ ...f }, SETS, get);
     expect(a).toHaveLength(1);

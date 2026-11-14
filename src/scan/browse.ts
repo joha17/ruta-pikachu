@@ -5,19 +5,28 @@ import { getJson } from '../tcgdex';
 import { isPocket, setIdOf, type Brief, type SetBrief } from './match';
 import { cleanQuery } from './names';
 
+/** Cada filtro admite varios valores (se busca uno u otro); vacío = todos. */
 export interface BrowseFilters {
   name: string;
-  /** ID del set en TCGdex ("sv10"), o ''. */
-  set: string;
-  /** Rareza tal como la escribe TCGdex ("Illustration rare"), o ''. */
-  rarity: string;
-  /** Tipo en inglés ("Fire"), o ''. */
-  type: string;
-  /** "Pokemon" | "Trainer" | "Energy" | ''. */
-  category: string;
+  /** IDs de set en TCGdex ("sv10"). */
+  set: string[];
+  /** Rarezas tal como las escribe TCGdex ("Illustration rare"). */
+  rarity: string[];
+  /** Tipos en inglés ("Fire"). */
+  type: string[];
+  /** "Pokemon" | "Trainer" | "Energy". */
+  category: string[];
 }
 
-export const NO_FILTERS: BrowseFilters = { name: '', set: '', rarity: '', type: '', category: '' };
+export type ListFilter = 'set' | 'rarity' | 'type' | 'category';
+
+export const NO_FILTERS: BrowseFilters = { name: '', set: [], rarity: [], type: [], category: [] };
+
+/** Pone o quita un valor de un filtro (sin tocar el original). */
+export function toggleValue(f: BrowseFilters, k: ListFilter, v: string): BrowseFilters {
+  const cur = f[k];
+  return { ...f, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] };
+}
 
 export interface BrowseResult {
   id: string;
@@ -99,19 +108,27 @@ export function setOptions(sets: SetBrief[]): SetBrief[] {
 
 /** Hace falta algo que acote: nombre, set, rareza o tipo (solo «Pokémon» traería miles). */
 export function canSearch(f: BrowseFilters): boolean {
-  return !!(cleanQuery(f.name) || f.set || f.rarity || f.type);
+  return !!(cleanQuery(f.name) || f.set.length || f.rarity.length || f.type.length);
 }
 
-/** Ruta de la API para estos filtros. `eq:` = igual exacto (si no, TCGdex busca «contiene»). */
+/**
+ * Ruta de la API para estos filtros. `eq:a|b` = igual a «a» o a «b» (sin `eq:`, TCGdex busca
+ * «contiene» y «Illustration rare» traería también las «Special illustration rare»).
+ * Los valores van ordenados para que la misma elección use siempre la misma ruta (y la memoria).
+ */
 export function buildQuery(f: BrowseFilters): string {
   const q: string[] = [];
   const add = (k: string, v: string) => q.push(`${k}=${encodeURIComponent(v)}`);
+  const any = (k: string, vals: string[]) => {
+    const v = [...new Set(vals.filter((x) => x && !x.includes('|')))].sort();
+    if (v.length) add(k, `eq:${v.join('|')}`);
+  };
   const name = cleanQuery(f.name);
   if (name) add('name', name);
-  if (f.set) add('set.id', `eq:${f.set}`);
-  if (f.rarity) add('rarity', `eq:${f.rarity}`);
-  if (f.type) add('types', f.type);
-  if (f.category) add('category', `eq:${f.category}`);
+  any('set.id', f.set);
+  any('rarity', f.rarity);
+  any('types', f.type);
+  any('category', f.category);
   return `en/cards?${q.join('&')}`;
 }
 

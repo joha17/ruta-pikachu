@@ -1,6 +1,7 @@
 // «Buscar»: todas las cartas de TCGdex con filtros, y guardarlas en la Caja o en una hoja.
 
 import { signal } from '@preact/signals';
+import { Fragment } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
@@ -17,8 +18,10 @@ import {
   rarityLabel,
   rarityOptions,
   setOptions,
+  toggleValue,
   TYPES,
   type BrowseFilters,
+  type ListFilter,
   type BrowseResult,
   loadRarities,
 } from '../scan/browse';
@@ -76,13 +79,112 @@ function tcgIndex(): Map<string, string[]> {
   return m;
 }
 
+type Opt = { value: string; label: string; group?: string };
+
+/** Pone o quita un valor y busca después de una pausa corta (por si eliges varios seguidos). */
+function toggle(k: ListFilter, v: string) {
+  filters.value = toggleValue(filters.value, k, v);
+  clearTimeout(timer);
+  timer = setTimeout(() => void run(filters.value), 500);
+}
+
+function clearOne(k: ListFilter) {
+  change({ [k]: [] }, 300);
+}
+
+/** «Todas», «Illustration Rare» o «Illustration Rare y 2 más». */
+function summary(vals: string[], opts: Opt[], none: string): string {
+  if (!vals.length) return none;
+  const name = (v: string) => opts.find((o) => o.value === v)?.label ?? v;
+  return vals.length === 1 ? name(vals[0]!) : `${name(vals[0]!)} y ${vals.length - 1} más`;
+}
+
+/** Pocas opciones (tipo, categoría): botones que se prenden y apagan. */
+function Chips({ k, label, opts }: { k: ListFilter; label: string; opts: Opt[] }) {
+  const vals = filters.value[k];
+  return (
+    <fieldset class="bf-chips">
+      <legend>
+        {label}
+        {vals.length > 0 && (
+          <button type="button" class="linkish" onClick={() => clearOne(k)}>
+            quitar
+          </button>
+        )}
+      </legend>
+      <div class="chips">
+        {opts.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            class="chipf"
+            aria-pressed={vals.includes(o.value)}
+            onClick={() => toggle(k, o.value)}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/** Muchas opciones (set, rareza): lista desplegable con casillas; la de sets se puede filtrar. */
+function Pick({ k, label, none, opts, find }: { k: ListFilter; label: string; none: string; opts: Opt[]; find?: string }) {
+  const vals = filters.value[k];
+  const [q, setQ] = useState('');
+  const nq = q.trim().toLowerCase();
+  // Las elegidas arriba; luego el resto, filtrado por lo escrito.
+  const list = nq
+    ? opts.filter((o) => o.label.toLowerCase().includes(nq) || o.value.toLowerCase().includes(nq))
+    : [...opts.filter((o) => vals.includes(o.value)), ...opts.filter((o) => !vals.includes(o.value))];
+  let lastGroup: string | undefined;
+  return (
+    <details class="bf-pick">
+      <summary>
+        <span class="bf-lbl">{label}</span>
+        <span class={`bf-val${vals.length ? ' on' : ''}`}>{summary(vals, opts, none)}</span>
+      </summary>
+      <div class="bf-panel">
+        {find && (
+          <input type="search" value={q} placeholder={find} autocomplete="off" onInput={(e) => setQ(e.currentTarget.value)} />
+        )}
+        <div class="bf-list" role="group" aria-label={label}>
+          {list.map((o) => {
+            const sel = vals.includes(o.value);
+            const head = !nq && !sel && o.group && o.group !== lastGroup ? o.group : '';
+            if (!sel) lastGroup = o.group;
+            return (
+              <Fragment key={o.value}>
+                {head && <div class="bf-group">{head}</div>}
+                <label class="bf-opt">
+                  <input type="checkbox" checked={sel} onChange={() => toggle(k, o.value)} />
+                  <span>{o.label}</span>
+                </label>
+              </Fragment>
+            );
+          })}
+          {!list.length && <p class="hint">Nada con «{q}».</p>}
+        </div>
+        {vals.length > 0 && (
+          <button type="button" class="linkish" onClick={() => clearOne(k)}>
+            Quitar {vals.length === 1 ? 'la elegida' : `las ${vals.length} elegidas`}
+          </button>
+        )}
+      </div>
+    </details>
+  );
+}
+
 function Filtros() {
   const f = filters.value;
-  const rar = rarityOptions(rarList.value);
-  const top = rar.filter((r) => r.group === 'top');
-  const rest = rar.filter((r) => r.group === 'rest');
-  const sets = setOptions(setList.value);
-  const any = f.name || f.set || f.rarity || f.type || f.category;
+  const rarOpts: Opt[] = rarityOptions(rarList.value).map((r) => ({
+    value: r.value,
+    label: rarityLabel(r.value),
+    group: r.group === 'top' ? 'Más buscadas' : 'Todas las demás',
+  }));
+  const setOpts: Opt[] = setOptions(setList.value).map((s) => ({ value: s.id, label: s.name }));
+  const any = f.name || f.set.length || f.rarity.length || f.type.length || f.category.length;
   return (
     <form
       class="panel browse-f"
@@ -106,61 +208,11 @@ function Filtros() {
           onInput={(e) => change({ name: e.currentTarget.value }, 600)}
         />
       </label>
-      <label>
-        <span>Set</span>
-        <select value={f.set} onChange={(e) => change({ set: e.currentTarget.value })}>
-          <option value="">Todos los sets</option>
-          {sets.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Rareza</span>
-        <select value={f.rarity} onChange={(e) => change({ rarity: e.currentTarget.value })}>
-          <option value="">Todas</option>
-          <optgroup label="Más buscadas">
-            {top.map((r) => (
-              <option key={r.value} value={r.value}>
-                {rarityLabel(r.value)}
-              </option>
-            ))}
-          </optgroup>
-          {rest.length > 0 && (
-            <optgroup label="Todas las demás">
-              {rest.map((r) => (
-                <option key={r.value} value={r.value}>
-                  {rarityLabel(r.value)}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-      </label>
-      <label>
-        <span>Tipo</span>
-        <select value={f.type} onChange={(e) => change({ type: e.currentTarget.value })}>
-          <option value="">Todos</option>
-          {TYPES.map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        <span>Categoría</span>
-        <select value={f.category} onChange={(e) => change({ category: e.currentTarget.value })}>
-          <option value="">Todas</option>
-          {CATEGORIES.map(([v, l]) => (
-            <option key={v} value={v}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Pick k="set" label="Set" none="Todos los sets" opts={setOpts} find="Buscar set: Destined, 151, Prismatic…" />
+      <Pick k="rarity" label="Rareza" none="Todas" opts={rarOpts} />
+      <Chips k="type" label="Tipo" opts={TYPES.map(([value, label]) => ({ value, label }))} />
+      <Chips k="category" label="Categoría" opts={CATEGORIES.map(([value, label]) => ({ value, label }))} />
+      <p class="hint bf-tip">Puedes elegir varios en cada filtro: salen las cartas que tengan cualquiera de ellos.</p>
       <div class="bf-acts">
         <button class="btn primary" type="submit" disabled={!canSearch(f) || status.value === 'loading'}>
           Buscar
@@ -177,7 +229,7 @@ function Filtros() {
               status.value = 'idle';
             }}
           >
-            Limpiar
+            Limpiar todo
           </button>
         )}
       </div>
@@ -196,7 +248,7 @@ function Resultados() {
     if (st === 'loading') return <p class="msg">Buscando…</p>;
     return (
       <p class="hint">
-        {f.category && !canSearch(f)
+        {f.category.length > 0 && !canSearch(f)
           ? 'Elige también un set, una rareza, un tipo o escribe un nombre: solo la categoría trae demasiadas cartas.'
           : 'Elige al menos un filtro o escribe un nombre (3 letras o más). Busca en las cartas en inglés de TCGdex; las de TCG Pocket no salen.'}
       </p>
