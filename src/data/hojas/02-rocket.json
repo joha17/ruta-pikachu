@@ -1,0 +1,167 @@
+{
+ "id": "r",
+ "name": "Team Rocket",
+ "title": "Página del Team Rocket",
+ "theme": "rk",
+ "desc": "Cartas del Team Rocket con sus Pokémon: casi todas de Destined Rivals, más Mimikyu de Ascended Heroes. Tu Moltres ex SIR va en el centro; toca su bolsillo para probar las variantes con Mewtwo ex SIR.",
+ "cards": [
+  {
+   "k": "meowth",
+   "n": "Meowth",
+   "num": "203/182",
+   "set": "Destined Rivals",
+   "rar": "Art Rare",
+   "tcg": "sv10-203",
+   "url": "https://limitlesstcg.com/cards/DRI/203",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Art Rare"
+  },
+  {
+   "k": "wobbuffet",
+   "n": "Wobbuffet",
+   "num": "Promo",
+   "set": "Promo (SVP 203)",
+   "rar": "Illustration Rare (promo)",
+   "tcg": "svp-203",
+   "url": "https://limitlesstcg.com/cards?q=Team+Rocket%27s+Wobbuffet",
+   "note": "Las fuentes no coinciden: parece una promo, no una carta normal del set.",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Illustration Rare (promo)"
+  },
+  {
+   "k": "raticate",
+   "n": "Raticate",
+   "num": "202/182",
+   "set": "Destined Rivals",
+   "rar": "Art Rare",
+   "tcg": "sv10-202",
+   "url": "https://limitlesstcg.com/cards/DRI/202",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Art Rare"
+  },
+  {
+   "k": "murkrow",
+   "n": "Murkrow",
+   "num": "200/182",
+   "set": "Destined Rivals",
+   "rar": "Art Rare",
+   "tcg": "sv10-200",
+   "url": "https://limitlesstcg.com/cards/DRI/200",
+   "note": "La tuya es japonesa. Si quieres la página toda en inglés, busca la 200/182.",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Art Rare"
+  },
+  {
+   "k": "moltres",
+   "n": "Moltres ex",
+   "num": "229/182",
+   "set": "Destined Rivals",
+   "rar": "Special Illustration Rare",
+   "tcg": "sv10-229",
+   "url": "https://limitlesstcg.com/cards/DRI/229",
+   "star": true,
+   "prefix": "Team Rocket's ",
+   "alts": [
+    {
+     "k": "mewtwo231",
+     "n": "Mewtwo ex",
+     "num": "231/182",
+     "set": "Destined Rivals",
+     "rar": "Special Illustration Rare",
+     "tcg": "sv10-231",
+     "url": "https://limitlesstcg.com/cards/DRI/231",
+     "note": "Variante para el centro: Team Rocket's Mewtwo ex SIR de Destined Rivals (ilustrada por Iwamoto05), del mismo set que casi toda la página.",
+     "prefix": "Team Rocket's ",
+     "sub": "Team Rocket's",
+     "foot": "Special Illustration Rare"
+    },
+    {
+     "k": "mewtwo",
+     "n": "Mewtwo ex",
+     "num": "281/217",
+     "set": "Ascended Heroes",
+     "rar": "Special Illustration Rare",
+     "tcg": "me02.5-281",
+     "url": "https://limitlesstcg.com/cards/ASC/281",
+     "note": "Variante para el centro: Team Rocket's Mewtwo ex SIR de Ascended Heroes, ilustrada por Mitsuhiro Arita.",
+     "prefix": "Team Rocket's ",
+     "sub": "Team Rocket's",
+     "foot": "Special Illustration Rare"
+    }
+   ],
+   "sub": "Team Rocket's",
+   "foot": "Special Illustration Rare"
+  },
+  {
+   "k": "weezing",
+   "n": "Weezing",
+   "num": "199/182",
+   "set": "Destined Rivals",
+   "rar": "Art Rare",
+   "tcg": "sv10-199",
+   "url": "https://limitlesstcg.com/cards/DRI/199",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Art Rare"
+  },
+  {
+   "k": "houndoom",
+   "n": "Houndoom",
+   "num": "191/182",
+   "set": "Destined Rivals",
+   "rar": "Art Rare",
+   "tcg": "sv10-191",
+   "url": "https://limitlesstcg.com/cards/DRI/191",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Art Rare"
+  },
+  {
+   "k": "spidops",
+   "n": "Spidops",
+   "num": "187/182",
+   "set": "Destined Rivals",
+   "rar": "Art Rare",
+   "tcg": "sv10-187",
+   "url": "https://limitlesstcg.com/cards/DRI/187",
+   "prefix": "Team Rocket's ",
+   "sub": "Team Rocket's",
+   "foot": "Art Rare"
+  },
+  {
+   "k": "mimikyu",
+   "n": "Mimikyu",
+   "num": "238/217",
+   "set": "Ascended Heroes",
+   "rar": "Illustration Rare",
+   "tcg": "me02.5-238",
+   "url": "https://limitlesstcg.com/cards/ASC/238",
+   "note": "Esta es la Illustration Rare de Ascended Heroes (ilustrada por GOSSAN). Hay otros dos Team Rocket's Mimikyu más sencillos: 097/217 de Ascended Heroes y 087/182 de Destined Rivals.",
+   "prefix": "Team Rocket's ",
+   "alts": [
+    {
+     "k": "orbeetle",
+     "n": "Orbeetle",
+     "num": "198/182",
+     "set": "Destined Rivals",
+     "rar": "Illustration Rare",
+     "tcg": "sv10-198",
+     "url": "https://limitlesstcg.com/cards/DRI/198",
+     "note": "La que tenías antes en este bolsillo (ilustrada por HYOGONOSUKE).",
+     "prefix": "Team Rocket's ",
+     "sub": "Team Rocket's",
+     "foot": "Illustration Rare"
+    }
+   ],
+   "sub": "Team Rocket's",
+   "foot": "Illustration Rare"
+  }
+ ],
+ "order": 1,
+ "short": "Team Rocket",
+ "pageLabel": "Team Rocket"
+}

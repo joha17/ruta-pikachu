@@ -1,0 +1,8 @@
+node_modules
+dist
+dev-dist
+*.local
+# Nunca subir datos personales: paquetes de migración, respaldos ni fotos.
+migracion/
+*.respaldo.json
+ruta-pikachu-respaldo-*.json

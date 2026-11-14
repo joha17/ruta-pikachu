@@ -1,0 +1,112 @@
+/* Estructura de la app (barra superior, pestañas, paneles). Los colores salen de ruta.css. */
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0}
+body{min-height:100dvh;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+.loading{padding:40px 16px;text-align:center;color:var(--muted)}
+.topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:max(8px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left));
+  background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:8px;color:var(--ink);text-decoration:none;font:800 18px var(--f-display);min-width:0}
+.brand img{border-radius:7px;flex:none}
+.brand span{white-space:nowrap}
+.topbar-r{display:flex;align-items:center;gap:6px;min-width:0}
+.topbar-r .chip{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;padding:6px max(12px,env(safe-area-inset-left));border-bottom:1px solid var(--line);background:var(--bg)}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;font:600 14px var(--f-body);color:var(--muted);background:transparent;border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+.tab:hover{color:var(--ink);background:var(--surface)}
+.tab[aria-current="page"]{background:var(--ink);color:var(--bg)}
+.tab:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.wrap{padding-top:20px}
+.empty-start{max-width:620px}
+.empty-start h1{font-size:clamp(28px,6vw,40px)}
+.empty-start p{margin:0;color:var(--muted)}
+.empty-start .btn{justify-self:start}
+.import{display:grid;gap:16px;max-width:760px}
+.import .section-head{margin-bottom:0}
+.import .panel h3{margin:0}
+.import .file{justify-self:start}
+.import .panel>.btn{justify-self:start}
+.import .row{display:flex;gap:8px;flex-wrap:wrap}
+.report{display:grid;gap:10px}
+.report .meta{grid-template-columns:minmax(0,1fr) auto}
+.report .meta dd{text-align:right;font-variant-numeric:tabular-nums}
+.report details summary{cursor:pointer;font-size:14px;color:var(--muted);margin-bottom:6px}
+.problems h3{font-size:15px}
+.problems ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--warn);display:grid;gap:3px}
+.banner{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:8px 16px;background:var(--yellow);color:var(--yellow-ink);font-weight:600;font-size:14px}
+.sheet-block .page{max-width:420px}
+.sheet-block .binder{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),420px))}
+/* Fase 2 */
+.nav{top:calc(58px + env(safe-area-inset-top,0px));margin-top:0}
+section{scroll-margin-top:calc(120px + env(safe-area-inset-top,0px))}
+.toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:60;max-width:min(92vw,520px);
+  background:var(--ink);color:var(--bg);font:600 14px var(--f-body);padding:10px 16px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.toast.warn{background:var(--warn);color:#fff}
+.img-src{margin:-6px 0 0;font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.linkish{font:600 12.5px var(--f-body);color:var(--accent-text);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.linkish:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:3px}
+.sheet-img span{line-height:1.4}
+.pocket.photo img{background:var(--pocket)}
+.bslot img{background:#1B1D24}
+dialog.sheet[open]{animation:none}
+.wrap{grid-template-columns:minmax(0,1fr)}
+.wrap>*{min-width:0}
+.bbot{flex-wrap:nowrap}
+.bbot select{min-width:0;flex:1 1 auto;max-width:none}
+.bpos{white-space:nowrap}
+@media (max-width:420px){.bpos{font-size:12px}}
+/* Fase 3: estado de los precios */
+.pstatus{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:6px 0 0;font-size:13px;color:var(--muted)}
+.pstatus .linkish{font-size:13px}
+.spin{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--ink);border-radius:50%;display:inline-block;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.spin{animation:none}}
+/* Fase 4: escáner */
+.scan-panel{display:grid;gap:12px}
+.scan-result,.burst-detail{display:grid;gap:12px}
+.cam{display:grid;gap:10px}
+.cam-view{position:relative;width:100%;max-width:520px;aspect-ratio:3/4;background:#000;border-radius:14px;overflow:hidden;justify-self:center}
+.cam-view video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.cam-frame{position:absolute;left:50%;top:50%;height:84%;aspect-ratio:63/88;transform:translate(-50%,-50%);border:3px solid var(--yellow);border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.45)}
+.cam-num{position:absolute;left:6%;bottom:3%;font:600 11px var(--f-mono);color:#111;background:var(--yellow);padding:1px 6px;border-radius:4px;opacity:.85}
+.cam-flash{position:absolute;inset:0;background:#fff;opacity:.6}
+.cam-wait{position:absolute;inset:auto 0 45% 0;text-align:center;color:#fff;margin:0}
+.cam-err{display:grid;gap:8px}
+.shutter{min-height:48px;font-size:16px}
+.scan-shot.small{grid-template-columns:64px minmax(0,1fr);align-items:center}
+.scan-shot.small img{width:64px}
+.cand-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px;margin-top:8px}
+.cand{display:grid;gap:4px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font:inherit}
+.cand:hover,.cand:focus-visible{border-color:var(--yellow-deep);outline:none;box-shadow:0 0 0 3px var(--yellow)}
+.cand img,.cand-noimg{width:100%;aspect-ratio:63/88;object-fit:cover;border-radius:6px;background:var(--pocket);display:grid;place-items:center;font-size:12px;text-align:center;padding:4px}
+.cand-cap{display:grid;font-size:12px;line-height:1.25}
+.cand-cap small{color:var(--muted)}
+.scan-manual{display:grid;gap:8px;margin-top:6px}
+.scan-picked{display:grid;gap:10px}
+.burst{margin-top:18px;display:grid;gap:10px}
+.burst-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.burst-list li{border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+.burst-list li.done{opacity:.75}
+.burst-row{display:grid;grid-template-columns:44px minmax(0,1fr);gap:10px;align-items:center;width:100%;padding:8px;background:none;border:0;color:var(--ink);text-align:left;font:inherit;cursor:pointer}
+.burst-row img{width:44px;aspect-ratio:63/88;object-fit:cover;border-radius:5px;background:var(--pocket)}
+.burst-row b{display:block;font-size:14px}
+.burst-row small{color:var(--muted);font-size:12.5px}
+.burst-detail{padding:0 10px 12px}
+.leido summary{cursor:pointer;font-size:12.5px;color:var(--muted)}
+.leido pre{white-space:pre-wrap;word-break:break-word;font:500 12px var(--f-mono);color:var(--muted);background:var(--pocket);padding:8px;border-radius:8px;margin:6px 0 0;max-height:180px;overflow:auto}
+/* Ayuda de Claude (opcional, de pago) */
+.ai-ask{display:grid;gap:4px;margin:4px 0}
+.ai-ask .btn small.cost{font-weight:500;opacity:.8;margin-left:4px}
+.ai-ans{border:1px solid var(--line);border-left:3px solid var(--yellow-deep);border-radius:10px;padding:8px 10px;background:var(--pocket)}
+.ai-ans p{margin:0;font-size:13.5px}
+.ai-ans p+p{margin-top:4px}
+.claude-set{margin-top:18px}
+.claude-set summary{cursor:pointer;font-weight:700}
+.claude-set summary small{font-weight:500;color:var(--muted)}
+.claude-set > p{font-size:13.5px}
+.claude-costs{margin:0 0 8px;padding-left:18px;font-size:13px;display:grid;gap:3px}
+.claude-key{display:grid;gap:8px;margin:8px 0}
+.claude-model{border:0;padding:0;margin:8px 0;display:grid;gap:4px}
+.claude-model legend{font-size:12.5px;color:var(--muted);margin-bottom:2px}

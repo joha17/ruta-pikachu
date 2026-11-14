@@ -1,0 +1,131 @@
+{
+ "id": "m",
+ "name": "Mega Attack Rare",
+ "title": "Hoja de Mega Attack Rare",
+ "theme": "ma",
+ "desc": "Megas con el nombre del ataque en letras japonesas gigantes. En inglés hay 10; aquí van 9, sin Mega Diancie ex (267/217).",
+ "cards": [
+  {
+   "k": "gardevoir",
+   "n": "Mega Gardevoir ex",
+   "num": "MEP 032",
+   "set": "MEP Black Star Promos",
+   "rar": "Mega Attack Rare",
+   "tcg": "mep-032",
+   "url": "https://limitlesstcg.com/cards/MEP/32",
+   "note": "Solo viene en una caja, no en sobres.",
+   "origin": "Promo · Premium Poster Collection de Ascended Heroes",
+   "short": "Gardevoir",
+   "foot": "Promo"
+  },
+  {
+   "k": "dragonite",
+   "n": "Mega Dragonite ex",
+   "num": "271/217",
+   "set": "Ascended Heroes",
+   "rar": "Mega Attack Rare",
+   "tcg": "me02.5-271",
+   "url": "https://limitlesstcg.com/cards/ASC/271",
+   "short": "Dragonite",
+   "foot": "Ascended Heroes"
+  },
+  {
+   "k": "gengar",
+   "n": "Mega Gengar ex",
+   "num": "269/217",
+   "set": "Ascended Heroes",
+   "rar": "Mega Attack Rare",
+   "tcg": "me02.5-269",
+   "url": "https://limitlesstcg.com/cards/ASC/269",
+   "short": "Gengar",
+   "foot": "Ascended Heroes"
+  },
+  {
+   "k": "lucario",
+   "n": "Mega Lucario ex",
+   "num": "MEP 033",
+   "set": "MEP Black Star Promos",
+   "rar": "Mega Attack Rare",
+   "tcg": "mep-033",
+   "url": "https://limitlesstcg.com/cards/MEP/33",
+   "origin": "Promo · Premium Poster Collection de Ascended Heroes",
+   "short": "Lucario",
+   "foot": "Promo"
+  },
+  {
+   "k": "charizardx",
+   "n": "Mega Charizard X ex",
+   "num": "MEP 023",
+   "set": "MEP Black Star Promos",
+   "rar": "Mega Attack Rare",
+   "tcg": "mep-023",
+   "url": "https://limitlesstcg.com/cards/MEP/23",
+   "star": true,
+   "note": "En tu foto no se lee el número; por el estilo es casi seguro la MEP 023.",
+   "origin": "Promo · Ultra-Premium Collection de Mega Charizard X",
+   "short": "Charizard X",
+   "foot": "Promo"
+  },
+  {
+   "k": "froslass",
+   "n": "Mega Froslass ex",
+   "num": "265/217",
+   "set": "Ascended Heroes",
+   "rar": "Mega Attack Rare",
+   "tcg": "me02.5-265",
+   "url": "https://limitlesstcg.com/cards/ASC/265",
+   "short": "Froslass",
+   "foot": "Ascended Heroes"
+  },
+  {
+   "k": "scrafty",
+   "n": "Mega Scrafty ex",
+   "num": "270/217",
+   "set": "Ascended Heroes",
+   "rar": "Mega Attack Rare",
+   "tcg": "me02.5-270",
+   "url": "https://limitlesstcg.com/cards/ASC/270",
+   "alts": [
+    {
+     "k": "diancie",
+     "n": "Mega Diancie ex",
+     "num": "267/217",
+     "set": "Ascended Heroes",
+     "rar": "Mega Attack Rare",
+     "tcg": "me02.5-267",
+     "url": "https://limitlesstcg.com/cards/ASC/267",
+     "note": "La décima Mega Attack Rare en inglés, la que quedó fuera de la hoja.",
+     "short": "Diancie",
+     "foot": "Ascended Heroes"
+    }
+   ],
+   "short": "Scrafty",
+   "foot": "Ascended Heroes"
+  },
+  {
+   "k": "hawlucha",
+   "n": "Mega Hawlucha ex",
+   "num": "268/217",
+   "set": "Ascended Heroes",
+   "rar": "Mega Attack Rare",
+   "tcg": "me02.5-268",
+   "url": "https://limitlesstcg.com/cards/ASC/268",
+   "short": "Hawlucha",
+   "foot": "Ascended Heroes"
+  },
+  {
+   "k": "eelektross",
+   "n": "Mega Eelektross ex",
+   "num": "266/217",
+   "set": "Ascended Heroes",
+   "rar": "Mega Attack Rare",
+   "tcg": "me02.5-266",
+   "url": "https://limitlesstcg.com/cards/ASC/266",
+   "short": "Eelektross",
+   "foot": "Ascended Heroes"
+  }
+ ],
+ "order": 2,
+ "short": "Megas",
+ "pageLabel": "Mega Attack Rare · inglés"
+}

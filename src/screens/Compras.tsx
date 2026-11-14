@@ -1,0 +1,186 @@
+// Lista de compras: todo lo que me falta, con filtro por hoja, orden y prioridades ★.
+
+import { signal } from '@preact/signals';
+import { act, ops } from '../actions';
+import { fmtDate, money } from '../model/money';
+import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } from '../model/shop';
+import { alias, collection, openKey, prices, sheets } from '../store';
+import { TrendMark } from '../ui/Trend';
+
+function readPrefs(): { sort: ShopSort; sheet: string } {
+  try {
+    const p = JSON.parse(localStorage.getItem('ruta-shop') ?? '{}');
+    return {
+      sort: ['price-desc', 'price-asc', 'sheet'].includes(p.sort) ? p.sort : 'price-desc',
+      sheet: typeof p.sheet === 'string' ? p.sheet : 'all',
+    };
+  } catch {
+    return { sort: 'price-desc', sheet: 'all' };
+  }
+}
+const prefs = signal(readPrefs());
+const showAll = signal(false);
+const copied = signal('');
+
+function setPrefs(p: Partial<{ sort: ShopSort; sheet: string }>) {
+  prefs.value = { ...prefs.value, ...p };
+  try {
+    localStorage.setItem('ruta-shop', JSON.stringify(prefs.value));
+  } catch {
+    /* sin almacenamiento */
+  }
+}
+
+function Row({ o, name }: { o: ShopItem; name: string }) {
+  return (
+    <li class={`shop-row${o.star ? ' starred' : ''}`}>
+      <button
+        class="star"
+        aria-pressed={o.star}
+        aria-label={`${o.star ? 'Quitar de prioridad' : 'Marcar como prioridad'}: ${o.n}`}
+        onClick={() => act((c) => void ops.toggleWish(c, alias.value, o.key))}
+      >
+        {o.star ? '★' : '☆'}
+      </button>
+      <button class="shop-open" aria-label={`Abrir ficha de ${o.n}`} onClick={() => (openKey.value = o.key)}>
+        <span class="sn">{o.n}</span>
+        <span class="sm">
+          {name} · {o.num}
+          {o.manual ? ' · precio a mano' : ''}
+        </span>
+      </button>
+      <span class="sp">
+        {money(o.p)}
+        <TrendMark k={o.key} />
+      </span>
+    </li>
+  );
+}
+
+export function Compras() {
+  const all = shopItems(sheets.value, collection.value, prices.value, alias.value);
+  const sheetName = (id: string) => sheets.value.find((s) => s.id === id)?.name ?? '';
+  let { sort, sheet } = prefs.value;
+  if (sheet !== 'all' && !sheetName(sheet)) sheet = 'all';
+  const list = sheet === 'all' ? all : all.filter((o) => o.sheetId === sheet);
+  const sorted = sortShop(list, sort, sheets.value);
+  const stars = sorted.filter((o) => o.star);
+  const rest = sorted.filter((o) => !o.star);
+  const tot = sumShop(list);
+  const st = sumShop(stars);
+  const LIMIT = 12;
+  const shown = showAll.value ? rest : rest.slice(0, LIMIT);
+
+  async function copy() {
+    const txt = shopText(sorted, sheetName, sheet === 'all' ? null : sheetName(sheet), prices.value.date);
+    try {
+      await navigator.clipboard.writeText(txt);
+      copied.value = 'Copiada';
+    } catch {
+      copied.value = 'No se pudo copiar';
+    }
+    setTimeout(() => (copied.value = ''), 1800);
+  }
+
+  return (
+    <section id="s-shop">
+      <div class="section-head">
+        <div>
+          <h2>Lista de compras</h2>
+          <p>
+            Todo lo que te falta de todas las hojas, en un solo lugar. Toca ☆ para marcar las que vas a buscar primero: suben arriba con su
+            propio total. Toca una carta para abrir su ficha.
+          </p>
+        </div>
+        <button class="btn" onClick={copy}>
+          {copied.value || 'Copiar esta lista'}
+        </button>
+      </div>
+      <div class="shop-tools">
+        <div class="chips" role="group" aria-label="Filtrar por hoja">
+          <span class="lbl">Hoja:</span>
+          <button class="chipf" aria-pressed={sheet === 'all'} onClick={() => setPrefs({ sheet: 'all' })}>
+            Todas<small>{all.length}</small>
+          </button>
+          {sheets.value.map((s) => {
+            const n = all.filter((o) => o.sheetId === s.id).length;
+            if (!n) return null;
+            return (
+              <button key={s.id} class="chipf" aria-pressed={sheet === s.id} onClick={() => setPrefs({ sheet: s.id })}>
+                {s.short ?? s.name}
+                <small>{n}</small>
+              </button>
+            );
+          })}
+        </div>
+        <div class="chips" role="group" aria-label="Ordenar">
+          <span class="lbl">Ordenar:</span>
+          {(
+            [
+              ['price-desc', 'Más caras'],
+              ['price-asc', 'Más baratas'],
+              ['sheet', 'Por hoja'],
+            ] as const
+          ).map(([v, l]) => (
+            <button key={v} class="chipf" aria-pressed={sort === v} onClick={() => setPrefs({ sort: v })}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+      {!list.length ? (
+        <p class="shop-empty">No te falta nada{sheet === 'all' ? '' : ' en esta hoja'}. 🎉</p>
+      ) : (
+        <>
+          <p class="shop-sum">
+            <span>
+              <strong>{list.length}</strong> cartas
+            </span>
+            <span>
+              Total <strong>{money(tot.t)}</strong>
+              {tot.none ? ` (sin ${tot.none} sin precio)` : ''}
+            </span>
+            {stars.length > 0 && (
+              <span>
+                Prioridad <strong>{money(st.t)}</strong>
+              </span>
+            )}
+          </p>
+          {stars.length > 0 && (
+            <>
+              <h3 class="shop-h">
+                ★ Prioridad{' '}
+                <small>
+                  {stars.length} · {money(st.t)}
+                </small>
+              </h3>
+              <ol class="shop">
+                {stars.map((o) => (
+                  <Row key={o.key} o={o} name={sheetName(o.sheetId)} />
+                ))}
+              </ol>
+            </>
+          )}
+          {rest.length > 0 && (
+            <>
+              <h3 class="shop-h">
+                {stars.length ? 'El resto' : 'Lo que te falta'} <small>{rest.length}</small>
+              </h3>
+              <ol class="shop">
+                {shown.map((o) => (
+                  <Row key={o.key} o={o} name={sheetName(o.sheetId)} />
+                ))}
+              </ol>
+              {rest.length > LIMIT && (
+                <button class="btn quiet shop-more" onClick={() => (showAll.value = !showAll.value)}>
+                  {showAll.value ? 'Mostrar menos' : `Mostrar las ${rest.length}`}
+                </button>
+              )}
+            </>
+          )}
+          <p class="note">Precios de mercado de TCGplayer{prices.value.date ? ` al ${fmtDate(prices.value.date)}` : ''}.</p>
+        </>
+      )}
+    </section>
+  );
+}

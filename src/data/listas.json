@@ -1,0 +1,175 @@
+{
+ "goals": [
+  {
+   "id": "energias",
+   "t": "Las 8 energías básicas holo de 30C",
+   "d": "Planta, Fuego, Agua, Rayo, Psíquico, Lucha, Oscuridad y Metal."
+  },
+  {
+   "id": "pikachu",
+   "t": "Los 30 Pikachu del aniversario",
+   "auto": {
+    "sheet": "p"
+   }
+  },
+  {
+   "id": "moltres",
+   "t": "Moltres full art · 130/128",
+   "d": "Illustration Rare de 30C, ilustrada por mashu. Ojo: la normal es la 011/128.",
+   "link": "https://limitlesstcg.com/cards/30C/130",
+   "auto": {
+    "card": "i:moltres"
+   }
+  },
+  {
+   "id": "articuno",
+   "t": "Articuno full art · 132/128",
+   "d": "Illustration Rare de 30C (secreta). Ojo: la normal es la 018/128.",
+   "link": "https://limitlesstcg.com/cards/30C/132",
+   "auto": {
+    "card": "i:articuno"
+   }
+  },
+  {
+   "id": "zapdos",
+   "t": "Zapdos full art · 133/128",
+   "d": "Illustration Rare de 30C (secreta). Ojo: la normal es la 055/128.",
+   "link": "https://limitlesstcg.com/cards/30C/133",
+   "auto": {
+    "card": "i:zapdos"
+   }
+  },
+  {
+   "id": "rocket",
+   "t": "Página del Team Rocket",
+   "d": "9 cartas del Team Rocket, con tu Moltres ex SIR en el centro.",
+   "auto": {
+    "sheet": "r"
+   }
+  },
+  {
+   "id": "mega",
+   "t": "Hoja de Mega Attack Rare",
+   "d": "Las Megas con el ataque en letras japonesas, con tu Charizard X en el centro.",
+   "auto": {
+    "sheet": "m"
+   }
+  },
+  {
+   "id": "expage",
+   "t": "Hoja de ex del 30 aniversario",
+   "d": "Míticos, Eeveelutions y tus ex en una sola hoja.",
+   "auto": {
+    "sheet": "x"
+   }
+  },
+  {
+   "id": "illpage",
+   "t": "Hoja de Illustration Rare de 30C",
+   "d": "Las aves de mashu, los Meowth de OKUBO y tus paisajes.",
+   "auto": {
+    "sheet": "i"
+   }
+  },
+  {
+   "id": "egawa",
+   "t": "Hoja de Akira Egawa",
+   "d": "A largo plazo: 9 ilustraciones, con Mega Darkrai ex SIR en el centro.",
+   "auto": {
+    "sheet": "e"
+   }
+  },
+  {
+   "id": "huecos",
+   "t": "Marcar los huecos de la carpeta",
+   "d": "Una hoja con número y artista en cada bolsillo vacío."
+  },
+  {
+   "id": "carpetas",
+   "t": "Separar la colección en 5 secciones",
+   "d": "30 Aniversario · Megas · Arte · Entrenadores · Intercambio."
+  },
+  {
+   "id": "app",
+   "t": "Registrar todo en una app",
+   "d": "Collectr o la app de TCGplayer, para ver valor y faltantes."
+  },
+  {
+   "id": "megas",
+   "t": "Una Mega ex de cada Pokémon",
+   "d": "Ordenadas en su propia sección; las versiones especiales al lado."
+  },
+  {
+   "id": "partner",
+   "t": "Hoja de First Partner",
+   "d": "Los iniciales de Kanto, Hoenn y Sinnoh del 30 aniversario.",
+   "auto": {
+    "sheet": "f"
+   }
+  },
+  {
+   "id": "classic",
+   "t": "Hoja de Classic Collection",
+   "d": "9 reimpresiones de 30C, de la era clásica a Espada y Escudo.",
+   "auto": {
+    "sheet": "c"
+   }
+  }
+ ],
+ "trade": [
+  {
+   "id": "0",
+   "t": "Mega Venusaur ex"
+  },
+  {
+   "id": "1",
+   "t": "Mega Kangaskhan ex"
+  },
+  {
+   "id": "2",
+   "t": "Mega Lopunny ex"
+  },
+  {
+   "id": "3",
+   "t": "Mega Gengar ex"
+  },
+  {
+   "id": "4",
+   "t": "Mega Abomasnow ex"
+  },
+  {
+   "id": "5",
+   "t": "Team Rocket's Moltres ex (versión normal)"
+  }
+ ],
+ "protect": [
+  {
+   "id": "0",
+   "t": "Mega Charizard X ex, promo MEP (インフェルノX)"
+  },
+  {
+   "id": "1",
+   "t": "Mega Lucario ex, promo MEP (メガブレイブ)"
+  },
+  {
+   "id": "2",
+   "t": "Hop's Zacian ex (Special Illustration Rare)"
+  },
+  {
+   "id": "3",
+   "t": "Team Rocket's Moltres ex (Special Illustration Rare)"
+  },
+  {
+   "id": "4",
+   "t": "Wally's Compassion (arte completo)"
+  },
+  {
+   "id": "5",
+   "t": "N's Zekrom y N's Reshiram"
+  },
+  {
+   "id": "6",
+   "t": "Gengar ex (30C)"
+  }
+ ]
+}

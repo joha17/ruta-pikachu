@@ -1,0 +1,121 @@
+{
+ "id": "x",
+ "name": "ex 30C",
+ "title": "Hoja de ex del 30 aniversario",
+ "theme": "ex",
+ "desc": "ex normales (Double Rare) de 30C, todas con el mismo marco.",
+ "cards": [
+  {
+   "k": "mew",
+   "n": "Mew ex",
+   "num": "066/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-066",
+   "url": "https://limitlesstcg.com/cards/30C/66",
+   "row": "Míticos y legendarios",
+   "sub": "30C · ex",
+   "foot": "Míticos y legendarios"
+  },
+  {
+   "k": "mewtwo",
+   "n": "Mewtwo ex",
+   "num": "064/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-064",
+   "url": "https://limitlesstcg.com/cards/30C/64",
+   "row": "Míticos y legendarios",
+   "sub": "30C · ex",
+   "foot": "Míticos y legendarios"
+  },
+  {
+   "k": "jirachi",
+   "n": "Jirachi ex",
+   "num": "102/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-102",
+   "url": "https://limitlesstcg.com/cards/30C/102",
+   "row": "Míticos y legendarios",
+   "sub": "30C · ex",
+   "foot": "Míticos y legendarios"
+  },
+  {
+   "k": "espeon",
+   "n": "Espeon ex",
+   "num": "070/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-070",
+   "url": "https://limitlesstcg.com/cards/30C/70",
+   "row": "Eeveelutions",
+   "sub": "30C · ex",
+   "foot": "Eeveelutions"
+  },
+  {
+   "k": "sylveon",
+   "n": "Sylveon ex",
+   "num": "071/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-071",
+   "url": "https://limitlesstcg.com/cards/30C/71",
+   "row": "Eeveelutions",
+   "sub": "30C · ex",
+   "foot": "Eeveelutions"
+  },
+  {
+   "k": "umbreon",
+   "n": "Umbreon ex",
+   "num": "092/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-092",
+   "url": "https://limitlesstcg.com/cards/30C/92",
+   "row": "Eeveelutions",
+   "sub": "30C · ex",
+   "foot": "Eeveelutions"
+  },
+  {
+   "k": "pikachu",
+   "n": "Pikachu ex",
+   "num": "054/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-054",
+   "url": "https://limitlesstcg.com/cards/30C/54",
+   "row": "Las que ya tenías",
+   "note": "Hay dos Pikachu ex normales (053 y 054). La tuya es la 054.",
+   "sub": "30C · ex",
+   "foot": "Las que ya tenías"
+  },
+  {
+   "k": "gengar",
+   "n": "Gengar ex",
+   "num": "090/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-090",
+   "url": "https://limitlesstcg.com/cards/30C/90",
+   "row": "Las que ya tenías",
+   "sub": "30C · ex",
+   "foot": "Las que ya tenías"
+  },
+  {
+   "k": "salamence",
+   "n": "Salamence ex",
+   "num": "109/128",
+   "set": "30th Celebration",
+   "rar": "Double Rare",
+   "tcg": "30th-109",
+   "url": "https://limitlesstcg.com/cards/30C/109",
+   "row": "Las que ya tenías",
+   "sub": "30C · ex",
+   "foot": "Las que ya tenías"
+  }
+ ],
+ "order": 4,
+ "short": "ex",
+ "pageLabel": "30th Celebration · ex"
+}

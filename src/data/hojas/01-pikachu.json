@@ -1,0 +1,632 @@
+{
+ "id": "p",
+ "name": "Pikachu 30C",
+ "title": "Tu carpeta",
+ "theme": "pk",
+ "goal": 30,
+ "desc": "Los 30 Pikachu del 30 aniversario en hojas de 9 bolsillos.",
+ "cards": [
+  {
+   "k": "1",
+   "n": "Pikachu",
+   "label": "01/30",
+   "num": "023/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-023",
+   "url": "https://limitlesstcg.com/cards/30C/23",
+   "artist": "Ken Sugimori",
+   "meta": [
+    [
+     "Artista",
+     "Ken Sugimori"
+    ]
+   ],
+   "foot": "Ken Sugimori",
+   "short": "01/30"
+  },
+  {
+   "k": "2",
+   "n": "Pikachu",
+   "label": "02/30",
+   "num": "024/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-024",
+   "url": "https://limitlesstcg.com/cards/30C/24",
+   "artist": "Danciao",
+   "meta": [
+    [
+     "Artista",
+     "Danciao"
+    ]
+   ],
+   "foot": "Danciao",
+   "short": "02/30"
+  },
+  {
+   "k": "3",
+   "n": "Pikachu",
+   "label": "03/30",
+   "num": "025/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-025",
+   "url": "https://limitlesstcg.com/cards/30C/25",
+   "artist": "Satoma",
+   "meta": [
+    [
+     "Artista",
+     "Satoma"
+    ]
+   ],
+   "foot": "Satoma",
+   "short": "03/30"
+  },
+  {
+   "k": "4",
+   "n": "Pikachu",
+   "label": "04/30",
+   "num": "026/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-026",
+   "url": "https://limitlesstcg.com/cards/30C/26",
+   "artist": "Takeshi Nakamura",
+   "meta": [
+    [
+     "Artista",
+     "Takeshi Nakamura"
+    ]
+   ],
+   "foot": "Takeshi Nakamura",
+   "short": "04/30"
+  },
+  {
+   "k": "5",
+   "n": "Pikachu",
+   "label": "05/30",
+   "num": "027/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-027",
+   "url": "https://limitlesstcg.com/cards/30C/27",
+   "artist": "Asako Ito",
+   "meta": [
+    [
+     "Artista",
+     "Asako Ito"
+    ],
+    [
+     "Ataque",
+     "Nap"
+    ]
+   ],
+   "mid": "Nap",
+   "foot": "Asako Ito",
+   "short": "05/30"
+  },
+  {
+   "k": "6",
+   "n": "Pikachu",
+   "label": "06/30",
+   "num": "028/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-028",
+   "url": "https://limitlesstcg.com/cards/30C/28",
+   "artist": "Sowsow",
+   "meta": [
+    [
+     "Artista",
+     "Sowsow"
+    ]
+   ],
+   "foot": "Sowsow",
+   "short": "06/30"
+  },
+  {
+   "k": "7",
+   "n": "Pikachu",
+   "label": "07/30",
+   "num": "029/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-029",
+   "url": "https://limitlesstcg.com/cards/30C/29",
+   "artist": "James Turner",
+   "meta": [
+    [
+     "Artista",
+     "James Turner"
+    ]
+   ],
+   "foot": "James Turner",
+   "short": "07/30"
+  },
+  {
+   "k": "8",
+   "n": "Pikachu",
+   "label": "08/30",
+   "num": "030/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-030",
+   "url": "https://limitlesstcg.com/cards/30C/30",
+   "artist": "DOM",
+   "meta": [
+    [
+     "Artista",
+     "DOM"
+    ],
+    [
+     "Ataque",
+     "Mach Bolt"
+    ]
+   ],
+   "mid": "Mach Bolt",
+   "foot": "DOM",
+   "short": "08/30"
+  },
+  {
+   "k": "9",
+   "n": "Pikachu",
+   "label": "09/30",
+   "num": "031/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-031",
+   "url": "https://limitlesstcg.com/cards/30C/31",
+   "artist": "Atsushi Furusawa",
+   "meta": [
+    [
+     "Artista",
+     "Atsushi Furusawa"
+    ],
+    [
+     "Ataque",
+     "Gnaw"
+    ]
+   ],
+   "mid": "Gnaw",
+   "foot": "Atsushi Furusawa",
+   "short": "09/30"
+  },
+  {
+   "k": "10",
+   "n": "Pikachu",
+   "label": "10/30",
+   "num": "032/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-032",
+   "url": "https://limitlesstcg.com/cards/30C/32",
+   "artist": "Tomokazu Komiya",
+   "meta": [
+    [
+     "Artista",
+     "Tomokazu Komiya"
+    ],
+    [
+     "Ataque",
+     "Scurry About"
+    ]
+   ],
+   "mid": "Scurry About",
+   "foot": "Tomokazu Komiya",
+   "short": "10/30"
+  },
+  {
+   "k": "11",
+   "n": "Pikachu",
+   "label": "11/30",
+   "num": "033/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-033",
+   "url": "https://limitlesstcg.com/cards/30C/33",
+   "artist": "Narumi Sato",
+   "meta": [
+    [
+     "Artista",
+     "Narumi Sato"
+    ]
+   ],
+   "foot": "Narumi Sato",
+   "short": "11/30"
+  },
+  {
+   "k": "12",
+   "n": "Pikachu",
+   "label": "12/30",
+   "num": "034/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-034",
+   "url": "https://limitlesstcg.com/cards/30C/34",
+   "artist": "USGMEN",
+   "meta": [
+    [
+     "Artista",
+     "USGMEN"
+    ]
+   ],
+   "foot": "USGMEN",
+   "short": "12/30"
+  },
+  {
+   "k": "13",
+   "n": "Pikachu",
+   "label": "13/30",
+   "num": "035/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-035",
+   "url": "https://limitlesstcg.com/cards/30C/35",
+   "artist": "Susumu Maeya",
+   "meta": [
+    [
+     "Artista",
+     "Susumu Maeya"
+    ]
+   ],
+   "foot": "Susumu Maeya",
+   "short": "13/30"
+  },
+  {
+   "k": "14",
+   "n": "Pikachu",
+   "label": "14/30",
+   "num": "036/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-036",
+   "url": "https://limitlesstcg.com/cards/30C/36",
+   "artist": "OKACHEKE",
+   "meta": [
+    [
+     "Artista",
+     "OKACHEKE"
+    ]
+   ],
+   "foot": "OKACHEKE",
+   "short": "14/30"
+  },
+  {
+   "k": "15",
+   "n": "Pikachu",
+   "label": "15/30",
+   "num": "037/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-037",
+   "url": "https://limitlesstcg.com/cards/30C/37",
+   "artist": "Yuu Nishida",
+   "meta": [
+    [
+     "Artista",
+     "Yuu Nishida"
+    ],
+    [
+     "Ataque",
+     "Energized Tail · Pika Punch"
+    ]
+   ],
+   "mid": "Energized Tail · Pika Punch",
+   "foot": "Yuu Nishida",
+   "short": "15/30"
+  },
+  {
+   "k": "16",
+   "n": "Pikachu",
+   "label": "16/30",
+   "num": "038/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-038",
+   "url": "https://limitlesstcg.com/cards/30C/38",
+   "artist": "Tetsu Kayama",
+   "meta": [
+    [
+     "Artista",
+     "Tetsu Kayama"
+    ]
+   ],
+   "foot": "Tetsu Kayama",
+   "short": "16/30"
+  },
+  {
+   "k": "17",
+   "n": "Pikachu",
+   "label": "17/30",
+   "num": "039/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-039",
+   "url": "https://limitlesstcg.com/cards/30C/39",
+   "artist": "Teeziro",
+   "meta": [
+    [
+     "Artista",
+     "Teeziro"
+    ]
+   ],
+   "foot": "Teeziro",
+   "short": "17/30"
+  },
+  {
+   "k": "18",
+   "n": "Pikachu",
+   "label": "18/30",
+   "num": "040/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-040",
+   "url": "https://limitlesstcg.com/cards/30C/40",
+   "artist": "Shinji Kanda",
+   "meta": [
+    [
+     "Artista",
+     "Shinji Kanda"
+    ],
+    [
+     "Ataque",
+     "Overwriting Bolt"
+    ]
+   ],
+   "mid": "Overwriting Bolt",
+   "foot": "Shinji Kanda",
+   "short": "18/30"
+  },
+  {
+   "k": "19",
+   "n": "Pikachu",
+   "label": "19/30",
+   "num": "041/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-041",
+   "url": "https://limitlesstcg.com/cards/30C/41",
+   "artist": "Rianti Hidayat",
+   "meta": [
+    [
+     "Artista",
+     "Rianti Hidayat"
+    ]
+   ],
+   "foot": "Rianti Hidayat",
+   "short": "19/30"
+  },
+  {
+   "k": "20",
+   "n": "Pikachu",
+   "label": "20/30",
+   "num": "042/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-042",
+   "url": "https://limitlesstcg.com/cards/30C/42",
+   "artist": "Akira Komayama",
+   "meta": [
+    [
+     "Artista",
+     "Akira Komayama"
+    ],
+    [
+     "Ataque",
+     "Charge-Up Dash · Pika Bolt"
+    ]
+   ],
+   "mid": "Charge-Up Dash · Pika Bolt",
+   "foot": "Akira Komayama",
+   "short": "20/30"
+  },
+  {
+   "k": "21",
+   "n": "Pikachu",
+   "label": "21/30",
+   "num": "043/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-043",
+   "url": "https://limitlesstcg.com/cards/30C/43",
+   "artist": "OOYAMA",
+   "meta": [
+    [
+     "Artista",
+     "OOYAMA"
+    ],
+    [
+     "Ataque",
+     "Tropical Vibes"
+    ]
+   ],
+   "mid": "Tropical Vibes",
+   "foot": "OOYAMA",
+   "short": "21/30"
+  },
+  {
+   "k": "22",
+   "n": "Pikachu",
+   "label": "22/30",
+   "num": "044/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-044",
+   "url": "https://limitlesstcg.com/cards/30C/44",
+   "artist": "Akagi",
+   "meta": [
+    [
+     "Artista",
+     "Akagi"
+    ]
+   ],
+   "foot": "Akagi",
+   "short": "22/30"
+  },
+  {
+   "k": "23",
+   "n": "Pikachu",
+   "label": "23/30",
+   "num": "045/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-045",
+   "url": "https://limitlesstcg.com/cards/30C/45",
+   "artist": "Naoyo Kimura",
+   "meta": [
+    [
+     "Artista",
+     "Naoyo Kimura"
+    ]
+   ],
+   "foot": "Naoyo Kimura",
+   "short": "23/30"
+  },
+  {
+   "k": "24",
+   "n": "Pikachu",
+   "label": "24/30",
+   "num": "046/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-046",
+   "url": "https://limitlesstcg.com/cards/30C/46",
+   "artist": "Svlt",
+   "meta": [
+    [
+     "Artista",
+     "Svlt"
+    ],
+    [
+     "Ataque",
+     "Get Some Air · Smash Kick"
+    ]
+   ],
+   "mid": "Get Some Air · Smash Kick",
+   "foot": "Svlt",
+   "short": "24/30"
+  },
+  {
+   "k": "25",
+   "n": "Pikachu",
+   "label": "25/30",
+   "num": "047/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-047",
+   "url": "https://limitlesstcg.com/cards/30C/47",
+   "artist": "Atsuko Nishida",
+   "meta": [
+    [
+     "Artista",
+     "Atsuko Nishida"
+    ]
+   ],
+   "foot": "Atsuko Nishida",
+   "short": "25/30"
+  },
+  {
+   "k": "26",
+   "n": "Pikachu",
+   "label": "26/30",
+   "num": "048/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-048",
+   "url": "https://limitlesstcg.com/cards/30C/48",
+   "artist": "Kiyotaka Oshiyama",
+   "meta": [
+    [
+     "Artista",
+     "Kiyotaka Oshiyama"
+    ],
+    [
+     "Ataque",
+     "Store Up"
+    ]
+   ],
+   "mid": "Store Up",
+   "foot": "Kiyotaka Oshiyama",
+   "short": "26/30"
+  },
+  {
+   "k": "27",
+   "n": "Pikachu",
+   "label": "27/30",
+   "num": "049/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-049",
+   "url": "https://limitlesstcg.com/cards/30C/49",
+   "artist": "Nurikabe",
+   "meta": [
+    [
+     "Artista",
+     "Nurikabe"
+    ]
+   ],
+   "foot": "Nurikabe",
+   "short": "27/30"
+  },
+  {
+   "k": "28",
+   "n": "Pikachu",
+   "label": "28/30",
+   "num": "050/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-050",
+   "url": "https://limitlesstcg.com/cards/30C/50",
+   "artist": "Shimaris Yukichi",
+   "meta": [
+    [
+     "Artista",
+     "Shimaris Yukichi"
+    ]
+   ],
+   "foot": "Shimaris Yukichi",
+   "short": "28/30"
+  },
+  {
+   "k": "29",
+   "n": "Pikachu",
+   "label": "29/30",
+   "num": "051/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-051",
+   "url": "https://limitlesstcg.com/cards/30C/51",
+   "artist": "Nagimiso",
+   "meta": [
+    [
+     "Artista",
+     "Nagimiso"
+    ]
+   ],
+   "foot": "Nagimiso",
+   "short": "29/30"
+  },
+  {
+   "k": "30",
+   "n": "Pikachu",
+   "label": "30/30",
+   "num": "052/128",
+   "set": "30th Celebration",
+   "rar": "Pikachu 30C",
+   "tcg": "30th-052",
+   "url": "https://limitlesstcg.com/cards/30C/52",
+   "artist": "Kazuki Minami",
+   "meta": [
+    [
+     "Artista",
+     "Kazuki Minami"
+    ]
+   ],
+   "foot": "Kazuki Minami",
+   "short": "30/30"
+  }
+ ],
+ "order": 0,
+ "short": "Pikachu"
+}
