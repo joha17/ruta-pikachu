@@ -15,7 +15,7 @@ import { AiError, askClaude, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg
 import type { Identified } from '../scan/identify';
 import type { Cand } from '../scan/match';
 import { ocrProgress, ocrState, readCard, warmUp } from '../scan/ocr';
-import { candsFromAi, identifyReading, keysFor, localEntries, printedNum } from '../scan/search';
+import { candsFromAi, identifyReading, keysFor, loadIndex, localEntries, printedNum } from '../scan/search';
 import { alias, collection, formView, openKey, sheets } from '../store';
 import { seedPrice } from '../collect';
 import { cachedCard, fetchCard, imageUrl } from '../tcgdex';
@@ -125,6 +125,7 @@ function Camera({ onClose }: { onClose: () => void }) {
     let stream: MediaStream | null = null;
     let alive = true;
     warmUp();
+    void loadIndex();
     (async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NotFoundError' });
@@ -904,7 +905,10 @@ export function Escanear() {
                 accept="image/*"
                 multiple={burst.value}
                 onChange={onFiles}
-                onClick={() => warmUp()}
+                onClick={() => {
+                  warmUp();
+                  void loadIndex();
+                }}
                 aria-label="Elegir una foto de la carta"
               />
             </label>

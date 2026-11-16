@@ -51,11 +51,14 @@ const D = '[0-9OoIl|SBZ]';
 export function parseNumbers(text: string, totals?: Set<number>): NumHit[] {
   const out: NumHit[] = [];
   const seen = new Set<string>();
+  const votes = new Map<NumHit, number>();
   const add = (h: NumHit) => {
     const id = `${h.local}/${h.total ?? ''}/${h.promoSet ?? ''}`;
     const old = out.find((o) => `${o.local}/${o.total ?? ''}/${o.promoSet ?? ''}` === id);
-    if (old) old.score = Math.max(old.score, h.score);
-    else if (!seen.has(id)) {
+    if (old) {
+      old.score = Math.max(old.score, h.score);
+      votes.set(old, (votes.get(old) ?? 1) + 1);
+    } else if (!seen.has(id)) {
       seen.add(id);
       out.push(h);
     }
@@ -63,12 +66,15 @@ export function parseNumbers(text: string, totals?: Set<number>): NumHit[] {
   const T = text.toUpperCase().replace(/[∕⁄\\]/g, '/');
   const knownTotal = (n: number) => !totals || totals.has(n);
 
-  // 1) Con prefijo: GG45/GG70, TG05/TG30, SV107/SV122, RC12/RC32.
-  for (const m of T.matchAll(new RegExp(`\\b(GG|TG|SV|RC)\\s?(${D}{1,3})\\s?/\\s?(?:GG|TG|SV|RC)?\\s?(${D}{1,3})`, 'g'))) {
-    const p = m[1]!;
+  // 1) Con prefijo: GG45/GG70, TG05/TG30, SV107/SV122, RC12/RC32. El OCR suele leer la G como 6
+  //    o C («6G30/GG70», «GG24/6670»): se aceptan esas variantes con algo menos de confianza.
+  const PRE = 'GG|6G|G6|CG|66|TG|T6|SV|5V|RC';
+  for (const m of T.matchAll(new RegExp(`(?<![A-Z0-9])(${PRE})\\s?(${D}{1,3})\\s?/\\s?(?:${PRE})?\\s?(${D}{1,3})`, 'g'))) {
+    const raw = m[1]!;
+    const p = raw.includes('T') ? 'TG' : raw === 'SV' || raw === '5V' ? 'SV' : raw === 'RC' ? 'RC' : 'GG';
     const a = strip0(fixDigits(m[2]!));
     const b = strip0(fixDigits(m[3]!));
-    if (/^\d+$/.test(a) && /^\d+$/.test(b)) add({ local: p + a, total: p + b, raw: m[0], score: 9 });
+    if (/^\d+$/.test(a) && /^\d+$/.test(b)) add({ local: p + a, total: p + b, raw: m[0], score: raw === p ? 9 : 7 });
   }
   // 2) Fracción normal: 133/128, 023/128, 18/25.
   for (const m of T.matchAll(new RegExp(`(?<![A-Z0-9])(${D}{1,3})\\s?/\\s?(${D}{2,3})(?![0-9])`, 'g'))) {
@@ -78,13 +84,21 @@ export function parseNumbers(text: string, totals?: Set<number>): NumHit[] {
     if (+a > +b * 2.2) continue;
     add({ local: a, total: b, raw: m[0], score: knownTotal(+b) ? (m[2]!.length === 3 ? 8 : 6) : 4 });
   }
-  // 3) Promos: MEP 037, MEP EN 037, SVP 203, SWSH123.
-  for (const m of T.matchAll(new RegExp(`\\b(MEP|SVP|SWSH|SM|XY|BW)\\s?(?:EN\\s?)?(${D}{2,3})\\b`, 'g'))) {
+  // 2b) La estrella de rareza pegada al total como un dígito más: «185/1674» → 185/167.
+  if (totals)
+    for (const m of T.matchAll(new RegExp(`(?<![A-Z0-9])(${D}{1,3})\\s?/\\s?(\\d{3})\\d(?![0-9])`, 'g'))) {
+      const a = strip0(fixDigits(m[1]!));
+      const b = strip0(m[2]!);
+      if (/^\d+$/.test(a) && totals.has(+b) && +a <= +b * 2.2) add({ local: a, total: b, raw: m[0], score: 6 });
+    }
+  // 3) Promos: MEP 037, MEP EN 037, SVP 203, SWSH123. El «EN» chiquito sale como «ix», «iN»…;
+  //    y la estrella a veces como un dígito más («SVPa 1937» → 193).
+  for (const m of T.matchAll(new RegExp(`\\b(MEP|SVP|SWSH|SM|XY|BW)\\s?(?:[A-Z]{1,2}\\s)?(${D}{2,3})(\\d)?\\b`, 'g'))) {
     const pr = PROMOS[m[1]!]!;
     const d = strip0(fixDigits(m[2]!));
     if (!/^\d+$/.test(d)) continue;
     const digits = m[2]!.length >= 3 ? fixDigits(m[2]!) : d.padStart(3, '0');
-    add({ local: pr.keep ? m[1]! + digits : d, promoSet: pr.set, raw: m[0], score: 7 });
+    add({ local: pr.keep ? m[1]! + digits : d, promoSet: pr.set, raw: m[0], score: m[3] ? 6 : 7 });
   }
   // 4) Barra leída como 7 o 1: "2717217" → 271/217 (solo si el total es de un set conocido).
   if (totals)
@@ -93,11 +107,24 @@ export function parseNumbers(text: string, totals?: Set<number>): NumHit[] {
       const b = strip0(m[2]!);
       if (totals.has(+b) && +a <= +b * 1.6) add({ local: a, total: b, raw: m[0], score: 6 });
     }
+  // 4b) Sin barra: "131185" → 131/185. Dudoso: solo cuenta si el nombre también coincide.
+  if (totals)
+    for (const m of T.matchAll(/(?<![0-9])(\d{3})(\d{3})(?![0-9])/g)) {
+      const a = strip0(m[1]!);
+      const b = strip0(m[2]!);
+      if (+a >= 1 && totals.has(+b) && +a <= +b * 1.6) add({ local: a, total: b, raw: m[0], score: 5 });
+    }
   // 5) Solo prefijo, sin total: GG45, TG05, SV107.
   for (const m of T.matchAll(new RegExp(`\\b(GG|TG|SV)\\s?(${D}{2,3})\\b(?!\\s?/)`, 'g'))) {
     const a = strip0(fixDigits(m[2]!));
     if (/^\d+$/.test(a)) add({ local: m[1]! + a, raw: m[0], score: 2 });
   }
+  // Lo mismo leído en varias pasadas es más creíble («159/165» tres veces).
+  for (const [h, n] of votes) if (h.score >= 6) h.score += Math.min(2, n - 1);
+  // «59/165» junto a «159/165»: casi seguro es el mismo número con un dígito perdido.
+  for (const h of out)
+    if (out.some((o) => o !== h && o.total === h.total && o.local.length > h.local.length && o.local.endsWith(h.local) && o.score >= h.score - 2))
+      h.score = Math.min(h.score, 3);
   return out.sort((x, y) => y.score - x.score);
 }
 
@@ -133,18 +160,36 @@ export function similarity(a: string, b: string): number {
  * Qué tanto aparece un nombre de carta en el texto leído: compara cada palabra del nombre con
  * la palabra más parecida del texto (tolera «Pilachu» por «Pikachu»).
  */
-export function nameScore(cardName: string, ocrText: string): number {
-  const single = nameWords(ocrText);
-  // El OCR a veces corta una palabra en dos («Z apdos»): se prueban también pares pegados.
-  const toks = ocrText.replace(/[^A-Za-zÀ-ÿ' ]+/g, ' ').split(/\s+/).filter(Boolean);
-  const pairs = toks.slice(1).map((t, i) => toks[i]! + t).filter((w) => w.length >= 4);
-  const ws = [...single, ...pairs];
+export function nameScore(cardName: string, ocrText: string | string[]): number {
+  const ws = typeof ocrText === 'string' ? ocrWords(ocrText) : ocrText;
   const parts = cardName
     .replace(/Team Rocket's|Mega |\bex\b|-EX|-GX|\bV\b|VMAX|VSTAR/gi, ' ')
     .split(/[\s&]+/)
     .filter((p) => p.replace(/[^A-Za-z]/g, '').length >= 3);
   if (!parts.length || !ws.length) return 0;
   let s = 0;
-  for (const p of parts) s += Math.max(...ws.map((w) => similarity(p, w)));
+  for (const p of parts) {
+    const lp = p.toLowerCase().replace(/[^a-z0-9]/g, '');
+    // «ZeidiinGoodra»: el OCR pegó la palabra a basura, pero ahí está.
+    s += Math.max(...ws.map((w) => Math.max(similarity(p, w), lp.length >= 5 && w.toLowerCase().includes(lp) ? 0.9 : 0)));
+  }
   return s / parts.length;
+}
+
+/** Palabras del texto leído para comparar con nombres (también pares pegados: «Z apdos»). */
+export function ocrWords(ocrText: string): string[] {
+  const single = nameWords(ocrText);
+  const toks = ocrText.replace(/[^A-Za-zÀ-ÿ' ]+/g, ' ').split(/\s+/).filter(Boolean);
+  const pairs = toks.slice(1).map((t, i) => toks[i]! + t).filter((w) => w.length >= 4);
+  return [...single, ...pairs];
+}
+
+/**
+ * Año del copyright («©2023 Pokémon»; el OCR suele leer «02023 Pokemon»). Sirve para desempatar
+ * entre sets con el mismo total (165 son tanto 151 como Expedition).
+ */
+export function copyrightYear(text: string): number | undefined {
+  const t = text.replace(/\s+/g, ' ');
+  const m = /((?:199|20[0-3])\d) ?P ?[o0] ?k/i.exec(t) ?? /(?:^|[^0-9])[©@0]((?:199|20[0-3])\d)(?![0-9])/.exec(t);
+  return m ? +m[1]! : undefined;
 }

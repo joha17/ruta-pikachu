@@ -7,7 +7,7 @@ import { alias, collection, sheets } from '../store';
 import { fetchCard, getJson } from '../tcgdex';
 import type { AiCard } from './claude-core';
 import { identify, type Identified, type Reading } from './identify';
-import type { Cand, LocalEntry, SetBrief } from './match';
+import { buildIndex, isPocket, type Brief, type Cand, type CardIndex, type LocalEntry, type SetBrief } from './match';
 import { nameScore } from './parse';
 
 const SETS_ID = 'en/__sets';
@@ -52,9 +52,71 @@ export function keysFor(tcgId: string): string[] {
     .map((e) => e.key);
 }
 
+const INDEX_CACHE = 'ruta-indice-cartas';
+const INDEX_URL = 'indice-cartas.json';
+const INDEX_AGE = 14 * 864e5;
+const IMG = 'https://assets.tcgdex.net/';
+type Row = [id: string, localId: string, name: string, image?: string];
+let indexP: Promise<CardIndex | undefined> | null = null;
+
+/** Guardado aparte (Cache API) para no cargarlo con la caché de TCGdex al abrir la app. */
+async function readSaved(): Promise<{ day: string; rows: Row[] } | undefined> {
+  try {
+    const r = await (await caches.open(INDEX_CACHE)).match(INDEX_URL);
+    return r ? ((await r.json()) as { day: string; rows: Row[] }) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function save(rows: Row[]): Promise<void> {
+  try {
+    const body = JSON.stringify({ day: today(), rows });
+    await (await caches.open(INDEX_CACHE)).put(INDEX_URL, new Response(body, { headers: { 'Content-Type': 'application/json' } }));
+  } catch {
+    /* sin Cache API: solo dura esta sesión */
+  }
+}
+
+const fromRows = (rows: Row[]): CardIndex =>
+  buildIndex(rows.map(([id, localId, name, image]) => (image ? { id, localId, name, image: IMG + image } : { id, localId, name })));
+
+/**
+ * Todas las cartas de TCGdex (id, número, nombre e imagen; ~2,4 MB de descarga), para reconocer
+ * el nombre aunque el OCR lo lea mal. Se baja una vez cada dos semanas y se guarda en el aparato.
+ * Si no hay conexión ni copia guardada, el escáner sigue funcionando sin él (busca en línea).
+ */
+export function loadIndex(): Promise<CardIndex | undefined> {
+  if (indexP) return indexP;
+  indexP = (async () => {
+    const hit = await readSaved();
+    if (hit && (Date.now() - Date.parse(hit.day) < INDEX_AGE || !navigator.onLine)) return fromRows(hit.rows);
+    try {
+      const list = (await getJson('en/cards')) as Brief[] | null;
+      if (Array.isArray(list) && list.length > 1000) {
+        const rows: Row[] = list
+          .filter((b) => b?.id && b.name && !isPocket(b))
+          .map((b) => {
+            const img = b.image?.startsWith(IMG) ? b.image.slice(IMG.length) : undefined;
+            return img ? [b.id, b.localId, b.name, img] : [b.id, b.localId, b.name];
+          });
+        await save(rows);
+        return fromRows(rows);
+      }
+    } catch {
+      /* sin conexión: usa lo guardado */
+    }
+    return hit ? fromRows(hit.rows) : undefined;
+  })().catch(() => undefined);
+  void indexP.then((ix) => {
+    if (!ix) indexP = null; // se reintenta la próxima vez
+  });
+  return indexP;
+}
+
 export async function identifyReading(r: Reading): Promise<Identified> {
-  const sets = await loadSets();
-  return identify((p) => getJson(p), sets, r, localEntries());
+  const [sets, index] = await Promise.all([loadSets(), r.typed ? undefined : loadIndex()]);
+  return identify((p) => getJson(p), sets, r, localEntries(), index);
 }
 
 /** Número impreso para guardar la carta: "133/128", o el número de promo. */

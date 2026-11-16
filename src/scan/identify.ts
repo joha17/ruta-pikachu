@@ -6,7 +6,9 @@ import {
   filterByHit,
   localByName,
   localByNum,
+  namesLike,
   rankCands,
+  type CardIndex,
   totalsOf,
   type Brief,
   type Cand,
@@ -35,7 +37,12 @@ export type Get = (path: string) => Promise<unknown>;
 
 export const MAX_CANDS = 24;
 
-export async function identify(get: Get, setsArr: SetBrief[], r: Reading, entries: LocalEntry[]): Promise<Identified> {
+/**
+ * `index`: todas las cartas de TCGdex por nombre (si ya se bajó). Con él, el nombre leído se
+ * compara con todos los nombres que existen aunque el OCR lo haya leído mal («Poltchaghistiatt»),
+ * y el número a medio leer elige entre esas cartas.
+ */
+export async function identify(get: Get, setsArr: SetBrief[], r: Reading, entries: LocalEntry[], index?: CardIndex): Promise<Identified> {
   const sets = new Map(setsArr.map((s) => [s.id, s]));
   const hits = parseNumbers(r.bottom, totalsOf(setsArr)).slice(0, 4);
   const mine = new Set(entries.map((e) => e.tcg).filter((t): t is string => !!t));
@@ -53,13 +60,16 @@ export async function identify(get: Get, setsArr: SetBrief[], r: Reading, entrie
         byHit.push({ hit: { ...h, score: Math.max(h.score, 6) }, briefs: [{ id: e.tcg, localId: e.tcg.split('-').pop() ?? '', name: e.n }] });
 
   const byName: Brief[] = localByName(entries, r.top);
-  const words = r.typed && r.top.trim().length >= 3 ? [r.top.trim()] : nameWords(r.top).filter((w) => w.length >= 4).slice(0, 2);
-  if (!byHit.some((x) => x.briefs.length))
+  if (index?.names.length && !r.typed) {
+    for (const n of namesLike(index.names, r.top)) byName.push(...(index.byName.get(n) ?? []));
+  } else if (!byHit.some((x) => x.briefs.length)) {
+    const words = r.typed && r.top.trim().length >= 3 ? [r.top.trim()] : nameWords(r.top).filter((w) => w.length >= 4).slice(0, 2);
     for (const w of words) {
       const list = ((await get(`en/cards?name=${encodeURIComponent(w)}`).catch(() => null)) as Brief[] | null) ?? [];
       if (Array.isArray(list)) byName.push(...list);
     }
+  }
 
-  const cands = rankCands(byHit, byName, r.top, sets, mine).slice(0, MAX_CANDS);
+  const cands = rankCands(byHit, byName, r.top, sets, mine, r.typed ? '' : r.bottom).slice(0, MAX_CANDS);
   return { hits, cands, sure: clearWinner(cands) };
 }
