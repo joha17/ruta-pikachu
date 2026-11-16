@@ -175,6 +175,85 @@ export async function browse(
   return out;
 }
 
+// ---- Opciones de vista de la cuadrícula ----
+
+export type SortBy = 'new' | 'old' | 'price-desc' | 'price-asc' | 'name';
+export type GridSize = 's' | 'm' | 'l';
+export interface ViewOpts {
+  sort: SortBy;
+  size: GridSize;
+  /** Solo las que no tienes. */
+  missing: boolean;
+}
+export const DEFAULT_VIEW: ViewOpts = { sort: 'new', size: 'm', missing: false };
+
+export const SORTS: Array<[SortBy, string]> = [
+  ['new', 'Más nuevas primero'],
+  ['old', 'Más antiguas primero'],
+  ['price-desc', 'Precio: de mayor a menor'],
+  ['price-asc', 'Precio: de menor a mayor'],
+  ['name', 'Nombre (A-Z)'],
+];
+
+/** Para ordenar por precio hay que pedir cada carta: con más resultados que esto, se pide afinar. */
+export const PRICE_SORT_MAX = 300;
+
+/** Lee las opciones guardadas (y descarta valores que ya no existen). */
+export function parseView(raw: unknown): ViewOpts {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<Record<keyof ViewOpts, unknown>>;
+  return {
+    sort: SORTS.some(([k]) => k === o.sort) ? (o.sort as SortBy) : DEFAULT_VIEW.sort,
+    size: o.size === 's' || o.size === 'm' || o.size === 'l' ? o.size : DEFAULT_VIEW.size,
+    missing: o.missing === true,
+  };
+}
+
+/** Precio de una carta para mostrar y ordenar: USD de TCGplayer o, si no hay, EUR de Cardmarket. */
+export interface ShownPrice {
+  v: number;
+  cur: 'USD' | 'EUR';
+}
+export function shownPrice(c: { usd: number | null; eur?: number } | null | undefined): ShownPrice | null {
+  if (!c) return null;
+  if (c.usd != null) return { v: c.usd, cur: 'USD' };
+  if (c.eur != null) return { v: c.eur, cur: 'EUR' };
+  return null;
+}
+export function priceText(p: ShownPrice | null): string {
+  if (!p) return '—';
+  return `${p.cur === 'USD' ? '$' : '€'}${p.v.toFixed(2)}`;
+}
+
+/**
+ * Ordena y filtra los resultados (que llegan de más nuevos a más antiguos y por número).
+ * `price` da el precio de cada carta (undefined = aún no se sabe); las sin precio van al final.
+ */
+export function arrange(
+  r: BrowseResult[],
+  v: ViewOpts,
+  price: (id: string) => number | null | undefined,
+  owned: (id: string) => boolean,
+): BrowseResult[] {
+  const list = v.missing ? r.filter((c) => !owned(c.id)) : r.slice();
+  if (v.sort === 'new') return list;
+  if (v.sort === 'old') {
+    // Los sets al revés, pero dentro de cada set se sigue por número.
+    const first = new Map<string, number>();
+    r.forEach((c, i) => first.has(c.setId) || first.set(c.setId, i));
+    const pos = new Map(r.map((c, i) => [c.id, i]));
+    return list.sort((a, b) => first.get(b.setId)! - first.get(a.setId)! || pos.get(a.id)! - pos.get(b.id)!);
+  }
+  if (v.sort === 'name') return list.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+  const dir = v.sort === 'price-desc' ? -1 : 1;
+  const pos = new Map(r.map((c, i) => [c.id, i]));
+  return list.sort((a, b) => {
+    const pa = price(a.id);
+    const pb = price(b.id);
+    if (pa == null || pb == null) return (pa == null ? 1 : 0) - (pb == null ? 1 : 0) || pos.get(a.id)! - pos.get(b.id)!;
+    return (pa - pb) * dir || pos.get(a.id)! - pos.get(b.id)!;
+  });
+}
+
 let rarMem: string[] | null = null;
 
 /** Lista de rarezas de TCGdex (una vez por visita; si falla, una lista básica). */

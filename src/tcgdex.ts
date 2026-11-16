@@ -12,7 +12,7 @@ export const API = 'https://api.tcgdex.net/v2';
 export type Lang = 'en' | 'ja';
 
 /** Versión del recorte: las cartas guardadas con una versión anterior se vuelven a pedir una vez. */
-export const CARD_V = 2;
+export const CARD_V = 3;
 
 /** Lo que guardamos de cada carta de TCGdex. */
 export interface TcgCard {
@@ -33,6 +33,10 @@ export interface TcgCard {
   usd: number | null;
   usdVariant?: string;
   priceUpdated?: string;
+  /** Precio de Cardmarket en EUR (tendencia o media): para las cartas sin precio de TCGplayer. */
+  eur?: number;
+  /** ID del producto en TCGplayer: sirve para su foto cuando TCGdex no tiene imagen. */
+  tcgpId?: number;
 }
 
 /** Orden de variantes de TCGplayer para elegir el precio. */
@@ -65,6 +69,73 @@ export function imageUrl(base: string | undefined, q: 'low' | 'high'): string | 
   return base ? `${base}/${q}.webp` : null;
 }
 
+/** ID de producto de TCGplayer (el de la variante del precio; si no, el primero que haya). */
+export function tcgplayerId(pricing: Pricing): number | undefined {
+  const tp = pricing?.tcgplayer;
+  if (!tp) return undefined;
+  for (const k of [...PRICE_ORDER, ...Object.keys(tp)]) {
+    const v = (tp[k] as { productId?: unknown } | undefined)?.productId;
+    if (typeof v === 'number' && v > 0) return v;
+  }
+  return undefined;
+}
+
+/** Precio de Cardmarket en EUR: tendencia; si no, media. */
+export function eurPrice(pricing: unknown): number | undefined {
+  const cm = (pricing as { cardmarket?: Record<string, unknown> } | null | undefined)?.cardmarket;
+  if (!cm || typeof cm !== 'object') return undefined;
+  for (const k of ['trend', 'avg', 'avg30']) {
+    const v = cm[k];
+    if (typeof v === 'number' && v > 0) return v;
+  }
+  return undefined;
+}
+
+/**
+ * ID de set de TCGdex → el de pokemontcg.io ("sv01" → "sv1", "sv03.5" → "sv3pt5",
+ * "swsh12.5" → "swsh12pt5", "sm7.5" → "sm75").
+ */
+export function ptcgioSet(setId: string): string {
+  let s = setId.replace(/^sv0(\d)/, 'sv$1');
+  if (/^(sv\d|swsh12)/.test(s)) s = s.replace('.5', 'pt5');
+  return s.replace('.', '');
+}
+
+/** Número en pokemontcg.io: sin ceros delante. */
+export function ptcgioNum(localId: string): string {
+  return /^\d+$/.test(localId) ? String(Number(localId)) : localId;
+}
+
+/** Sets que pokemontcg.io numera distinto (Classic Collection usa el número de la carta original). */
+const PTCGIO_SKIP = new Set(['cel25cc']);
+
+/**
+ * pokemontcg.io responde 404 con el reverso de una carta (640×892) cuando no tiene la imagen:
+ * eso cuenta como «no hay imagen».
+ */
+export function isPlaceholder(src: string, w: number, h: number): boolean {
+  return src.startsWith('https://images.pokemontcg.io/') && w === 640 && h === 892;
+}
+
+/**
+ * Imágenes para probar en orden: la de TCGdex, la foto de TCGplayer y la de pokemontcg.io.
+ * Algunas cartas (promos nuevas, Trainer Gallery, Classic Collection) no tienen imagen en TCGdex.
+ */
+export function imageCandidates(c: { id: string; image?: string; tcgpId?: number }, q: 'low' | 'high'): string[] {
+  const out: string[] = [];
+  const own = imageUrl(c.image, q);
+  if (own) out.push(own);
+  if (c.tcgpId) out.push(`https://tcgplayer-cdn.tcgplayer.com/product/${c.tcgpId}_${q === 'low' ? '200w' : 'in_1000x1000'}.jpg`);
+  const cut = c.id.lastIndexOf('-');
+  if (cut > 0) {
+    const set = c.id.slice(0, cut);
+    const n = c.id.slice(cut + 1);
+    if (/^[\w.]+$/.test(set) && /^\w+$/.test(n) && !PTCGIO_SKIP.has(set))
+      out.push(`https://images.pokemontcg.io/${ptcgioSet(set)}/${ptcgioNum(n)}${q === 'low' ? '' : '_hires'}.png`);
+  }
+  return out;
+}
+
 /** Recorta la respuesta de la API a lo que usamos. */
 export function trimCard(d: Record<string, unknown>): TcgCard {
   const set = (d.set ?? {}) as { id?: string; name?: string; logo?: unknown; symbol?: unknown; cardCount?: { official?: unknown; total?: unknown } };
@@ -90,6 +161,10 @@ export function trimCard(d: Record<string, unknown>): TcgCard {
   if (typeof d.illustrator === 'string' && d.illustrator) out.illustrator = d.illustrator;
   if (p.variant) out.usdVariant = p.variant;
   if (p.updated) out.priceUpdated = p.updated;
+  const eur = eurPrice(d.pricing);
+  if (eur != null) out.eur = eur;
+  const tid = tcgplayerId(d.pricing as Pricing);
+  if (tid) out.tcgpId = tid;
   return out;
 }
 

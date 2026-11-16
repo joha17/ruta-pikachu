@@ -3,7 +3,7 @@
 import { TcgInfo } from '../ui/TcgInfo';
 import { Zoomable } from '../ui/Zoom';
 import { signal } from '@preact/signals';
-import { Fragment } from 'preact';
+import { Fragment, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
@@ -28,11 +28,73 @@ import {
   loadRarities,
   loadSetRarities,
   rarityChoices,
+  arrange,
+  parseView,
+  priceText,
+  shownPrice,
+  PRICE_SORT_MAX,
+  SORTS,
+  type GridSize,
+  type ViewOpts,
 } from '../scan/browse';
 import type { SetBrief } from '../scan/match';
 import { loadSets, localEntries } from '../scan/search';
 import { alias, collection, formView, openKey, sheets } from '../store';
-import { cachedCard, fetchCard, imageUrl } from '../tcgdex';
+import { cachedCard, fetchCard, imageCandidates, isPlaceholder, tcgCache } from '../tcgdex';
+
+/** ¿Ya se pidió esta carta a TCGdex (aunque no exista)? */
+const asked = (id: string) => tcgCache.value.has(`en/${id}`);
+
+const VIEW_KEY = 'ruta-pikachu:buscar-vista';
+function readView(): ViewOpts {
+  try {
+    return parseView(JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null'));
+  } catch {
+    return parseView(null);
+  }
+}
+/** Orden, tamaño y «solo las que faltan»: se recuerdan en este dispositivo. */
+const view = signal<ViewOpts>(readView());
+function setView(p: Partial<ViewOpts>) {
+  view.value = { ...view.value, ...p };
+  shown.value = PAGE;
+  try {
+    localStorage.setItem(VIEW_KEY, JSON.stringify(view.value));
+  } catch {
+    /* modo privado */
+  }
+}
+
+type ImgCard = { id: string; image?: string; tcgpId?: number };
+
+/**
+ * Fuentes de imagen en orden (TCGdex, TCGplayer, pokemontcg.io): da la actual y qué hacer si
+ * falla (pasar a la siguiente). Sin src = ya no queda ninguna.
+ */
+function useImgChain(c: ImgCard, q: 'low' | 'high'): [string | undefined, () => void] {
+  const urls = imageCandidates(c, q);
+  const sig = urls.join(' ');
+  const [st, setSt] = useState({ sig, i: 0 });
+  // Si llegan más fuentes (el ID de TCGplayer viene con el precio), se empieza de nuevo.
+  const i = st.sig === sig ? st.i : 0;
+  return [urls[i], () => setSt({ sig, i: i + 1 })];
+}
+
+function CardImg({ c, q, alt, fallback }: { c: ImgCard; q: 'low' | 'high'; alt: string; fallback: ComponentChildren }) {
+  const [src, next] = useImgChain(c, q);
+  if (!src) return <>{fallback}</>;
+  return (
+    <img
+      key={src}
+      src={src}
+      alt={alt}
+      loading="lazy"
+      referrerpolicy="no-referrer"
+      onError={next}
+      onLoad={(e) => isPlaceholder(src, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight) && next()}
+    />
+  );
+}
 
 // Se quedan al cambiar de pestaña: vuelves y tus filtros y resultados siguen ahí.
 const filters = signal<BrowseFilters>({ ...NO_FILTERS });
@@ -40,6 +102,9 @@ const results = signal<BrowseResult[] | null>(null);
 const shown = signal(PAGE);
 const status = signal<'idle' | 'loading' | 'error' | 'offline'>('idle');
 const selected = signal<BrowseResult | null>(null);
+/** Cartas que TCGdex no devolvió (sin conexión o la API falló): se muestran sin precio. */
+const failed = signal<Set<string>>(new Set());
+const retry = signal(0);
 const setList = signal<SetBrief[]>([]);
 const rarList = signal<string[]>([]);
 /** Rarezas de cada set elegido (undefined = cargando, null = no se pudo saber). */
@@ -281,37 +346,125 @@ function Resultados() {
       </p>
     );
   }
+  return <Grid r={r} loading={st === 'loading'} />;
+}
+
+const SIZES: Array<[GridSize, string]> = [
+  ['s', 'Pequeñas'],
+  ['m', 'Medianas'],
+  ['l', 'Grandes'],
+];
+
+function Vista({ tooMany }: { tooMany: boolean }) {
+  const v = view.value;
+  return (
+    <div class="bv">
+      <label class="bv-sort">
+        <span>Ordenar</span>
+        <select value={v.sort} onChange={(e) => setView({ sort: e.currentTarget.value as ViewOpts['sort'] })}>
+          {SORTS.map(([k, label]) => (
+            <option key={k} value={k} disabled={tooMany && k.startsWith('price')}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div class="bv-size" role="group" aria-label="Tamaño de las cartas">
+        {SIZES.map(([k, label]) => (
+          <button key={k} type="button" class="chipf" aria-pressed={v.size === k} onClick={() => setView({ size: k })}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <label class="bv-miss">
+        <input type="checkbox" checked={v.missing} onChange={(e) => setView({ missing: e.currentTarget.checked })} />
+        <span>Solo las que me faltan</span>
+      </label>
+    </div>
+  );
+}
+
+function Grid({ r, loading }: { r: BrowseResult[]; loading: boolean }) {
+  const v = view.value;
   const idx = tcgIndex();
   const col = collection.value;
-  const vis = r.slice(0, shown.value);
+  const owned = (id: string) => (idx.get(id) ?? []).some((k) => isOwned(alias.value, col, k));
+  const tooMany = r.length > PRICE_SORT_MAX;
+  const bySort = v.sort.startsWith('price') && !tooMany;
+  const priceOf = (id: string) => {
+    const full = cachedCard(id);
+    return full ? (shownPrice(full)?.v ?? null) : undefined;
+  };
+  const list = arrange(r, bySort ? v : { ...v, sort: v.sort.startsWith('price') ? 'new' : v.sort }, priceOf, owned);
+  const vis = list.slice(0, shown.value);
+  // Precios (y la foto de TCGplayer): de las que se ven; para ordenar por precio, de todas.
+  // fetchCard guarda cada carta por día y no pide más de 4 a la vez.
+  const need = bySort ? r : vis;
+  const needSig = need.map((c) => c.id).join(',');
+  useEffect(() => {
+    for (const c of need) {
+      if (asked(c.id)) continue;
+      if (failed.value.has(c.id)) {
+        const s = new Set(failed.value);
+        s.delete(c.id);
+        failed.value = s;
+      }
+      // Si TCGdex no respondió, no se queda «cargando» para siempre: se marca y se reintenta luego.
+      void fetchCard(c.id).then(() => {
+        if (!asked(c.id)) failed.value = new Set(failed.value).add(c.id);
+      });
+    }
+  }, [needSig, retry.value]);
+  const pending = bySort ? r.filter((c) => !asked(c.id) && !failed.value.has(c.id)).length : 0;
+  const nFailed = need.filter((c) => failed.value.has(c.id)).length;
   return (
-    <div class="browse-r" aria-busy={st === 'loading'}>
-      <p class="msg" role="status">
-        {st === 'loading'
-          ? 'Buscando…'
-          : r.length
-            ? `${r.length} ${r.length === 1 ? 'carta' : 'cartas'}`
-            : 'No hay cartas con estos filtros.'}
-      </p>
+    <div class="browse-r" aria-busy={loading}>
+      <div class="br-head">
+        <p class="msg" role="status">
+          {loading
+            ? 'Buscando…'
+            : r.length
+              ? `${r.length} ${r.length === 1 ? 'carta' : 'cartas'}${v.missing ? ` · te faltan ${list.length}` : ''}`
+              : 'No hay cartas con estos filtros.'}
+        </p>
+        {r.length > 0 && <Vista tooMany={tooMany} />}
+      </div>
+      {v.sort.startsWith('price') && tooMany && (
+        <p class="hint">Para ordenar por precio afina la búsqueda a {PRICE_SORT_MAX} cartas o menos.</p>
+      )}
+      {pending > 0 && (
+        <p class="hint" role="status">
+          Cargando precios: faltan {pending} de {r.length}…
+        </p>
+      )}
+      {nFailed > 0 && pending === 0 && (
+        <p class="hint">
+          TCGdex no dio el precio de {nFailed} {nFailed === 1 ? 'carta' : 'cartas'}.{' '}
+          <button type="button" class="linkish" onClick={() => retry.value++}>
+            Reintentar
+          </button>
+        </p>
+      )}
       {vis.length > 0 && (
-        <div class="cand-grid">
+        <div class={`cand-grid sz-${v.size}`}>
           {vis.map((c) => {
-            const keys = idx.get(c.id) ?? [];
-            const own = keys.some((k) => isOwned(alias.value, col, k));
-            const src = imageUrl(c.image, 'low');
+            const own = owned(c.id);
+            const full = cachedCard(c.id);
+            const p = shownPrice(full);
             return (
               <button
                 key={c.id}
                 class="cand"
                 onClick={() => (selected.value = c)}
-                aria-label={`${c.name}, ${c.setName} ${c.num}${own ? ', ya la tienes' : ''}`}
+                aria-label={`${c.name}, ${c.setName} ${c.num}${p ? `, ${priceText(p)}` : ''}${own ? ', ya la tienes' : ''}`}
               >
                 <span class="cand-img">
-                  {src ? (
-                    <img src={src} alt="" loading="lazy" referrerpolicy="no-referrer" />
-                  ) : (
-                    <span class="cand-noimg">Sin imagen</span>
-                  )}
+                  <CardImg
+                    c={{ id: c.id, image: c.image ?? full?.image, tcgpId: full?.tcgpId }}
+                    q="low"
+                    alt=""
+                    fallback={<span class="cand-noimg">{asked(c.id) || failed.value.has(c.id) ? 'Sin imagen' : 'Buscando imagen…'}</span>}
+                  />
                   {own && (
                     <i class="cand-own" aria-hidden="true">
                       ✓
@@ -323,15 +476,18 @@ function Resultados() {
                   <small>
                     {c.setName} · {c.num}
                   </small>
+                  <span class={`cand-price${p ? '' : ' none'}`} title={p?.cur === 'EUR' ? 'Cardmarket (sin precio en TCGplayer)' : 'TCGplayer, precio de mercado'}>
+                    {asked(c.id) || failed.value.has(c.id) ? priceText(p) : '…'}
+                  </span>
                 </span>
               </button>
             );
           })}
         </div>
       )}
-      {r.length > vis.length && (
+      {list.length > vis.length && (
         <button class="btn more-res" onClick={() => (shown.value += PAGE)}>
-          Ver más ({r.length - vis.length} restantes)
+          Ver más ({list.length - vis.length} restantes)
         </button>
       )}
     </div>
@@ -363,7 +519,7 @@ function Detalle({ c }: { c: BrowseResult }) {
       say(msg);
     }
   };
-  const img = imageUrl(c.image ?? full?.image, 'high');
+  const [img, nextImg] = useImgChain({ id: c.id, image: c.image ?? full?.image, tcgpId: full?.tcgpId }, 'high');
   const close = () => (selected.value = null);
   const goFicha = (k: string) => {
     close();
@@ -378,10 +534,17 @@ function Detalle({ c }: { c: BrowseResult }) {
       <div class={`sheet-img${img ? ' has-img' : ''}`}>
         {img ? (
           <Zoomable src={img} alt={`Imagen oficial de ${c.name}`}>
-            <img src={img} alt={`Imagen oficial de ${c.name}`} referrerpolicy="no-referrer" />
+            <img
+              key={img}
+              src={img}
+              alt={`Imagen de ${c.name}`}
+              referrerpolicy="no-referrer"
+              onError={nextImg}
+              onLoad={(e) => isPlaceholder(img, e.currentTarget.naturalWidth, e.currentTarget.naturalHeight) && nextImg()}
+            />
           </Zoomable>
         ) : (
-          <span>TCGdex no tiene imagen de esta carta.</span>
+          <span>{asked(c.id) ? 'No encontramos imagen de esta carta.' : 'Buscando imagen…'}</span>
         )}
       </div>
       <div class="sheet-body">
@@ -405,7 +568,17 @@ function Detalle({ c }: { c: BrowseResult }) {
             </>
           )}
           <dt>Precio</dt>
-          <dd>{full ? (full.usd != null ? `${money(full.usd)} · TCGplayer` : 'Sin dato en TCGdex') : 'Buscando…'}</dd>
+          <dd>
+            {full
+              ? full.usd != null
+                ? `${money(full.usd)} · TCGplayer`
+                : full.eur != null
+                  ? `€${full.eur.toFixed(2)} · Cardmarket (sin precio en TCGplayer)`
+                  : 'Sin dato en TCGdex'
+              : asked(c.id)
+                ? 'Sin dato en TCGdex'
+                : 'Buscando…'}
+          </dd>
         </dl>
         <TcgInfo tcg={c.id} />
         {done ? (

@@ -58,7 +58,7 @@ describe('variantes y set', () => {
       variants: { holo: true, firstEdition: true },
       pricing: { tcgplayer: TP },
     });
-    expect(c.v).toBe(2);
+    expect(c.v).toBe(3);
     expect(c.usd).toBe(0.2); // la variante principal no cambia (normal antes que reverse)
     expect(c.prices).toHaveLength(3);
     expect(c.variants).toEqual(['Holo', '1.ª edición']);
