@@ -315,3 +315,24 @@ dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
 .valuebox .tline{font-size:14px;font-weight:600}
 .vchart{height:90px}
 .spark .sl.est{stroke-dasharray:4 4;opacity:.6}
+
+/* Buscar: opciones de vista y precio en la cuadrícula */
+.br-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px}
+.bv{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.bv-sort{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.bv-sort select{font:500 14px var(--f-body);padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.bv-size{display:flex;gap:4px}
+.bv-miss{display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer}
+.cand-grid.sz-s{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+.cand-grid.sz-m{grid-template-columns:repeat(auto-fill,minmax(132px,1fr))}
+.cand-grid.sz-l{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.cand-price{justify-self:start;margin-top:2px;padding:1px 7px;border-radius:999px;background:var(--yellow);color:var(--yellow-ink);font:700 12px/1.5 var(--f-mono,monospace)}
+.cand-price.none{background:none;color:var(--muted);padding:1px 0}
+.sz-l .cand-cap b{font-size:14px}
+.sz-l .cand-price{font-size:13.5px}
+.bv-size .chipf{padding:5px 10px;font-size:13px}
+.bv-size .chipf[aria-pressed="true"]{background:var(--yellow);color:var(--yellow-ink);border-color:var(--yellow-deep)}
+/* Precio de referencia en las sugerencias de «Añadir carta» */
+.sugg-opt>span:not(.sugg-price){flex:1;min-width:0}
+.sugg-price{flex:none;margin-left:auto;padding:1px 8px;border-radius:999px;background:var(--yellow);color:var(--yellow-ink);font:700 12.5px/1.5 var(--f-mono,monospace)}
+.sugg-price.none{background:none;color:var(--muted);padding:1px 0}
