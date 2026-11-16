@@ -5,7 +5,7 @@ import { savePrices } from './db';
 import { MAX_BOX } from './model/catalog';
 import { today } from './model/keys';
 import { collection, prices } from './store';
-import { cachedCard } from './tcgdex';
+import { cachedCard, fetchCard, type Lang } from './tcgdex';
 
 export interface TcgPick {
   id: string;
@@ -14,9 +14,15 @@ export interface TcgPick {
   setName: string;
 }
 
-/** La carta nueva entra con el precio que ya trajo TCGdex (sin esperar a la actualización diaria). */
-export function seedPrice(key: string, tcgId: string): void {
-  const v = cachedCard(tcgId)?.usd;
+/**
+ * La carta nueva entra con su precio de TCGdex sin esperar a la actualización diaria (que ya
+ * pudo correr hoy). Usa el que ya está en caché; si no, lo pide (una llamada, guardada por día).
+ */
+export async function seedPrice(key: string, tcgId: string | undefined, lang: Lang = 'en'): Promise<void> {
+  const id = tcgId?.trim();
+  if (!key || !id) return;
+  const card = cachedCard(id, lang) ?? (navigator.onLine ? await fetchCard(id, lang) : null);
+  const v = card?.usd;
   if (v == null) return;
   const p = structuredClone(prices.value);
   p.usd[key] = v;
@@ -45,7 +51,7 @@ export function addTcgToBox(r: TcgPick): string {
     const nb = ops.addBox(col, preFromTcg(r));
     if (nb) key = `b:${nb.id}`;
   });
-  if (key) seedPrice(key, r.id);
+  if (key) void seedPrice(key, r.id);
   return key;
 }
 
@@ -56,6 +62,6 @@ export function addTcgToSheet(r: TcgPick, sid: string): string {
     key = ops.addCard(col, sid, preFromTcg(r)) ?? '';
     if (key) col.owned[key] = true;
   });
-  if (key) seedPrice(key, r.id);
+  if (key) void seedPrice(key, r.id);
   return key;
 }

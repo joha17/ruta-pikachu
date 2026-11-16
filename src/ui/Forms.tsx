@@ -12,6 +12,10 @@ import { loadSets } from '../scan/search';
 import { cachedCard, fetchCard, imageUrl, tcgCache } from '../tcgdex';
 import { priceText, shownPrice } from '../scan/browse';
 import { showSheet } from './sheetView';
+import { seedPrice } from '../collect';
+import type { Lang } from '../tcgdex';
+
+const langOf = (l: string | undefined): Lang => (l === 'ja' ? 'ja' : 'en');
 
 function Fld(p: { id: string; label: string; val?: string; opt?: boolean; hint?: string; [k: string]: unknown }) {
   const { id, label, val, opt, hint, ...attrs } = p;
@@ -261,6 +265,7 @@ export function Forms() {
               if ('err' in r) return setErr(r.err);
               if (eb) {
                 act((c) => ops.editBox(c, eb.id, { ...r.c, lang: eb.lang, graded: eb.graded }));
+                if (r.c.tcg && r.c.tcg !== eb.tcg) void seedPrice(`b:${eb.id}`, r.c.tcg, langOf(eb.lang));
                 formView.value = null;
                 return;
               }
@@ -272,6 +277,7 @@ export function Forms() {
                   if (r.price != null) ops.setManual(c, alias.value, `b:${nb.id}`, r.price);
                 }
               });
+              if (id) void seedPrice(`b:${id}`, r.c.tcg, langOf(fv.pre?.lang));
               formView.value = null;
               openKey.value = id ? `b:${id}` : '';
               say('Guardada en la caja.');
@@ -463,7 +469,9 @@ export function Forms() {
             const r = ops.cardFromForm(values(e.currentTarget));
             if ('err' in r) return setErr(r.err);
             if (editing) {
+              const old = (editing.card as { tcg?: string; lang?: string }) ?? {};
               act((cc) => ops.editCard(cc, editing.key, r.c));
+              if (r.c.tcg && r.c.tcg !== old.tcg) void seedPrice(editing.key, r.c.tcg, langOf(old.lang));
               formView.value = null;
               return;
             }
@@ -473,6 +481,7 @@ export function Forms() {
               if (key && r.price != null) ops.setManual(cc, alias.value, key, r.price);
               if (key && fv.pre?.own) cc.owned[key] = true;
             });
+            if (key) void seedPrice(key, r.c.tcg, langOf(fv.pre?.lang));
             formView.value = null;
             if (key) openKey.value = key;
           }}

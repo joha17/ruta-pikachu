@@ -314,7 +314,7 @@ function saveToBox(shot: Shot, c: Cand): boolean {
     if (nb) key = `b:${nb.id}`;
   });
   if (key) {
-    seedPrice(key, c.brief.id);
+    void seedPrice(key, c.brief.id);
     void keepPhoto(shot, key);
   }
   patch(shot.id, { done: 'Guardada en la caja' });
@@ -434,7 +434,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
                           if (k) cc.owned[k] = true;
                         });
                         if (k) {
-                          seedPrice(k, c.brief.id);
+                          void seedPrice(k, c.brief.id);
                           void keepPhoto(shot, k);
                         }
                         patch(shot.id, { done: `Añadida a «${room.find((s) => s.id === sid)?.name}»` });
