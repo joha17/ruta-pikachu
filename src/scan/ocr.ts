@@ -1,9 +1,10 @@
 // Lector de texto en el propio aparato (Tesseract.js), cargado solo cuando escaneas.
-// Lee la franja de abajo (número, normal e invertida, izquierda y derecha) y la de arriba (nombre).
+// Lee la franja de abajo (número: varias pasadas con distinto tratamiento, izquierda y derecha)
+// y la de arriba (nombre).
 
 import { signal } from '@preact/signals';
 import type { Worker } from 'tesseract.js';
-import { prepStrip } from './crop';
+import { localBinarize, prepStrip } from './crop';
 import type { Reading } from './identify';
 
 export type OcrState = 'off' | 'loading' | 'ready' | 'error';
@@ -50,22 +51,34 @@ const NAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzéÉ'-.&
 /** Zonas de la carta, en proporción (63×88). */
 const BOTTOM_LEFT = { x: 0, y: 0.885, w: 0.62, h: 0.095 };
 /** Línea del número en cartas modernas (abajo a la izquierda), más ajustada para agrandarla más. */
-const NUMBER_LINE = { x: 0, y: 0.92, w: 0.5, h: 0.06 };
+const NUMBER_LINE = { x: 0, y: 0.92, w: 0.55, h: 0.065 };
 const BOTTOM_RIGHT = { x: 0.45, y: 0.885, w: 0.55, h: 0.095 };
 const TOP = { x: 0.03, y: 0.02, w: 0.77, h: 0.09 };
+
+/**
+ * Cada lectura del número sale bien en cartas distintas (texto oscuro sobre gris, claro sobre
+ * oscuro, abajo a la derecha en cartas viejas), así que se hacen varias y se juntan.
+ */
+type Mode = 'plain' | 'invert' | 'dark' | 'light';
+const BOTTOM_PASSES: Array<[typeof BOTTOM_LEFT, number, Mode]> = [
+  [BOTTOM_LEFT, 1400, 'plain'],
+  [NUMBER_LINE, 1000, 'dark'],
+  [NUMBER_LINE, 1000, 'invert'],
+  [NUMBER_LINE, 1000, 'light'],
+  [BOTTOM_RIGHT, 1400, 'plain'],
+];
+
+function strip(card: HTMLCanvasElement, r: typeof BOTTOM_LEFT, tw: number, mode: Mode): HTMLCanvasElement {
+  const s = prepStrip(card, r, tw, mode === 'invert');
+  return mode === 'dark' || mode === 'light' ? localBinarize(s, mode === 'light') : s;
+}
 
 export async function readCard(card: HTMLCanvasElement): Promise<Reading> {
   const w = await getWorker();
   const { PSM } = await import('tesseract.js');
   await w.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, tessedit_char_whitelist: NUM_CHARS });
   const bottoms: string[] = [];
-  for (const [r, inv] of [
-    [BOTTOM_LEFT, false],
-    [NUMBER_LINE, false],
-    [NUMBER_LINE, true],
-    [BOTTOM_RIGHT, false],
-  ] as const)
-    bottoms.push((await w.recognize(prepStrip(card, r, 1400, inv))).data.text);
+  for (const [r, tw, mode] of BOTTOM_PASSES) bottoms.push((await w.recognize(strip(card, r, tw, mode))).data.text);
   await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE, tessedit_char_whitelist: NAME_CHARS });
   const top = (await w.recognize(prepStrip(card, TOP, 1200))).data.text;
   return { bottom: bottoms.join('\n'), top };
