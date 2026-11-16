@@ -9,7 +9,8 @@ import type { BoxCard, CardDef } from '../model/types';
 import { alias, collection, formView, openKey, sheets } from '../store';
 import { cleanQuery, MAX_SUGGESTIONS, searchByName, type Suggestion } from '../scan/names';
 import { loadSets } from '../scan/search';
-import { fetchCard, imageUrl } from '../tcgdex';
+import { cachedCard, fetchCard, imageUrl, tcgCache } from '../tcgdex';
+import { priceText, shownPrice } from '../scan/browse';
 import { showSheet } from './sheetView';
 
 function Fld(p: { id: string; label: string; val?: string; opt?: boolean; hint?: string; [k: string]: unknown }) {
@@ -35,6 +36,20 @@ function values(form: HTMLFormElement): Record<string, string> {
 type CardVals = Record<'n' | 'num' | 'set' | 'rar' | 'tcg' | 'url' | 'price', string>;
 
 /** Nombre con sugerencias de TCGdex: escribes «mega absol» y eliges de la lista. */
+/** Precio de mercado: TCGplayer (USD) o, si no hay, Cardmarket (EUR). «…» mientras se pide. */
+function SuggPrice({ id }: { id: string }) {
+  const asked = tcgCache.value.has(`en/${id}`);
+  const p = shownPrice(cachedCard(id));
+  return (
+    <span
+      class={`sugg-price${p ? '' : ' none'}`}
+      title={p ? (p.cur === 'EUR' ? 'Cardmarket (sin precio en TCGplayer)' : 'TCGplayer, precio de mercado') : undefined}
+    >
+      {asked ? priceText(p) : '…'}
+    </span>
+  );
+}
+
 function NameField({ value, onChange, onPick }: { value: string; onChange: (v: string) => void; onPick: (s: Suggestion) => void }) {
   const [list, setList] = useState<Suggestion[]>([]);
   const [state, setState] = useState<'idle' | 'busy' | 'none' | 'offline'>('idle');
@@ -92,6 +107,10 @@ function NameField({ value, onChange, onPick }: { value: string; onChange: (v: s
   }
 
   const show = open && (state !== 'idle' || list.length > 0);
+  // Precio de referencia de cada sugerencia: una llamada por carta y día (cola de 4 a la vez).
+  useEffect(() => {
+    if (show && state === 'idle') for (const s of list) void fetchCard(s.id);
+  }, [show, state, list]);
   return (
     <div class="fld name-fld">
       <label for="f-n">Nombre de la carta</label>
@@ -145,6 +164,7 @@ function NameField({ value, onChange, onPick }: { value: string; onChange: (v: s
                     {s.num} · {s.setName || s.setId}
                   </small>
                 </span>
+                <SuggPrice id={s.id} />
               </div>
             ))}
           {state === 'idle' && list.length >= MAX_SUGGESTIONS && <p class="sugg-msg">Hay más: escribe más del nombre para afinar.</p>}

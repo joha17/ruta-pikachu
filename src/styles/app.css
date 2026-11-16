@@ -332,3 +332,7 @@ dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
 .sz-l .cand-price{font-size:13.5px}
 .bv-size .chipf{padding:5px 10px;font-size:13px}
 .bv-size .chipf[aria-pressed="true"]{background:var(--yellow);color:var(--yellow-ink);border-color:var(--yellow-deep)}
+/* Precio de referencia en las sugerencias de «Añadir carta» */
+.sugg-opt>span:not(.sugg-price){flex:1;min-width:0}
+.sugg-price{flex:none;margin-left:auto;padding:1px 8px;border-radius:999px;background:var(--yellow);color:var(--yellow-ink);font:700 12.5px/1.5 var(--f-mono,monospace)}
+.sugg-price.none{background:none;color:var(--muted);padding:1px 0}
