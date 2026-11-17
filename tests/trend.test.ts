@@ -134,3 +134,34 @@ describe('cartas sin consultar hoy', () => {
     expect(pendingToday(p, '2026-11-17', ['a', 'b'])).toEqual(['a', 'b']);
   });
 });
+
+import { sortDrops, weekDrop } from '../src/model/trend';
+
+describe('bajaron esta semana', () => {
+  const col = emptyCollection();
+  it('compara el último precio con el de hace 7 días (arrastrando el último conocido)', () => {
+    const p = book({ '2026-11-05': 10, '2026-11-12': 8 });
+    const d = weekDrop(col, p, AL, 'p:5', '2026-11-13')!;
+    expect(d.from.d).toBe('2026-11-05');
+    expect(d.usd).toBe(2);
+    expect(d.pct).toBeCloseTo(20);
+    // El 11-09 no tiene precio: se usa el del 11-05, que seguía vigente.
+    const q = book({ '2026-11-05': 10, '2026-11-10': 12, '2026-11-16': 9 });
+    expect(weekDrop(col, q, AL, 'p:5', '2026-11-16')!.from.d).toBe('2026-11-05');
+  });
+
+  it('no cuenta si subió, si bajó menos de 1 %, sin una semana de historial o con precio viejo', () => {
+    expect(weekDrop(col, book({ '2026-11-05': 10, '2026-11-12': 11 }), AL, 'p:5', '2026-11-12')).toBeNull();
+    expect(weekDrop(col, book({ '2026-11-05': 10, '2026-11-12': 9.95 }), AL, 'p:5', '2026-11-12')).toBeNull();
+    expect(weekDrop(col, book({ '2026-11-08': 10, '2026-11-12': 5 }), AL, 'p:5', '2026-11-12')).toBeNull();
+    expect(weekDrop(col, book({ '2026-10-01': 10, '2026-10-08': 5 }), AL, 'p:5', '2026-11-12')).toBeNull();
+    expect(weekDrop(col, book({ '2026-10-01': 10, '2026-11-12': 5 }), AL, 'p:5', '2026-11-12')).toBeNull();
+  });
+
+  it('ordena por mayor bajada en % o en dólares', () => {
+    const a = { k: 'a', drop: { from: { d: '', v: 100 }, to: { d: '', v: 90 }, usd: 10, pct: 10 } };
+    const b = { k: 'b', drop: { from: { d: '', v: 4 }, to: { d: '', v: 2 }, usd: 2, pct: 50 } };
+    expect(sortDrops([a, b], 'pct').map((x) => x.k)).toEqual(['b', 'a']);
+    expect(sortDrops([a, b], 'usd').map((x) => x.k)).toEqual(['a', 'b']);
+  });
+});
