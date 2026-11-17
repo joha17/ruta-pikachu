@@ -150,9 +150,13 @@ type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
 /** Enfoque continuo si la cámara lo permite (de cerca, el autoenfoque a veces se queda fijo). */
 async function keepFocus(stream: MediaStream): Promise<void> {
   const t = stream.getVideoTracks()[0];
-  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[] };
+  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[]; zoom?: { min: number; max: number } };
   if (t && caps.focusMode?.includes('continuous'))
     await t.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => undefined);
+  // Celulares como el Galaxy S23 Ultra no enfocan de muy cerca con la cámara principal: con algo
+  // de zoom la carta llena el marco a unos 20 cm, donde sí enfoca.
+  if (t && caps.zoom && caps.zoom.max >= 1.8)
+    await t.applyConstraints({ advanced: [{ zoom: Math.min(2, caps.zoom.max) } as MediaTrackConstraintSet] }).catch(() => undefined);
 }
 
 /**
@@ -325,7 +329,7 @@ function Camera({ onClose }: { onClose: () => void }) {
 
       {!shot && !busy && (
         <div class="camfs-bottom">
-          <p class="camfs-hint">Carta dentro del marco, de frente y sin reflejos. Toca la pantalla o el botón.</p>
+          <p class="camfs-hint">Carta dentro del marco, a unos 20 cm, de frente y sin reflejos. Toca la pantalla o el botón.</p>
           <button class="camfs-shutter" onClick={() => void shoot()} disabled={!ready} aria-label="Tomar foto" />
         </div>
       )}
