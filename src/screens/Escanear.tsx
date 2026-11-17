@@ -174,13 +174,30 @@ async function takePhoto(stream: MediaStream): Promise<ImageBitmap | null> {
   }
 }
 
+/** Quita una foto de la lista (al repetirla). */
+function dropShot(id: number) {
+  const s = shots.value.find((x) => x.id === id);
+  if (s) URL.revokeObjectURL(s.url);
+  shots.value = shots.value.filter((x) => x.id !== id);
+}
+
+/**
+ * Cámara a pantalla completa. Cada foto se lee en el momento y no deja tomar la siguiente hasta
+ * que decides: correcta (sigue), elegir otra de las opciones, repetir la foto o saltarla para
+ * revisarla después. Se dispara con el botón grande o tocando la pantalla.
+ */
 function Camera({ onClose }: { onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState('');
   const [ready, setReady] = useState(false);
   const [flash, setFlash] = useState(false);
+  /** Tomando la foto (no mover la carta). */
   const [busy, setBusy] = useState(false);
+  /** Foto que se está leyendo o esperando tu respuesta. */
+  const [current, setCurrent] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [count, setCount] = useState(0);
   const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -188,6 +205,9 @@ function Camera({ onClose }: { onClose: () => void }) {
     let alive = true;
     warmUp();
     void loadIndex();
+    document.body.classList.add('camfs-open');
+    // Pantalla completa de verdad si el navegador deja (en Android oculta las barras).
+    void document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => undefined);
     (async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NotFoundError' });
@@ -209,12 +229,22 @@ function Camera({ onClose }: { onClose: () => void }) {
     return () => {
       alive = false;
       stream?.getTracks().forEach((t) => t.stop());
+      document.body.classList.remove('camfs-open');
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
     };
   }, []);
 
+  const shot = current != null ? shots.value.find((s) => s.id === current) : undefined;
+  const waiting = busy || (!!shot && !shot.pick && shot.status !== 'error' && !shot.done) || shot?.status === 'reading';
+
+  // Un toque de vibración cuando llega el resultado.
+  useEffect(() => {
+    if (shot && shot.status !== 'reading') navigator.vibrate?.(shot.res?.sure ? 40 : [30, 60, 30]);
+  }, [shot?.status]);
+
   async function shoot() {
     const v = video.current;
-    if (!v || !frame.current || !v.videoWidth || busy) return;
+    if (!v || !frame.current || !v.videoWidth || busy || shot) return;
     const vw = v.videoWidth;
     const vh = v.videoHeight;
     const rect = frameInVideo(v, frame.current);
@@ -236,8 +266,29 @@ function Camera({ onClose }: { onClose: () => void }) {
       photo.close();
     }
     setBusy(false);
-    void enqueue(cards, whole, note);
+    setShowAll(false);
+    setCurrent(await enqueue(cards, whole, note));
+  }
+
+  /** Lista: esta foto queda resuelta (o para después) y se puede tomar la siguiente. */
+  function next() {
+    setCount((n) => n + 1);
+    setCurrent(null);
+    setShowAll(false);
     if (!burst.value) onClose();
+  }
+
+  function choose(c: Cand) {
+    if (!shot) return;
+    void fetchCard(c.brief.id);
+    patch(shot.id, { pick: c });
+    next();
+  }
+
+  function retake() {
+    if (shot) dropShot(shot.id);
+    setCurrent(null);
+    setShowAll(false);
   }
 
   if (err)
@@ -249,25 +300,125 @@ function Camera({ onClose }: { onClose: () => void }) {
         </button>
       </div>
     );
+
+  const cands = shot?.res?.cands ?? [];
+  const top = shot?.res?.sure ? cands[0] : undefined;
+  const reading = busy || shot?.status === 'reading';
+  const listed = shots.value.filter((s) => s.pick).length;
+
   return (
-    <div class="cam">
-      <div class="cam-view">
-        <video ref={video} playsInline muted autoPlay aria-label="Vista de la cámara" />
-        <div class="cam-frame" ref={frame} aria-hidden="true">
-          <span class="cam-num">número</span>
+    <div class="camfs" role="dialog" aria-label="Cámara para escanear cartas">
+      <video ref={video} playsInline muted autoPlay aria-label="Vista de la cámara" onClick={() => void shoot()} />
+      <div class="camfs-frame" ref={frame} aria-hidden="true">
+        <span class="cam-num">número</span>
+      </div>
+      {flash && <div class="cam-flash" aria-hidden="true" />}
+      <div class="camfs-top">
+        <button class="camfs-close" onClick={onClose} aria-label="Cerrar la cámara">
+          ✕
+        </button>
+        <span class="camfs-count">
+          {burst.value ? `${count} escaneadas · ${listed} reconocidas` : 'Toca la pantalla o el botón para tomar la foto'}
+        </span>
+      </div>
+      {!ready && <p class="cam-wait">Abriendo la cámara…</p>}
+
+      {!shot && !busy && (
+        <div class="camfs-bottom">
+          <p class="camfs-hint">Carta dentro del marco, de frente y sin reflejos. Toca la pantalla o el botón.</p>
+          <button class="camfs-shutter" onClick={() => void shoot()} disabled={!ready} aria-label="Tomar foto" />
         </div>
-        {flash && <div class="cam-flash" aria-hidden="true" />}
-        {!ready && <p class="cam-wait">Abriendo la cámara…</p>}
-      </div>
-      <p class="hint">Pon la carta dentro del marco, de frente y con buena luz. Que se lea el número de abajo.</p>
-      <div class="scan-acts">
-        <button class="btn primary us shutter" onClick={() => void shoot()} disabled={!ready || busy}>
-          📸 {busy ? 'Tomando foto… no la muevas' : burst.value ? 'Tomar y seguir' : 'Tomar foto'}
-        </button>
-        <button class="btn quiet" onClick={onClose}>
-          {burst.value ? 'Terminar' : 'Cerrar cámara'}
-        </button>
-      </div>
+      )}
+
+      {(reading || shot) && (
+        <div class={`camfs-sheet${waiting ? '' : ' ok'}`} role="status" aria-live="polite">
+          {reading ? (
+            <div class="scan-wait">
+              <span class="spin" aria-hidden="true" />
+              <span>
+                {busy
+                  ? 'Tomando la foto… no muevas la carta'
+                  : ocrState.value === 'loading'
+                    ? `Preparando el lector (solo la primera vez)… ${Math.round(ocrProgress.value * 100)} %`
+                    : 'Leyendo la carta…'}
+              </span>
+            </div>
+          ) : shot?.status === 'error' ? (
+            <>
+              <p class="msg warn">{shot.err}</p>
+              <div class="camfs-acts">
+                <button class="btn primary" onClick={retake}>
+                  Repetir foto
+                </button>
+              </div>
+            </>
+          ) : top && !showAll ? (
+            <>
+              <div class="camfs-hit">
+                {candImg(top) ? <img src={candImg(top)!} alt="" referrerpolicy="no-referrer" /> : <img src={shot!.url} alt="" />}
+                <span>
+                  <b>{top.brief.name}</b>
+                  <small>
+                    {top.set?.name ?? top.brief.id} · {printedNum(top)}
+                  </small>
+                </span>
+              </div>
+              <div class="camfs-acts">
+                <button class="btn primary big" onClick={() => choose(top)}>
+                  ✓ Correcta{burst.value ? ', siguiente' : ''}
+                </button>
+                <button class="btn quiet" onClick={() => setShowAll(true)}>
+                  No es esta
+                </button>
+              </div>
+            </>
+          ) : cands.length ? (
+            <>
+              <p class="camfs-q">{showAll && top ? 'Elige la correcta:' : `¿Cuál es? Encontré ${cands.length === 1 ? '1 posible' : `${cands.length} posibles`}:`}</p>
+              <div class="camfs-cands">
+                {cands.slice(0, 12).map((c) => {
+                  const src = candImg(c);
+                  return (
+                    <button key={c.brief.id} class="cand" onClick={() => choose(c)} aria-label={`${c.brief.name}, ${c.set?.name ?? ''} ${c.brief.localId}`}>
+                      {src ? <img src={src} alt="" loading="lazy" referrerpolicy="no-referrer" /> : <span class="cand-noimg">{c.brief.name}</span>}
+                      <span class="cand-cap">
+                        <b>{c.brief.name}</b>
+                        <small>{printedNum(c)}</small>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div class="camfs-acts">
+                <button class="btn quiet" onClick={retake}>
+                  Repetir foto
+                </button>
+                <button class="btn quiet" onClick={next}>
+                  Saltar (revisar después)
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div class="camfs-hit">
+                <img src={shot!.url} alt="" />
+                <span>
+                  <b>No la reconocí</b>
+                  <small>Acércate un poco, de frente y sin reflejos.</small>
+                </span>
+              </div>
+              <div class="camfs-acts">
+                <button class="btn primary big" onClick={retake}>
+                  Repetir foto
+                </button>
+                <button class="btn quiet" onClick={next}>
+                  Saltar (revisar después)
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -972,7 +1123,7 @@ export function Escanear() {
       <div class="panel scan-panel">
         <label class="scan-chk">
           <input type="checkbox" checked={burst.value} onChange={(e) => setBurst(e.currentTarget.checked)} />
-          Modo ráfaga: escanear varias seguidas y revisarlas al final
+          Modo ráfaga: varias seguidas; confirmas cada una al tomarla y las guardas todas al final
         </label>
         {cam ? (
           <Camera onClose={() => setCam(false)} />
