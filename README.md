@@ -99,8 +99,10 @@ El mismo workflow corre también cada día a las 21:30 UTC. Antes de construir, 
 baja los archivos diarios de precios de TCGplayer de [tcgcsv.com](https://tcgcsv.com/faq) (gratis,
 desde febrero de 2024; solo Pokémon y Pokémon Japón) y deja los últimos 6 meses en
 `historial/<productId % 1000>.json`. tcgcsv no deja que la app los pida desde el navegador, por eso
-se hace aquí. Los días ya bajados quedan en la caché de Actions; la primera vez baja unos 180
-archivos (2–4 MB cada uno) y tarda unos minutos.
+se hace aquí. Los días ya bajados quedan en la caché de Actions. Baja del día más nuevo al más viejo,
+como mucho 50 días por corrida y con pausas; si tcgcsv responde 429 (demasiadas descargas), espera y,
+si sigue, deja el resto para la próxima corrida. Para completar los 6 meses más rápido se puede correr
+a mano en «Actions» → «Publicar en GitHub Pages» → «Run workflow».
 
 La app busca el ID de producto de TCGplayer que da TCGdex y completa con esos precios los días que no
 tiene guardados (nunca cambia un precio guardado ni el de hoy). Si el paso falla, la app se publica
