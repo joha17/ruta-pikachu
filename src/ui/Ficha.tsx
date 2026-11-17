@@ -184,6 +184,9 @@ function CardSheet({ k }: { k: string }) {
             </>
           ))}
         </dl>
+      </div>
+      {/* De la tendencia en adelante ocupa todo el ancho: en escritorio usa el hueco bajo la imagen. */}
+      <div class="sheet-body sheet-wide">
         <PriceTrend k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
