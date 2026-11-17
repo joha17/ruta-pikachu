@@ -1,12 +1,14 @@
 // Alertas de precio en la app: después de actualizar los precios (y al cambiar una alerta) revisa
 // las reglas de cada carta, guarda las que se disparan en el historial y avisa. Sin servidor, solo
-// pasa con la app abierta (o al abrirla y actualizar los precios).
+// pasa con la app abierta (o al abrirla y actualizar los precios). Con la app cerrada avisa el
+// proceso nocturno de GitHub Actions (ver nube.ts y scripts/alertas.mjs).
 
 import { act, say } from './actions';
 import { alertHits, evaluate, eventText, type AlertStatus } from './model/alerts';
 import { today } from './model/keys';
 import * as ops from './model/ops';
 import { money } from './model/money';
+import { syncNube } from './nube';
 import { go } from './ui/router';
 import { alias, collection, openKey, prices, sheets } from './store';
 
@@ -54,8 +56,10 @@ async function notify(title: string, body: string, key: string): Promise<void> {
  */
 export async function checkAlerts(): Promise<void> {
   const fresh = evaluate(sheets.value, collection.value, prices.value, alias.value, today());
+  if (fresh.length) act((c) => ops.logAlerts(c, fresh));
+  // Copia las alertas (y lo que ya avisó la app) al gist del aviso con la app cerrada.
+  void syncNube();
   if (!fresh.length) return;
-  act((c) => ops.logAlerts(c, fresh));
   const m = (v: number) => money(v);
   const first = fresh[0]!;
   say(fresh.length === 1 ? `🔔 ${eventText(first, m)}` : `🔔 ${fresh.length} alertas de precio. Míralas en Alertas.`);

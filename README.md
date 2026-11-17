@@ -109,6 +109,23 @@ tiene guardados (nunca cambia un precio guardado ni el de hoy). Si el paso falla
 igual. GitHub pausa los workflows programados de un repo sin actividad en 60 días: se reactivan en
 «Actions».
 
+### Alertas con la app cerrada (Telegram)
+
+Las alertas de precio se revisan en la app al abrirla. Para que avisen también con la app cerrada,
+la publicación diaria corre `scripts/alertas.mjs` justo después del historial: revisa las alertas con
+los precios de tcgcsv del día (las mismas reglas de la app, `src/model/alertRules.ts`) y avisa por
+Telegram. Las alertas no van al repo, que es público: la app las copia a un gist secreto de la cuenta
+(`ruta-pikachu-alertas.json`) y lo avisado vuelve en `ruta-pikachu-enviadas.json`, que la app pasa a
+Alertas. Los registros de Actions solo muestran cuentas.
+
+Para activarlo (una sola vez):
+
+1. En Telegram, `/newbot` con @BotFather; guardar el token y escribirle un mensaje al bot.
+2. Crear un token de GitHub *fine-grained* con **Account permissions → Gists: Read and write**.
+3. En Settings → Secrets and variables → Actions, crear `GIST_TOKEN` (ese token) y `TELEGRAM_TOKEN`
+   (el del bot). `TELEGRAM_CHAT_ID` es opcional: sin él se usa el primer chat que le escribió al bot.
+4. En la app, Alertas → «Avisos con la app cerrada», pegar el mismo token de GitHub.
+
 ## Escáner
 
 - Pestaña «Escanear»: cámara en vivo con marco de carta, o fotos de la galería. Modo ráfaga para varias seguidas.

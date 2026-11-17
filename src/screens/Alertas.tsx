@@ -6,6 +6,7 @@ import { activeAlerts, eventText, logList, markAllRead, REASON_TEXT, stableText,
 import { fmtDate, money } from '../model/money';
 import type { AlertEvent } from '../model/types';
 import { alias, collection, openKey, prices, settings, sheets, updateSettings } from '../store';
+import { NubeCard } from '../ui/NubeCard';
 import { go } from '../ui/router';
 
 const PAGE = 30;
@@ -131,6 +132,8 @@ export function Alertas() {
           ))}
         </ul>
       )}
+
+      <NubeCard />
     </section>
   );
 }

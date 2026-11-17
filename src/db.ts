@@ -25,6 +25,25 @@ export interface ClaudeCfg {
   calls: number;
 }
 
+/**
+ * Aviso de alertas con la app cerrada: token de GitHub (solo gists) y el gist secreto donde se
+ * copian las alertas. Solo de este aparato: nunca entra en un respaldo ni en Drive.
+ */
+export interface NubeCfg {
+  token: string;
+  gistId?: string;
+  /** Lo último que se copió (para no volver a subir lo mismo). */
+  hash?: string;
+  /** Última copia correcta (ISO), cartas copiadas y las que no se pueden revisar de noche. */
+  last?: string;
+  cards?: number;
+  skipped?: string[];
+  /** Último aviso nocturno que vio el gist (AAAA-MM-DD) y si ya encontró el chat de Telegram. */
+  remoteLast?: string;
+  chat?: boolean;
+  error?: string;
+}
+
 /** Sincronización con Google Drive. Solo de este aparato: nunca entra en un respaldo. */
 export interface SyncState {
   on: boolean;
@@ -48,8 +67,8 @@ export interface TcgCacheEntry {
 
 interface RutaDB extends DBSchema {
   kv: {
-    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync';
-    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState;
+    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube';
+    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg;
   };
   photos: { key: string; value: Photo };
   tcg: { key: string; value: TcgCacheEntry };
@@ -93,6 +112,15 @@ export async function loadClaude(): Promise<ClaudeCfg | undefined> {
 }
 export async function saveClaude(c: ClaudeCfg): Promise<void> {
   await (await db()).put('kv', c, 'claude');
+}
+
+export async function loadNube(): Promise<NubeCfg | undefined> {
+  return (await (await db()).get('kv', 'nube')) as NubeCfg | undefined;
+}
+export async function saveNube(c: NubeCfg | null): Promise<void> {
+  const d = await db();
+  if (c) await d.put('kv', c, 'nube');
+  else await d.delete('kv', 'nube');
 }
 
 export async function loadSync(): Promise<SyncState | undefined> {
