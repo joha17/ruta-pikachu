@@ -75,3 +75,10 @@ export function valueSeries(
   if (todayValue.n) out.push({ d: day, v: Math.round(todayValue.t * 100) / 100, n: todayValue.n, est: false });
   return out;
 }
+
+/** Los puntos de los últimos `days` días, contando hoy (el último punto). */
+export function valueRange(s: ValuePoint[], days: number): ValuePoint[] {
+  if (!s.length) return s;
+  const limit = Date.parse(s[s.length - 1]!.d) - (days - 1) * DAY;
+  return s.filter((p) => Date.parse(p.d) >= limit);
+}
