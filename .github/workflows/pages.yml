@@ -1,10 +1,14 @@
-# Construye la app y la publica en GitHub Pages en cada push a main (o a mano desde «Actions»).
+# Construye la app y la publica en GitHub Pages en cada push a main, cada día después de que
+# tcgcsv.com publica los precios del día (para el historial de precios), o a mano desde «Actions».
 # Antes de que funcione: en el repo, Settings → Pages → Source: «GitHub Actions».
 name: Publicar en GitHub Pages
 
 on:
   push:
     branches: [main]
+  schedule:
+    # tcgcsv.com actualiza cerca de las 20:00 UTC.
+    - cron: '30 21 * * *'
   workflow_dispatch:
 
 permissions:
@@ -32,6 +36,25 @@ jobs:
         run: |
           repo="${{ github.event.repository.name }}"
           if [[ "$repo" == *.github.io ]]; then echo "BASE=/" >> "$GITHUB_ENV"; else echo "BASE=/$repo/" >> "$GITHUB_ENV"; fi
+      # Historial de precios de TCGplayer (últimos 6 meses) desde los archivos diarios de tcgcsv.com.
+      # Los días ya bajados quedan en la caché de Actions y no se vuelven a pedir. Si falla, la app
+      # se publica igual y la gráfica usa solo los precios guardados en el aparato.
+      - uses: actions/cache/restore@v4
+        with:
+          path: .cache/tcgcsv
+          key: tcgcsv-${{ github.run_id }}
+          restore-keys: tcgcsv-
+      - name: Historial de precios
+        id: hist
+        continue-on-error: true
+        run: |
+          command -v 7z >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full)
+          node scripts/historial.mjs --cache .cache/tcgcsv --out public/historial
+      - uses: actions/cache/save@v4
+        if: always() && steps.hist.outputs.changed == 'true'
+        with:
+          path: .cache/tcgcsv
+          key: tcgcsv-${{ github.run_id }}
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
