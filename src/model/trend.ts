@@ -34,6 +34,25 @@ export function lastDays(s: Point[], days: number): Point[] {
   return s.filter((p) => Date.parse(p.d) >= limit);
 }
 
+/**
+ * Puntos del rango para la gráfica. Si el rango no tiene precio en su primer día pero sí hay uno
+ * anterior, empieza con ese último precio conocido (el precio sigue igual hasta que hay otro), así
+ * cada rango muestra algo aunque falten días. `carried` dice desde qué día se arrastra.
+ */
+export function rangeSeries(s: Point[], days: number): { pts: Point[]; carried?: string } {
+  const pts = lastDays(s, days);
+  if (!s.length) return { pts };
+  const start = new Date(Date.parse(s[s.length - 1]!.d) - (days - 1) * DAY).toISOString().slice(0, 10);
+  if (pts[0]?.d === start) return { pts };
+  const before = s.length - pts.length - 1;
+  if (before < 0) return { pts };
+  const prev = s[before]!;
+  // Línea plana hasta el día antes del primer precio del rango, y ahí el salto.
+  const eve = new Date(Date.parse(pts[0]!.d) - DAY).toISOString().slice(0, 10);
+  const flat = eve > start ? [{ d: start, v: prev.v }, { d: eve, v: prev.v }] : [{ d: start, v: prev.v }];
+  return { pts: [...flat, ...pts], carried: prev.d };
+}
+
 /** Días que cubre la serie, del primero al último (1 si es un solo día). */
 export function spanDays(s: Point[]): number {
   return s.length ? Math.round((Date.parse(s[s.length - 1]!.d) - Date.parse(s[0]!.d)) / DAY) + 1 : 0;
