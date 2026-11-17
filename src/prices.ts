@@ -10,6 +10,7 @@ import { checkAlerts } from './alerts';
 import { savePrices } from './db';
 import { allKeys, canon, findCard } from './model/catalog';
 import { today } from './model/keys';
+import { backfill } from './history';
 import { pendingToday, recordDay } from './model/trend';
 import { alias, collection, prices, sheets } from './store';
 import { fetchCard, tcgCache, type Lang } from './tcgdex';
@@ -81,6 +82,8 @@ export async function refreshPrices(only?: Set<string>): Promise<void> {
   }
   run.running = false;
   priceRun.value = { ...run };
+  // Con las cartas ya consultadas hoy, completa su historial con el de tcgcsv (una vez al día).
+  void backfill(list.map((t) => t.key));
 }
 
 let triedDay = '';
@@ -90,7 +93,11 @@ export function autoRefresh(why: 'start' | 'online' | 'visible'): void {
   if (!navigator.onLine || priceRun.value?.running) return;
   const day = today();
   const retry = why === 'online' && !!priceRun.value?.failed && priceRun.value.day === day;
-  if (!retry && (prices.value.date === day || triedDay === day)) return;
+  if (!retry && (prices.value.date === day || triedDay === day)) {
+    // Ya hay precios de hoy: igual completa el historial (lo hace una vez al día por carta).
+    void backfill(priceTargets().map((t) => t.key));
+    return;
+  }
   triedDay = day;
   void refreshPrices();
 }

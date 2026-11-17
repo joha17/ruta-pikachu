@@ -1,0 +1,149 @@
+// Historial de precios de TCGplayer desde los archivos diarios de tcgcsv.com.
+// Corre en GitHub Actions (tcgcsv no deja que la app lo pida desde el navegador).
+//
+//   node scripts/historial.mjs --cache .cache/tcgcsv --out public/historial [--days 183] [--base https://tcgcsv.com]
+//
+// - Baja solo los días que no están en la caché (los archivos de tcgcsv no cambian) y guarda de
+//   cada día un resumen compacto: producto → variante → precio de mercado en centavos.
+// - Solo Pokémon (categoría 3) y Pokémon Japón (85).
+// - Escribe el historial repartido en archivos por producto (productId % 1000) para que la app
+//   baje solo el pedacito de cada carta.
+// Necesita 7z (p7zip-full). Nunca falla el build: si algo sale mal, avisa y sigue.
+
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const arg = (name, def) => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > 0 ? process.argv[i + 1] : def;
+};
+const CACHE = arg('cache', '.cache/tcgcsv');
+const OUT = arg('out', 'public/historial');
+const DAYS = Number(arg('days', '183'));
+const BASE = arg('base', 'https://tcgcsv.com');
+const TODAY = arg('today', new Date().toISOString().slice(0, 10));
+export const SHARDS = 1000;
+const CATS = ['3', '85'];
+const UA = 'RutaPikachu/1.0 (+https://github.com/joha17/ruta-pikachu)';
+const DAY = 864e5;
+
+const iso = (t) => new Date(t).toISOString().slice(0, 10);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/** «Reverse Holofoil» → «reverse-holofoil», como las claves de TCGdex. */
+export const slug = (s) => String(s || 'normal').trim().toLowerCase().replace(/\s+/g, '-');
+
+function windowDays() {
+  const end = Date.parse(TODAY);
+  const out = [];
+  for (let i = DAYS - 1; i >= 0; i--) out.push(iso(end - i * DAY));
+  return out;
+}
+
+/** Lee los precios de un día ya descomprimido: { productId: { variante: centavos } }. */
+function readDay(dir) {
+  const day = {};
+  let rows = 0;
+  // La carpeta de arriba es la fecha; adentro, categoría / grupo / prices.
+  const roots = readdirSync(dir).map((d) => join(dir, d));
+  for (const root of roots) {
+    for (const cat of CATS) {
+      const cdir = join(root, cat);
+      if (!existsSync(cdir)) continue;
+      for (const g of readdirSync(cdir)) {
+        const f = join(cdir, g, 'prices');
+        if (!existsSync(f)) continue;
+        let j;
+        try {
+          j = JSON.parse(readFileSync(f, 'utf8'));
+        } catch {
+          continue;
+        }
+        for (const r of j.results ?? []) {
+          const v = r.marketPrice;
+          if (typeof r.productId !== 'number' || typeof v !== 'number' || !(v > 0)) continue;
+          (day[r.productId] ??= {})[slug(r.subTypeName)] = Math.round(v * 100);
+          rows++;
+        }
+      }
+    }
+  }
+  return { day, rows };
+}
+
+async function download(d) {
+  const url = `${BASE}/archive/tcgplayer/prices-${d}.ppmd.7z`;
+  const r = await fetch(url, { headers: { 'User-Agent': UA } });
+  if (r.status === 404 || r.status === 403) return 'missing';
+  if (!r.ok) throw new Error(`${url} respondió ${r.status}`);
+  const tmp = join(tmpdir(), `tcgcsv-${d}`);
+  rmSync(tmp, { recursive: true, force: true });
+  mkdirSync(tmp, { recursive: true });
+  const file = join(tmp, 'a.7z');
+  writeFileSync(file, Buffer.from(await r.arrayBuffer()));
+  const ex = join(tmp, 'x');
+  execFileSync('7z', ['x', '-y', `-o${ex}`, file], { stdio: 'ignore' });
+  const { day, rows } = readDay(ex);
+  rmSync(tmp, { recursive: true, force: true });
+  if (!rows) throw new Error(`${d}: el archivo no trae precios de Pokémon`);
+  writeFileSync(join(CACHE, `${d}.json`), JSON.stringify(day));
+  return rows;
+}
+
+/** Arma los archivos por producto: { d0, p: { productId: { variante: [centavos | null, …] } } }. */
+export function buildShards(days, load) {
+  const shards = new Map();
+  const n = days.length;
+  days.forEach((d, i) => {
+    const day = load(d);
+    if (!day) return;
+    for (const [pid, vs] of Object.entries(day)) {
+      const s = Number(pid) % SHARDS;
+      let sh = shards.get(s);
+      if (!sh) shards.set(s, (sh = {}));
+      const p = (sh[pid] ??= {});
+      for (const [v, c] of Object.entries(vs)) (p[v] ??= new Array(n).fill(null))[i] = c;
+    }
+  });
+  return shards;
+}
+
+async function main() {
+  mkdirSync(CACHE, { recursive: true });
+  const days = windowDays();
+  const keep = new Set(days.map((d) => `${d}.json`));
+  // Fuera de la ventana: se borra de la caché.
+  for (const f of readdirSync(CACHE)) if (!keep.has(f)) rmSync(join(CACHE, f), { force: true });
+  let got = 0;
+  for (const d of days) {
+    if (existsSync(join(CACHE, `${d}.json`))) continue;
+    try {
+      const r = await download(d);
+      if (r === 'missing') console.log(`${d}: todavía no hay archivo`);
+      else {
+        // Avisa enseguida a Actions para guardar la caché aunque el trabajo se corte después.
+        if (!got++ && process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'changed=true\n');
+        console.log(`${d}: ${r} precios`);
+      }
+    } catch (e) {
+      console.warn(`${d}: ${e.message}`);
+    }
+    await sleep(400);
+  }
+  const have = days.filter((d) => existsSync(join(CACHE, `${d}.json`)));
+  if (!have.length) {
+    console.warn('Sin historial: no se pudo bajar ningún día.');
+    return;
+  }
+  // La ventana va del primer al último día que hay, para no mandar arreglos llenos de vacíos.
+  const win = days.slice(days.indexOf(have[0]), days.indexOf(have[have.length - 1]) + 1);
+  const shards = buildShards(win, (d) => (existsSync(join(CACHE, `${d}.json`)) ? JSON.parse(readFileSync(join(CACHE, `${d}.json`), 'utf8')) : null));
+  rmSync(OUT, { recursive: true, force: true });
+  mkdirSync(OUT, { recursive: true });
+  for (const [s, p] of shards) writeFileSync(join(OUT, `${s}.json`), JSON.stringify({ d0: win[0], p }));
+  writeFileSync(join(OUT, 'meta.json'), JSON.stringify({ d0: win[0], last: have[have.length - 1], days: have.length, shards: SHARDS }));
+  console.log(`Historial: ${have.length} días (${win[0]} a ${have[have.length - 1]}), ${shards.size} archivos, ${got} días nuevos.`);
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) await main();

@@ -1,6 +1,7 @@
 // Flecha ▲▼ junto al precio y gráfica con tabla en la ficha.
 
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { backfill } from '../history';
 import { fmtDate, manualOf, money } from '../model/money';
 import { changeOf, daysText, histSeries, lastDays, RANGES, spanDays, trendOf, trendText, type Point, type Range } from '../model/trend';
 import { alias, collection, prices } from '../store';
@@ -36,6 +37,10 @@ const RANGE_LABEL: Record<Range, string> = { 15: '15 días', 30: '1 mes', 90: '3
 export function PriceTrend({ k }: { k: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const [range, setRange] = useState<Range>(30);
+  // Meses de precios de TCGplayer publicados con la app (tcgcsv.com), además de los guardados aquí.
+  useEffect(() => {
+    void backfill([k], true);
+  }, [k]);
   const col = collection.value;
   const pr = prices.value;
   const al = alias.value;

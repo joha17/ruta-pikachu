@@ -93,6 +93,20 @@ La ruta base se saca del nombre del repo (`/NOMBRE/`, o `/` si el repo es `USUAR
 
 Para probar la subruta en local: `BASE=/ruta-pikachu/ npm run build && BASE=/ruta-pikachu/ npm run preview`.
 
+### Historial de precios (tcgcsv.com)
+
+El mismo workflow corre también cada día a las 21:30 UTC. Antes de construir, `scripts/historial.mjs`
+baja los archivos diarios de precios de TCGplayer de [tcgcsv.com](https://tcgcsv.com/faq) (gratis,
+desde febrero de 2024; solo Pokémon y Pokémon Japón) y deja los últimos 6 meses en
+`historial/<productId % 1000>.json`. tcgcsv no deja que la app los pida desde el navegador, por eso
+se hace aquí. Los días ya bajados quedan en la caché de Actions; la primera vez baja unos 180
+archivos (2–4 MB cada uno) y tarda unos minutos.
+
+La app busca el ID de producto de TCGplayer que da TCGdex y completa con esos precios los días que no
+tiene guardados (nunca cambia un precio guardado ni el de hoy). Si el paso falla, la app se publica
+igual. GitHub pausa los workflows programados de un repo sin actividad en 60 días: se reactivan en
+«Actions».
+
 ## Escáner
 
 - Pestaña «Escanear»: cámara en vivo con marco de carta, o fotos de la galería. Modo ráfaga para varias seguidas.

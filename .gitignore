@@ -6,3 +6,7 @@ dev-dist
 migracion/
 *.respaldo.json
 ruta-pikachu-respaldo-*.json
+
+# Historial de precios: lo arma GitHub Actions en cada publicación (scripts/historial.mjs).
+public/historial/
+.cache/
