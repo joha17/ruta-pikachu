@@ -9,10 +9,10 @@ import { findCard, isOwned, MAX_BOX, MAX_CARDS } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
-import { cardFromImage, cardFromPhoto, cardFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
+import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, askClaude, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg, type AiResult } from '../scan/claude';
-import type { Identified } from '../scan/identify';
+import type { Identified, Reading } from '../scan/identify';
 import type { Cand } from '../scan/match';
 import { ocrProgress, ocrState, readCard, warmUp } from '../scan/ocr';
 import { candsFromAi, identifyReading, keysFor, loadIndex, localEntries, printedNum } from '../scan/search';
@@ -72,8 +72,20 @@ function patch(id: number, p: Partial<Shot>) {
   shots.value = shots.value.map((s) => (s.id === id ? { ...s, ...p } : s));
 }
 
-/** Pone una foto recortada en la cola: se leen de una en una para no trabar el celular. */
-async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement, note = ''): Promise<number> {
+/** ¿Qué lectura es mejor? Segura > con candidatos (más puntaje) > nada. */
+function better(a: Identified, b: Identified | undefined): boolean {
+  if (!b) return true;
+  if (a.sure !== b.sure) return a.sure;
+  return (a.cands[0]?.score ?? -1) > (b.cands[0]?.score ?? -1);
+}
+
+/**
+ * Pone una foto en la cola: se leen de una en una para no trabar el celular. `cards` son los
+ * recortes posibles (el borde encontrado, el marco tal cual…): se prueban en orden hasta que uno
+ * se reconoce con seguridad, y se queda el mejor.
+ */
+async function enqueue(cards: HTMLCanvasElement[], whole?: HTMLCanvasElement, note = ''): Promise<number> {
+  const card = cards[0]!;
   const blob = await toBlob(card);
   const full = whole ? await toBlob(whole, 0.85) : undefined;
   const id = ++seq;
@@ -81,11 +93,27 @@ async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement, note 
   shots.value = burst.value ? [shot, ...shots.value] : [shot];
   queue = queue.then(async () => {
     try {
-      const reading = await readCard(card);
-      const res = await identifyReading(reading);
+      let best: { res: Identified; reading: Reading; card: HTMLCanvasElement; i: number } | undefined;
+      for (const [i, c] of cards.slice(0, 3).entries()) {
+        const reading = await readCard(c);
+        const res = await identifyReading(reading);
+        if (better(res, best?.res)) best = { res, reading, card: c, i };
+        if (res.sure) break;
+      }
+      const { res, reading, card: used, i } = best!;
       const pick = res.sure ? res.cands[0] : undefined;
       if (pick) void fetchCard(pick.brief.id);
-      patch(id, { status: 'done', res, pick, text: `${note ? `[${note} · carta ${card.width}×${card.height}]\n` : ''}${reading.top.trim()}\n${reading.bottom.trim()}` });
+      // Si ganó otro recorte, esa es la foto que se muestra (y la que se guarda).
+      const swap = i > 0 ? await toBlob(used) : undefined;
+      if (swap) URL.revokeObjectURL(shots.value.find((s) => s.id === id)?.url ?? '');
+      const info = `[${note ? `${note} · ` : ''}recorte ${i + 1} de ${Math.min(3, cards.length)} · carta ${used.width}×${used.height}]\n`;
+      patch(id, {
+        status: 'done',
+        res,
+        pick,
+        ...(swap ? { blob: swap, url: URL.createObjectURL(swap) } : {}),
+        text: `${info}${reading.top.trim()}\n${reading.bottom.trim()}`,
+      });
     } catch (e) {
       patch(id, {
         status: 'error',
@@ -191,7 +219,7 @@ function Camera({ onClose }: { onClose: () => void }) {
     const vh = v.videoHeight;
     const rect = frameInVideo(v, frame.current);
     // Respaldo: el cuadro del video, tomado al instante.
-    let card = cardFromVideo(v, frame.current);
+    let cards = cardsFromVideo(v, frame.current);
     const whole = downscale(v);
     let note = `cuadro del video ${vw}×${vh}`;
     setFlash(true);
@@ -200,15 +228,15 @@ function Camera({ onClose }: { onClose: () => void }) {
     // La foto de verdad (todo el sensor, enfocada): el número se lee mucho mejor que en el video.
     const photo = streamRef.current ? await takePhoto(streamRef.current) : null;
     if (photo) {
-      const c = cardFromPhoto(photo, rect, vw, vh);
-      if (c) {
-        card = c;
+      const c = cardsFromPhoto(photo, rect, vw, vh);
+      if (c.length) {
+        cards = c;
         note = `foto ${photo.width}×${photo.height}`;
       }
       photo.close();
     }
     setBusy(false);
-    void enqueue(card, whole, note);
+    void enqueue(cards, whole, note);
     if (!burst.value) onClose();
   }
 
@@ -923,7 +951,7 @@ export function Escanear() {
     try {
       for (const f of burst.value ? files : files.slice(0, 1)) {
         const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
-        await enqueue(cardFromImage(bmp), downscale(bmp));
+        await enqueue(cardsFromImage(bmp), downscale(bmp), `foto ${bmp.width}×${bmp.height}`);
         bmp.close();
       }
     } catch {

@@ -54,6 +54,8 @@ const BOTTOM_LEFT = { x: 0, y: 0.885, w: 0.62, h: 0.095 };
 const NUMBER_LINE = { x: 0, y: 0.92, w: 0.55, h: 0.065 };
 const BOTTOM_RIGHT = { x: 0.45, y: 0.885, w: 0.55, h: 0.095 };
 const TOP = { x: 0.03, y: 0.02, w: 0.77, h: 0.09 };
+/** Franja ancha de arriba: en entrenadores el nombre va debajo de «TRAINER / Supporter». */
+const TOP_WIDE = { x: 0, y: 0, w: 1, h: 0.22 };
 
 /**
  * Cada lectura del número sale bien en cartas distintas (texto oscuro sobre gris, claro sobre
@@ -80,6 +82,11 @@ export async function readCard(card: HTMLCanvasElement): Promise<Reading> {
   const bottoms: string[] = [];
   for (const [r, tw, mode] of BOTTOM_PASSES) bottoms.push((await w.recognize(strip(card, r, tw, mode))).data.text);
   await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE, tessedit_char_whitelist: NAME_CHARS });
-  const top = (await w.recognize(prepStrip(card, TOP, 1200))).data.text;
+  const line = (await w.recognize(prepStrip(card, TOP, 1200))).data.text;
+  // Segunda pasada suelta sobre la franja ancha: encuentra el nombre aunque el recorte quede corrido.
+  await w.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, tessedit_char_whitelist: '' });
+  const wide = (await w.recognize(prepStrip(card, TOP_WIDE, 1600))).data.text;
+  const top = `${line.trim()}
+${wide.trim()}`;
   return { bottom: bottoms.join('\n'), top };
 }
