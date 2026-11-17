@@ -61,11 +61,9 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, dupe, onP
   ]
     .filter(Boolean)
     .join(' ');
-  const label = `Abrir ficha de ${title}${isBox ? `, en la caja${deal ? `, ${DEAL_LABEL[deal].toLowerCase()}` : dupe ? ', repetida' : ''}` : ownReal ? ', la tienes' : ', te falta'}`;
+  const label = `Abrir ficha de ${title}${isBox ? `, en la caja${deal ? `, ${DEAL_LABEL[deal].toLowerCase()}` : dupe ? ', repetida' : ''}` : ownReal ? ', la tienes' : ', te falta'}${price != null ? `, ${money(price)}` : ''}`;
   const tick = own && !preview ? <span class="tick" aria-hidden="true">✓</span> : null;
-  // La carta en gris ya dice que falta y la ✓ que la tienes: el precio solo se muestra en las que faltan.
   const midText = isBox ? (deal === 'trade' ? '⇄ Para cambiar' : deal === 'sell' ? '$ Para vender' : dupe ? 'Repetida' : 'En la caja') : preview ? 'En la hoja' : own ? c.mid || 'En tu carpeta' : '';
-  const showPrice = !own && !isBox;
 
   if (art.src)
     return (
@@ -82,12 +80,10 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, dupe, onP
         {tick}
         <span class="badge">
           {c.short || c.n}
-          {showPrice && (
-            <em>
-              {money(price)}
-              <TrendMark k={k} />
-            </em>
-          )}
+          <em>
+            {money(price)}
+            <TrendMark k={k} />
+          </em>
         </span>
       </button>
     );
@@ -115,15 +111,11 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, dupe, onP
         {foot && <span>{foot}</span>}
         <span class="set">
           {line && !c.noNum ? line : ''}
-          {showPrice && (
-            <>
-              {line && !c.noNum ? ' · ' : ''}
-              <b class="px">
-                {money(price)}
-                <TrendMark k={k} />
-              </b>
-            </>
-          )}
+          {line && !c.noNum ? ' · ' : ''}
+          <b class="px">
+            {money(price)}
+            <TrendMark k={k} />
+          </b>
         </span>
       </span>
     </button>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeOf, histSeries, lastDays, lastPriceDate, pendingToday, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
+import { changeOf, histSeries, lastDays, RANGES, lastPriceDate, pendingToday, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
 import { emptyCollection, emptyPrices, type PriceBook } from '../src/model/types';
 
 const AL = { 'e:moltres': 'r:moltres' };
@@ -93,6 +93,11 @@ describe('rangos de la gráfica', () => {
     expect(lastDays(s, 90).map((p) => p.d)).toEqual(['2026-09-01', '2026-10-20', '2026-11-13']);
     expect(lastDays(s, 365)).toHaveLength(4);
     expect(lastDays([], 30)).toEqual([]);
+  });
+  it('rangos de 15 días, 1 mes, 3 meses y 6 meses', () => {
+    expect([...RANGES]).toEqual([15, 30, 90, 180]);
+    expect(lastDays(s, 15).map((p) => p.d)).toEqual(['2026-11-13']);
+    expect(lastDays(s, 180).map((p) => p.d)).toEqual(['2026-09-01', '2026-10-20', '2026-11-13']);
   });
   it('spanDays y changeOf', () => {
     expect(spanDays(s)).toBe(317);

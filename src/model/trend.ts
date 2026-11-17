@@ -23,8 +23,8 @@ export function histSeries(pr: PriceBook, alias: Record<string, string>, key: st
     .filter((p): p is Point => p !== null);
 }
 
-/** Rangos de la gráfica de la ficha, en días. */
-export const RANGES = [30, 90, 365] as const;
+/** Rangos de la gráfica de la ficha, en días: 15 días, 1 mes, 3 meses y 6 meses. */
+export const RANGES = [15, 30, 90, 180] as const;
 export type Range = (typeof RANGES)[number];
 
 /** Los puntos de los últimos `days` días, contando el último día con precio. */
