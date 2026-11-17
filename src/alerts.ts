@@ -1,12 +1,15 @@
-// Avisos de precio en la app: después de actualizar los precios, avisa de las cartas que bajaron
-// de tu límite. Sin servidor, solo pasa con la app abierta (o al abrirla y actualizar los precios).
+// Alertas de precio en la app: después de actualizar los precios (y al cambiar una alerta) revisa
+// las reglas de cada carta, guarda las que se disparan en el historial y avisa. Sin servidor, solo
+// pasa con la app abierta (o al abrirla y actualizar los precios).
 
-import { say } from './actions';
-import { alertHits, freshHits, hitText, type AlertHit } from './model/alerts';
+import { act, say } from './actions';
+import { alertHits, evaluate, eventText, type AlertStatus } from './model/alerts';
+import { today } from './model/keys';
+import * as ops from './model/ops';
 import { money } from './model/money';
-import { alias, collection, openKey, prices, settings, sheets, updateSettings } from './store';
+import { alias, collection, openKey, prices, sheets } from './store';
 
-export function currentHits(): AlertHit[] {
+export function currentHits(): AlertStatus[] {
   return alertHits(sheets.value, collection.value, prices.value, alias.value);
 }
 
@@ -43,14 +46,17 @@ async function notify(title: string, body: string, key: string): Promise<void> {
   }
 }
 
-/** Revisa los avisos y notifica los nuevos. Se llama después de cada actualización de precios. */
+/**
+ * Revisa las alertas, guarda las que se disparan y notifica. Se llama después de cada actualización
+ * de precios y al guardar una alerta (así un cambio de N, umbral o meta se reevalúa con el historial).
+ */
 export async function checkAlerts(): Promise<void> {
-  const hits = currentHits();
-  const { fresh, next } = freshHits(hits, settings.value.alertsNotified ?? {});
-  if (JSON.stringify(next) !== JSON.stringify(settings.value.alertsNotified ?? {})) await updateSettings({ alertsNotified: next });
+  const fresh = evaluate(sheets.value, collection.value, prices.value, alias.value, today());
   if (!fresh.length) return;
+  act((c) => ops.logAlerts(c, fresh));
   const m = (v: number) => money(v);
-  say(fresh.length === 1 ? `🔔 ${hitText(fresh[0]!, m)}` : `🔔 ${fresh.length} cartas bajaron de tu precio. Míralas en Compras.`);
-  if (fresh.length === 1) await notify('Bajó de tu precio', hitText(fresh[0]!, m), fresh[0]!.key);
-  else await notify(`${fresh.length} cartas bajaron de tu precio`, fresh.map((h) => hitText(h, m)).join('\n'), fresh[0]!.key);
+  const first = fresh[0]!;
+  say(fresh.length === 1 ? `🔔 ${eventText(first, m)}` : `🔔 ${fresh.length} alertas de precio. Míralas en Compras.`);
+  if (fresh.length === 1) await notify('Alerta de precio', eventText(first, m), first.k);
+  else await notify(`${fresh.length} alertas de precio`, fresh.map((e) => eventText(e, m)).join('\n'), first.k);
 }

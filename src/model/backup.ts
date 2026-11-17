@@ -1,6 +1,7 @@
 // Respaldo: un .json con todo (colección, precios, historial y mis fotos en base64).
 // Nunca lleva la clave de Claude ni la caché de TCGdex (esa se vuelve a bajar).
 
+import { normAlerts } from './alerts';
 import { emptyCollection, emptyPrices, type Collection, type PriceBook } from './types';
 
 export const BACKUP_KIND = 'ruta-pikachu-respaldo';
@@ -115,12 +116,14 @@ export function parseBackup(text: string): Backup {
   const settings: BackupSettings = {};
   if (s.theme === 'light' || s.theme === 'dark' || s.theme === 'auto') settings.theme = s.theme;
   if (typeof s.migratedAt === 'string') settings.migratedAt = s.migratedAt;
+  const collection: Collection = { ...emptyCollection(), ...(c as unknown as Collection) };
+  normAlerts(collection);
   return {
     kind: BACKUP_KIND,
     version: raw.version,
     created: typeof raw.created === 'string' ? raw.created : '',
     // Campos que falten se rellenan vacíos (respaldos de versiones anteriores).
-    collection: { ...emptyCollection(), ...(c as unknown as Collection) },
+    collection,
     prices,
     settings,
     photos,

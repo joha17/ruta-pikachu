@@ -3,7 +3,7 @@
 import { signal } from '@preact/signals';
 import { act, ops } from '../actions';
 import { currentHits } from '../alerts';
-import { alertOf } from '../model/alerts';
+import { alertOf, isActive, logList, REASON_TEXT, stableText } from '../model/alerts';
 import { fmtDate, money } from '../model/money';
 import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } from '../model/shop';
 import { alias, collection, openKey, prices, sheets } from '../store';
@@ -23,6 +23,7 @@ function readPrefs(): { sort: ShopSort; sheet: string } {
 const prefs = signal(readPrefs());
 const showAll = signal(false);
 const copied = signal('');
+const showLog = signal(false);
 
 function setPrefs(p: Partial<{ sort: ShopSort; sheet: string }>) {
   prefs.value = { ...prefs.value, ...p };
@@ -34,9 +35,11 @@ function setPrefs(p: Partial<{ sort: ShopSort; sheet: string }>) {
 }
 
 function Bell({ k }: { k: string }) {
-  const lim = alertOf(collection.value, alias.value, k);
-  if (lim == null) return null;
-  const t = `Aviso si baja de ${money(lim)}`;
+  const a = alertOf(collection.value, alias.value, k);
+  if (!isActive(a)) return null;
+  const t = [a.metaOn && `Alerta si baja de ${money(a.meta)}`, a.estableOn && `Alerta si lleva ${a.dias_estable} días estable`, a.ambasOn && 'Alerta si está estable y en tu meta']
+    .filter(Boolean)
+    .join(' · ');
   return (
     <i class="bell" title={t} aria-label={t}>
       🔔
@@ -44,26 +47,76 @@ function Bell({ k }: { k: string }) {
   );
 }
 
-/** Cartas con aviso que ya bajaron de mi límite. */
+/** Cartas con alguna alerta que se cumple ahora. */
 function Hits() {
   const hits = currentHits();
   if (!hits.length) return null;
   return (
-    <div class="shop-alerts" role="region" aria-label="Bajaron de tu precio">
-      <h3>🔔 Bajaron de tu precio</h3>
+    <div class="shop-alerts" role="region" aria-label="Alertas que se cumplen">
+      <h3>🔔 Se cumplen tus alertas</h3>
       <ul>
         {hits.map((h) => (
           <li key={h.key}>
             <button onClick={() => (openKey.value = h.key)}>
-              <span>{h.name}</span>
               <span>
-                <b>{money(h.now)}</b> <small>límite {money(h.limit)}</small>
+                {h.name}
+                <small class="why">{h.met.map((r) => REASON_TEXT[r]).join(' · ')}</small>
+              </span>
+              <span>
+                <b>{money(h.now)}</b>{' '}
+                <small>
+                  {h.alert.meta != null && (h.alert.metaOn || h.alert.ambasOn) ? `meta ${money(h.alert.meta)}` : stableText(h)}
+                </small>
               </span>
             </button>
           </li>
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Historial de alertas disparadas (fecha, carta, motivo, precio). */
+function AlertLog() {
+  const log = logList(collection.value);
+  if (!log.length) return null;
+  const shown = showLog.value ? log : log.slice(0, 5);
+  return (
+    <details class="alert-history">
+      <summary>Historial de alertas ({log.length})</summary>
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Fecha</th>
+            <th scope="col">Carta</th>
+            <th scope="col">Motivo</th>
+            <th scope="col">Precio</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((e) => (
+            <tr key={`${e.d}|${e.k}|${e.motivo}`}>
+              <td>{fmtDate(e.d)}</td>
+              <td>
+                <button class="linkish" onClick={() => (openKey.value = e.k)}>
+                  {e.n}
+                </button>
+              </td>
+              <td>
+                {REASON_TEXT[e.motivo]}
+                {e.motivo !== 'meta' && e.dias ? <small> ({e.dias} días, ±{e.umbral} %)</small> : null}
+              </td>
+              <td>{money(e.p)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {log.length > 5 && (
+        <button class="btn quiet" onClick={() => (showLog.value = !showLog.value)}>
+          {showLog.value ? 'Ver menos' : `Ver las ${log.length}`}
+        </button>
+      )}
+    </details>
   );
 }
 
@@ -126,7 +179,7 @@ export function Compras() {
           <h2>Lista de compras</h2>
           <p>
             Todo lo que te falta de todas las hojas, en un solo lugar. Toca ☆ para marcar las que vas a buscar primero: suben arriba con su
-            propio total. Toca una carta para abrir su ficha; ahí puedes pedir un aviso 🔔 si baja de precio.
+            propio total. Toca una carta para abrir su ficha; ahí puedes poner alertas 🔔 por precio meta o por precio estable.
           </p>
         </div>
         <button class="btn" onClick={copy}>
@@ -134,6 +187,7 @@ export function Compras() {
         </button>
       </div>
       <Hits />
+      <AlertLog />
       <div class="shop-tools">
         <div class="chips" role="group" aria-label="Filtrar por hoja">
           <span class="lbl">Hoja:</span>

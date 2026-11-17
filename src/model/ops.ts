@@ -3,7 +3,8 @@
 
 import { aliases, canon, findCard, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
 import { keyOf, localOfKey, newId, sheetOfKey, today } from './keys';
-import type { BoxCard, CardDef, Collection, CustomSheet, MyGoal, PriceBook, SheetDef } from './types';
+import { eventId, normAlert } from './alerts';
+import type { AlertEvent, BoxCard, CardDef, Collection, CustomSheet, MyGoal, PriceAlert, PriceBook, SheetDef } from './types';
 
 /** Qué hacer con las fotos después de un cambio. */
 export interface PhotoChanges {
@@ -29,12 +30,27 @@ export function toggleWish(col: Collection, alias: Record<string, string>, key: 
   return !!col.wish[k];
 }
 
-/** Pone o quita (con null) el aviso de precio de una carta. */
-export function setAlert(col: Collection, alias: Record<string, string>, key: string, v: number | null): void {
+/**
+ * Pone o quita (con null) la alerta de precio de una carta. Un número es la forma corta de «avísame
+ * si baja de $X». El historial de alertas disparadas no se toca.
+ */
+export function setAlert(
+  col: Collection,
+  alias: Record<string, string>,
+  key: string,
+  v: PriceAlert | number | null,
+): void {
   const k = canon(alias, key);
   col.alerts ??= {};
-  if (v == null || !(v > 0)) delete col.alerts[k];
-  else col.alerts[k] = Math.round(v * 100) / 100;
+  const a = v == null ? null : normAlert(v);
+  if (!a) delete col.alerts[k];
+  else col.alerts[k] = a;
+}
+
+/** Guarda alertas disparadas en el historial. */
+export function logAlerts(col: Collection, events: AlertEvent[]): void {
+  col.alertLog ??= {};
+  for (const e of events) col.alertLog[eventId(e.d, e.k, e.motivo)] = e;
 }
 
 export function setManual(col: Collection, alias: Record<string, string>, key: string, v: number): void {
