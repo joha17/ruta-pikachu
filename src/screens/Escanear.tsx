@@ -9,7 +9,7 @@ import { findCard, isOwned, MAX_BOX, MAX_CARDS } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
-import { cardFromImage, cardFromVideo, downscale, toBlob } from '../scan/crop';
+import { cardFromImage, cardFromPhoto, cardFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, askClaude, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg, type AiResult } from '../scan/claude';
 import type { Identified } from '../scan/identify';
@@ -73,7 +73,7 @@ function patch(id: number, p: Partial<Shot>) {
 }
 
 /** Pone una foto recortada en la cola: se leen de una en una para no trabar el celular. */
-async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement): Promise<number> {
+async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement, note = ''): Promise<number> {
   const blob = await toBlob(card);
   const full = whole ? await toBlob(whole, 0.85) : undefined;
   const id = ++seq;
@@ -85,7 +85,7 @@ async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement): Prom
       const res = await identifyReading(reading);
       const pick = res.sure ? res.cands[0] : undefined;
       if (pick) void fetchCard(pick.brief.id);
-      patch(id, { status: 'done', res, pick, text: `${reading.top.trim()}\n${reading.bottom.trim()}` });
+      patch(id, { status: 'done', res, pick, text: `${note ? `[${note} · carta ${card.width}×${card.height}]\n` : ''}${reading.top.trim()}\n${reading.bottom.trim()}` });
     } catch (e) {
       patch(id, {
         status: 'error',
@@ -114,12 +114,46 @@ function cameraError(e: unknown): string {
   return 'No se pudo abrir la cámara. Elige una foto de la galería.';
 }
 
+interface ImageCaptureLike {
+  takePhoto(settings?: { fillLightMode?: string }): Promise<Blob>;
+}
+type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
+
+/** Enfoque continuo si la cámara lo permite (de cerca, el autoenfoque a veces se queda fijo). */
+async function keepFocus(stream: MediaStream): Promise<void> {
+  const t = stream.getVideoTracks()[0];
+  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[] };
+  if (t && caps.focusMode?.includes('continuous'))
+    await t.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => undefined);
+}
+
+/**
+ * Foto a resolución completa con ImageCapture (Chrome en Android). Sin flash: el flash hace
+ * brillos sobre la carta. Si el navegador no lo permite o tarda demasiado, null (se usa el video).
+ */
+async function takePhoto(stream: MediaStream): Promise<ImageBitmap | null> {
+  const IC = (window as unknown as { ImageCapture?: ImageCaptureCtor }).ImageCapture;
+  const track = stream.getVideoTracks()[0];
+  if (!IC || !track || track.readyState !== 'live') return null;
+  const cap = new IC(track);
+  const shot = cap.takePhoto({ fillLightMode: 'off' }).catch(() => cap.takePhoto());
+  const timeout = new Promise<null>((res) => setTimeout(() => res(null), 4000));
+  try {
+    const blob = await Promise.race([shot, timeout]);
+    return blob ? await createImageBitmap(blob, { imageOrientation: 'from-image' }) : null;
+  } catch {
+    return null;
+  }
+}
+
 function Camera({ onClose }: { onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState('');
   const [ready, setReady] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -131,9 +165,11 @@ function Camera({ onClose }: { onClose: () => void }) {
         if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NotFoundError' });
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } },
         });
         if (!alive) return stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = stream;
+        await keepFocus(stream);
         const v = video.current!;
         v.srcObject = stream;
         await v.play();
@@ -148,12 +184,31 @@ function Camera({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  function shoot() {
+  async function shoot() {
     const v = video.current;
-    if (!v || !frame.current || !v.videoWidth) return;
-    void enqueue(cardFromVideo(v, frame.current), downscale(v));
+    if (!v || !frame.current || !v.videoWidth || busy) return;
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    const rect = frameInVideo(v, frame.current);
+    // Respaldo: el cuadro del video, tomado al instante.
+    let card = cardFromVideo(v, frame.current);
+    const whole = downscale(v);
+    let note = `cuadro del video ${vw}×${vh}`;
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
+    setBusy(true);
+    // La foto de verdad (todo el sensor, enfocada): el número se lee mucho mejor que en el video.
+    const photo = streamRef.current ? await takePhoto(streamRef.current) : null;
+    if (photo) {
+      const c = cardFromPhoto(photo, rect, vw, vh);
+      if (c) {
+        card = c;
+        note = `foto ${photo.width}×${photo.height}`;
+      }
+      photo.close();
+    }
+    setBusy(false);
+    void enqueue(card, whole, note);
     if (!burst.value) onClose();
   }
 
@@ -178,8 +233,8 @@ function Camera({ onClose }: { onClose: () => void }) {
       </div>
       <p class="hint">Pon la carta dentro del marco, de frente y con buena luz. Que se lea el número de abajo.</p>
       <div class="scan-acts">
-        <button class="btn primary us shutter" onClick={shoot} disabled={!ready}>
-          📸 {burst.value ? 'Tomar y seguir' : 'Tomar foto'}
+        <button class="btn primary us shutter" onClick={() => void shoot()} disabled={!ready || busy}>
+          📸 {busy ? 'Tomando foto… no la muevas' : burst.value ? 'Tomar y seguir' : 'Tomar foto'}
         </button>
         <button class="btn quiet" onClick={onClose}>
           {burst.value ? 'Terminar' : 'Cerrar cámara'}

@@ -47,8 +47,8 @@ export function fitCard(x: number, y: number, w: number, h: number, W: number, H
   return [nx, ny, nw, nh];
 }
 
-/** Lo que se ve dentro del marco guía, en píxeles del video (el video usa object-fit: cover). */
-export function cardFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTMLCanvasElement {
+/** El marco guía en píxeles del video (el video usa object-fit: cover), ya en proporción 63×88. */
+export function frameInVideo(video: HTMLVideoElement, frame: HTMLElement): [number, number, number, number] {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   const vr = video.getBoundingClientRect();
@@ -58,8 +58,38 @@ export function cardFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTML
   const oy = (vr.height - vh * s) / 2;
   const x = (fr.left - vr.left - ox) / s;
   const y = (fr.top - vr.top - oy) / s;
-  const [cx, cy, cw, ch] = fitCard(x, y, fr.width / s, fr.height / s, vw, vh);
-  return locateCard(video, cx, cy, cw, ch, vw, vh);
+  return fitCard(x, y, fr.width / s, fr.height / s, vw, vh);
+}
+
+/** Lo que se ve dentro del marco guía (cuadro del video), buscando el borde real de la carta. */
+export function cardFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTMLCanvasElement {
+  const [cx, cy, cw, ch] = frameInVideo(video, frame);
+  return locateCard(video, cx, cy, cw, ch, video.videoWidth, video.videoHeight);
+}
+
+/**
+ * Lleva el marco guía (en píxeles del video vw×vh) a una foto de la cámara (W×H, normalmente
+ * mucho más grande). El video suele ser un recorte centrado del sensor (16:9 dentro de 4:3).
+ * Devuelve null si la foto viene girada respecto al video (no se puede mapear con seguridad).
+ */
+export function mapFrameToPhoto(rect: [number, number, number, number], vw: number, vh: number, W: number, H: number): [number, number, number, number] | null {
+  if (vw > vh !== W > H && Math.abs(vw - vh) > 8 && Math.abs(W - H) > 8) return null;
+  const av = vw / vh;
+  const ap = W / H;
+  // Zona de la foto que corresponde al video.
+  const cw = ap > av ? H * av : W;
+  const ch = ap > av ? H : W / av;
+  const ox = (W - cw) / 2;
+  const oy = (H - ch) / 2;
+  const k = cw / vw;
+  const [x, y, w, h] = rect;
+  return [ox + x * k, oy + y * k, w * k, h * k];
+}
+
+/** La carta desde una foto de la cámara a resolución completa (ImageCapture.takePhoto). */
+export function cardFromPhoto(photo: ImageBitmap, rect: [number, number, number, number], vw: number, vh: number): HTMLCanvasElement | null {
+  const r = mapFrameToPhoto(rect, vw, vh, photo.width, photo.height);
+  return r ? locateCard(photo, r[0], r[1], r[2], r[3], photo.width, photo.height) : null;
 }
 
 /** Caja con más bordes (la carta) en una imagen pequeña en gris. Devuelve null si no hay nada claro. */
