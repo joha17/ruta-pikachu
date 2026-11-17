@@ -71,8 +71,8 @@ export function TcgInfo({ tcg, lang = 'en' }: { tcg: string; lang?: Lang }) {
       ) : null}
 
       <div class="eyebrow">Set</div>
+      <SetMark key={`${symbol ?? ''}|${set?.logo ?? card.set.logo ?? ''}`} symbol={symbol} logo={set?.logo ?? card.set.logo} />
       <div class="tcg-set">
-        <SetMark key={`${symbol ?? ''}|${set?.logo ?? card.set.logo ?? ''}`} symbol={symbol} logo={set?.logo ?? card.set.logo} />
         <dl class="meta">
           <dt>Nombre</dt>
           <dd>{set?.name || card.set.name}</dd>
@@ -109,22 +109,22 @@ export function TcgInfo({ tcg, lang = 'en' }: { tcg: string; lang?: Lang }) {
 }
 
 /**
- * Símbolo del set. TCGdex da la URL sin extensión y a veces no tiene el archivo (p. ej. Shrouded
- * Fable): se prueba .webp, luego .png, luego el logo del set, y si nada carga no se muestra nada
- * en vez de un icono de imagen rota.
+ * Logo del set, grande y encima de sus datos. TCGdex da las URL sin extensión y a veces no tiene
+ * el archivo: se prueba el logo (.webp, .png), luego el símbolo, y si nada carga no se muestra
+ * nada en vez de un icono de imagen rota.
  */
 function SetMark({ symbol, logo }: { symbol?: string; logo?: string }) {
-  const urls = [symbol && `${symbol}.webp`, symbol && `${symbol}.png`, logo && `${logo}.webp`, logo && `${logo}.png`].filter(
-    (u): u is string => !!u,
-  );
+  const urls: Array<[string, 'logo' | 'sym']> = [];
+  if (logo) urls.push([`${logo}.webp`, 'logo'], [`${logo}.png`, 'logo']);
+  if (symbol) urls.push([`${symbol}.webp`, 'sym'], [`${symbol}.png`, 'sym']);
   const [i, setI] = useState(0);
-  if (i >= urls.length) return null;
+  const u = urls[i];
+  if (!u) return null;
   return (
     <img
-      src={urls[i]}
+      class={u[1] === 'logo' ? 'set-logo' : 'set-sym'}
+      src={u[0]}
       alt=""
-      width={28}
-      height={28}
       referrerpolicy="no-referrer"
       loading="lazy"
       onError={() => setI((n) => n + 1)}

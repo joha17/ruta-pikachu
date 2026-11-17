@@ -258,7 +258,8 @@ body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
 .tcg-prices tbody tr:last-child>*{border-bottom:0}
 .tcg-prices tr.is-main>*{font-weight:800}
 .tcg-set{display:flex;gap:10px;align-items:flex-start}
-.tcg-set img{flex:none;object-fit:contain;margin-top:2px}
+.tcginfo .set-logo{display:block;height:72px;width:auto;max-width:min(260px,100%);object-fit:contain;object-position:left center}
+.tcginfo .set-sym{display:block;width:40px;height:40px;object-fit:contain}
 .tcg-set .meta{flex:1;min-width:0}
 
 /* Imagen en grande (src/ui/Zoom.tsx). */
