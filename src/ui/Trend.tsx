@@ -31,24 +31,17 @@ function geometry(s: Point[]) {
   return { mn, mx, pts };
 }
 
-const RANGE_LABEL: Record<Range, string> = { 30: '30 días', 90: '90 días', 365: '1 año' };
+const RANGE_LABEL: Record<Range, string> = { 15: '15 días', 30: '1 mes', 90: '3 meses', 180: '6 meses' };
 
 export function PriceTrend({ k }: { k: string }) {
   const [hover, setHover] = useState<number | null>(null);
-  const [range, setRange] = useState<Range>(90);
+  const [range, setRange] = useState<Range>(30);
   const col = collection.value;
   const pr = prices.value;
   const al = alias.value;
   const full = histSeries(pr, al, k);
   if (manualOf(col, al, k)) return null;
-  // Solo los rangos con al menos dos precios y que muestran algo distinto: «90 días» si hay más de
-  // 30 días de historial, «1 año» si hay más de 90.
-  const span = spanDays(full);
-  const ranges = RANGES.filter((r, i) => lastDays(full, r).length >= 2 && (i === 0 || span > RANGES[i - 1]!));
-  const cur: Range = ranges.length > 1 ? (ranges.includes(range) ? range : ranges[ranges.length - 1]!) : 365;
-  const s = lastDays(full, cur);
-  const t = s.length >= 2 ? changeOf(s) : null;
-  if (s.length < 2)
+  if (full.length < 2)
     return (
       <div class="trendbox">
         <div class="eyebrow">Tendencia del precio</div>
@@ -57,6 +50,39 @@ export function PriceTrend({ k }: { k: string }) {
         </p>
       </div>
     );
+  // Los cuatro rangos siempre se pueden elegir. Si el historial guardado es más corto que el rango,
+  // se dibuja lo que hay y se avisa de cuántos días cubre.
+  const span = spanDays(full);
+  const s = lastDays(full, range);
+  const short = span < range;
+  const chips = (
+    <div class="chips trange" role="group" aria-label="Rango de la gráfica">
+      {RANGES.map((r) => (
+        <button
+          key={r}
+          class="chipf"
+          aria-pressed={range === r}
+          onClick={() => {
+            setHover(null);
+            setRange(r);
+          }}
+        >
+          {RANGE_LABEL[r]}
+        </button>
+      ))}
+    </div>
+  );
+  if (s.length < 2)
+    return (
+      <div class="trendbox">
+        <div class="eyebrow">Tendencia del precio</div>
+        {chips}
+        <p class="hint">
+          En el rango de {RANGE_LABEL[range]} solo hay un precio guardado. Elige un rango más largo para ver la gráfica.
+        </p>
+      </div>
+    );
+  const t = changeOf(s);
   const { mn, mx, pts } = geometry(s);
   const d = pts.map((q, i) => `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)}`).join(' ');
   const lp = pts[pts.length - 1]!;
@@ -82,23 +108,7 @@ export function PriceTrend({ k }: { k: string }) {
   return (
     <div class="trendbox">
       <div class="eyebrow">Tendencia del precio</div>
-      {ranges.length > 1 && (
-        <div class="chips trange" role="group" aria-label="Rango de la gráfica">
-          {ranges.map((r) => (
-            <button
-              key={r}
-              class="chipf"
-              aria-pressed={cur === r}
-              onClick={() => {
-                setHover(null);
-                setRange(r);
-              }}
-            >
-              {RANGE_LABEL[r]}
-            </button>
-          ))}
-        </div>
-      )}
+      {chips}
       <div class="tline">{line}</div>
       <svg
         class="spark"
@@ -118,6 +128,12 @@ export function PriceTrend({ k }: { k: string }) {
       <p class="spark-read" aria-live="polite">
         {hover != null ? `${fmtDate(s[hover]!.d)}: ${money(s[hover]!.v)}` : `Mín. ${money(mn)} · Máx. ${money(mx)}`}
       </p>
+      {short && (
+        <p class="hint">
+          Por ahora hay precios guardados de {daysText(span)} (desde el {fmtDate(full[0]!.d)}). La gráfica se irá
+          llenando sola cada día que abras la app con conexión.
+        </p>
+      )}
       <details>
         <summary>Ver precio por día</summary>
         <table class="ptab">
