@@ -142,10 +142,48 @@ export interface Collection {
   /** Objetivos agregados por mí. */
   myGoals: MyGoal[];
   goalSeq: number;
-  /** Avisos de precio: clave canónica → avisar si el precio de mercado baja de este valor (USD). */
-  alerts: Record<string, number>;
+  /** Alertas de precio: clave canónica → reglas de esa carta (ver model/alerts.ts). */
+  alerts: Record<string, PriceAlert>;
+  /** Alertas disparadas: id (fecha|carta|motivo) → qué pasó. No se borra al cambiar o quitar la alerta. */
+  alertLog: Record<string, AlertEvent>;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
+}
+
+/** Por qué se disparó una alerta. */
+export type AlertReason = 'meta' | 'estable' | 'ambas';
+
+/** Reglas de alerta de una carta. Cada regla se activa por separado. */
+export interface PriceAlert {
+  /** Precio meta en USD (o null si no puse). */
+  meta: number | null;
+  /** Avisar cuando el precio de mercado sea igual o menor a la meta. */
+  metaOn: boolean;
+  /** Avisar cuando el precio lleve estable al menos `dias_estable` días. */
+  estableOn: boolean;
+  /** Días seguidos que tiene que llevar estable (3 a 90, 15 por defecto). */
+  dias_estable: number;
+  /** Variación máxima en esos días: máximo − mínimo ≤ este % del promedio (5 por defecto). */
+  umbral_pct: number;
+  /** Avisar cuando esté estable Y en la meta o por debajo, a la vez. */
+  ambasOn: boolean;
+}
+
+/** Una alerta disparada. */
+export interface AlertEvent {
+  /** Día en que se disparó, AAAA-MM-DD. */
+  d: string;
+  /** Clave canónica de la carta. */
+  k: string;
+  /** Nombre de la carta ese día (por si después se borra). */
+  n: string;
+  motivo: AlertReason;
+  /** Precio de mercado (USD) al dispararse. */
+  p: number;
+  /** Reglas con las que se disparó. */
+  meta?: number;
+  dias?: number;
+  umbral?: number;
 }
 
 /** Precios automáticos (USD, TCGplayer) e historial diario. */
@@ -211,6 +249,7 @@ export function emptyCollection(): Collection {
     myGoals: [],
     goalSeq: 0,
     alerts: {},
+    alertLog: {},
     saved: '',
   };
 }

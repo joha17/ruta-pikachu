@@ -3,6 +3,7 @@
 import { computed, signal } from '@preact/signals';
 import { FIXED_SHEETS } from './data';
 import * as store from './db';
+import { normAlerts } from './model/alerts';
 import { aliases, allSheets } from './model/catalog';
 import { today } from './model/keys';
 import { emptyCollection, emptyPrices, type Collection, type PriceBook } from './model/types';
@@ -43,7 +44,11 @@ export async function boot(): Promise<void> {
     loadTcgCache(),
   ]);
   // Campos nuevos que una colección guardada antes todavía no tiene.
-  if (c) collection.value = { ...emptyCollection(), ...c };
+  if (c) {
+    const col = { ...emptyCollection(), ...c };
+    normAlerts(col);
+    collection.value = col;
+  }
   if (p) prices.value = p;
   settings.value = s;
   photoKeys.value = new Set(k);

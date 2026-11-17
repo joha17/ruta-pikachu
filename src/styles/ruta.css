@@ -333,3 +333,25 @@ dialog.sheet::backdrop{background:var(--backdrop)}
 .shop-alerts b{font-family:var(--f-mono);color:var(--ok);white-space:nowrap}
 .shop-row .bell{font-style:normal;font-size:.85em;margin-left:4px}
 .trendbox .trange{margin:2px 0 4px}
+/* Alertas de precio: meta, estabilidad y las dos a la vez */
+.alert-form fieldset{border:0;margin:0;padding:0;display:grid;gap:6px}
+.alert-form .chk{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--ink)}
+.alert-form .chk input{margin-top:3px;width:18px;height:18px;flex:none}
+.alert-form .prow label{font-size:13px;color:var(--muted)}
+.alert-form .prow input.short{width:5em}
+.alert-now{margin:0;font-size:14px}
+.alert-now .ok{color:var(--ok);font-weight:600}
+.alert-now small{color:var(--muted)}
+.alert-log h4{margin:4px 0;font-size:13px}
+.alert-log ul{list-style:none;margin:0;padding:0;display:grid;gap:2px;font-size:13px}
+.alert-log li{display:flex;gap:8px}
+.alert-log b{font-family:var(--f-mono);margin-left:auto}
+.shop-alerts .why{display:block;color:var(--muted);font-size:12px}
+.alert-history{border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 14px}
+.alert-history summary{cursor:pointer;font-weight:600;font-size:14px}
+.alert-history summary:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:4px}
+.alert-history table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0}
+.alert-history th{text-align:left;color:var(--muted);font-weight:600;padding:4px 6px 4px 0}
+.alert-history td{padding:4px 6px 4px 0;border-top:1px solid var(--line);vertical-align:top}
+.alert-history td:last-child,.alert-history th:last-child{text-align:right;font-family:var(--f-mono);white-space:nowrap}
+.alert-history td small{color:var(--muted)}
