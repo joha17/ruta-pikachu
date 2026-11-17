@@ -9,10 +9,10 @@ import { findCard, isOwned, MAX_BOX, MAX_CARDS } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
-import { cardFromImage, cardFromVideo, downscale, toBlob } from '../scan/crop';
+import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, askClaude, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg, type AiResult } from '../scan/claude';
-import type { Identified } from '../scan/identify';
+import type { Identified, Reading } from '../scan/identify';
 import type { Cand } from '../scan/match';
 import { ocrProgress, ocrState, readCard, warmUp } from '../scan/ocr';
 import { candsFromAi, identifyReading, keysFor, loadIndex, localEntries, printedNum } from '../scan/search';
@@ -72,8 +72,20 @@ function patch(id: number, p: Partial<Shot>) {
   shots.value = shots.value.map((s) => (s.id === id ? { ...s, ...p } : s));
 }
 
-/** Pone una foto recortada en la cola: se leen de una en una para no trabar el celular. */
-async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement): Promise<number> {
+/** ¿Qué lectura es mejor? Segura > con candidatos (más puntaje) > nada. */
+function better(a: Identified, b: Identified | undefined): boolean {
+  if (!b) return true;
+  if (a.sure !== b.sure) return a.sure;
+  return (a.cands[0]?.score ?? -1) > (b.cands[0]?.score ?? -1);
+}
+
+/**
+ * Pone una foto en la cola: se leen de una en una para no trabar el celular. `cards` son los
+ * recortes posibles (el borde encontrado, el marco tal cual…): se prueban en orden hasta que uno
+ * se reconoce con seguridad, y se queda el mejor.
+ */
+async function enqueue(cards: HTMLCanvasElement[], whole?: HTMLCanvasElement, note = ''): Promise<number> {
+  const card = cards[0]!;
   const blob = await toBlob(card);
   const full = whole ? await toBlob(whole, 0.85) : undefined;
   const id = ++seq;
@@ -81,11 +93,27 @@ async function enqueue(card: HTMLCanvasElement, whole?: HTMLCanvasElement): Prom
   shots.value = burst.value ? [shot, ...shots.value] : [shot];
   queue = queue.then(async () => {
     try {
-      const reading = await readCard(card);
-      const res = await identifyReading(reading);
+      let best: { res: Identified; reading: Reading; card: HTMLCanvasElement; i: number } | undefined;
+      for (const [i, c] of cards.slice(0, 3).entries()) {
+        const reading = await readCard(c);
+        const res = await identifyReading(reading);
+        if (better(res, best?.res)) best = { res, reading, card: c, i };
+        if (res.sure) break;
+      }
+      const { res, reading, card: used, i } = best!;
       const pick = res.sure ? res.cands[0] : undefined;
       if (pick) void fetchCard(pick.brief.id);
-      patch(id, { status: 'done', res, pick, text: `${reading.top.trim()}\n${reading.bottom.trim()}` });
+      // Si ganó otro recorte, esa es la foto que se muestra (y la que se guarda).
+      const swap = i > 0 ? await toBlob(used) : undefined;
+      if (swap) URL.revokeObjectURL(shots.value.find((s) => s.id === id)?.url ?? '');
+      const info = `[${note ? `${note} · ` : ''}recorte ${i + 1} de ${Math.min(3, cards.length)} · carta ${used.width}×${used.height}]\n`;
+      patch(id, {
+        status: 'done',
+        res,
+        pick,
+        ...(swap ? { blob: swap, url: URL.createObjectURL(swap) } : {}),
+        text: `${info}${reading.top.trim()}\n${reading.bottom.trim()}`,
+      });
     } catch (e) {
       patch(id, {
         status: 'error',
@@ -114,12 +142,46 @@ function cameraError(e: unknown): string {
   return 'No se pudo abrir la cámara. Elige una foto de la galería.';
 }
 
+interface ImageCaptureLike {
+  takePhoto(settings?: { fillLightMode?: string }): Promise<Blob>;
+}
+type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
+
+/** Enfoque continuo si la cámara lo permite (de cerca, el autoenfoque a veces se queda fijo). */
+async function keepFocus(stream: MediaStream): Promise<void> {
+  const t = stream.getVideoTracks()[0];
+  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[] };
+  if (t && caps.focusMode?.includes('continuous'))
+    await t.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => undefined);
+}
+
+/**
+ * Foto a resolución completa con ImageCapture (Chrome en Android). Sin flash: el flash hace
+ * brillos sobre la carta. Si el navegador no lo permite o tarda demasiado, null (se usa el video).
+ */
+async function takePhoto(stream: MediaStream): Promise<ImageBitmap | null> {
+  const IC = (window as unknown as { ImageCapture?: ImageCaptureCtor }).ImageCapture;
+  const track = stream.getVideoTracks()[0];
+  if (!IC || !track || track.readyState !== 'live') return null;
+  const cap = new IC(track);
+  const shot = cap.takePhoto({ fillLightMode: 'off' }).catch(() => cap.takePhoto());
+  const timeout = new Promise<null>((res) => setTimeout(() => res(null), 4000));
+  try {
+    const blob = await Promise.race([shot, timeout]);
+    return blob ? await createImageBitmap(blob, { imageOrientation: 'from-image' }) : null;
+  } catch {
+    return null;
+  }
+}
+
 function Camera({ onClose }: { onClose: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState('');
   const [ready, setReady] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -131,9 +193,11 @@ function Camera({ onClose }: { onClose: () => void }) {
         if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NotFoundError' });
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } },
         });
         if (!alive) return stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = stream;
+        await keepFocus(stream);
         const v = video.current!;
         v.srcObject = stream;
         await v.play();
@@ -148,12 +212,31 @@ function Camera({ onClose }: { onClose: () => void }) {
     };
   }, []);
 
-  function shoot() {
+  async function shoot() {
     const v = video.current;
-    if (!v || !frame.current || !v.videoWidth) return;
-    void enqueue(cardFromVideo(v, frame.current), downscale(v));
+    if (!v || !frame.current || !v.videoWidth || busy) return;
+    const vw = v.videoWidth;
+    const vh = v.videoHeight;
+    const rect = frameInVideo(v, frame.current);
+    // Respaldo: el cuadro del video, tomado al instante.
+    let cards = cardsFromVideo(v, frame.current);
+    const whole = downscale(v);
+    let note = `cuadro del video ${vw}×${vh}`;
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
+    setBusy(true);
+    // La foto de verdad (todo el sensor, enfocada): el número se lee mucho mejor que en el video.
+    const photo = streamRef.current ? await takePhoto(streamRef.current) : null;
+    if (photo) {
+      const c = cardsFromPhoto(photo, rect, vw, vh);
+      if (c.length) {
+        cards = c;
+        note = `foto ${photo.width}×${photo.height}`;
+      }
+      photo.close();
+    }
+    setBusy(false);
+    void enqueue(cards, whole, note);
     if (!burst.value) onClose();
   }
 
@@ -178,8 +261,8 @@ function Camera({ onClose }: { onClose: () => void }) {
       </div>
       <p class="hint">Pon la carta dentro del marco, de frente y con buena luz. Que se lea el número de abajo.</p>
       <div class="scan-acts">
-        <button class="btn primary us shutter" onClick={shoot} disabled={!ready}>
-          📸 {burst.value ? 'Tomar y seguir' : 'Tomar foto'}
+        <button class="btn primary us shutter" onClick={() => void shoot()} disabled={!ready || busy}>
+          📸 {busy ? 'Tomando foto… no la muevas' : burst.value ? 'Tomar y seguir' : 'Tomar foto'}
         </button>
         <button class="btn quiet" onClick={onClose}>
           {burst.value ? 'Terminar' : 'Cerrar cámara'}
@@ -868,7 +951,7 @@ export function Escanear() {
     try {
       for (const f of burst.value ? files : files.slice(0, 1)) {
         const bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
-        await enqueue(cardFromImage(bmp), downscale(bmp));
+        await enqueue(cardsFromImage(bmp), downscale(bmp), `foto ${bmp.width}×${bmp.height}`);
         bmp.close();
       }
     } catch {

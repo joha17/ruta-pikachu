@@ -1,6 +1,6 @@
 // Reconocimiento local (sin Claude): borde de la carta, números mal leídos, índice de nombres.
 import { describe, expect, it } from 'vitest';
-import { findCard, CARD_RATIO } from '../src/scan/crop';
+import { findCard, mapFrameToPhoto, CARD_RATIO } from '../src/scan/crop';
 import { identify } from '../src/scan/identify';
 import { buildIndex, clearWinner, digitEvidence, namesLike, setEra, type Brief, type SetBrief } from '../src/scan/match';
 import { copyrightYear, parseNumbers } from '../src/scan/parse';
@@ -61,6 +61,17 @@ describe('borde de la carta', () => {
       expect(Math.abs(box.h - c.ch) / c.ch).toBeLessThan(0.05);
       expect(Math.abs((box.angle * 180) / Math.PI - c.deg)).toBeLessThanOrEqual(1.01);
     }
+  });
+
+  it('lleva el marco del video a la foto de todo el sensor', () => {
+    // Video 1080×1920 (9:16) dentro de una foto 3024×4032 (3:4): el video es la franja del centro.
+    const r = mapFrameToPhoto([140, 400, 800, 1117], 1080, 1920, 3024, 4032)!;
+    const k = 4032 / 1920;
+    expect(r[0]).toBeCloseTo((3024 - 1080 * k) / 2 + 140 * k, 3);
+    expect(r[1]).toBeCloseTo(400 * k, 3);
+    expect(r[2] / r[3]).toBeCloseTo(800 / 1117, 5);
+    // Foto girada respecto al video: no se adivina.
+    expect(mapFrameToPhoto([0, 0, 10, 10], 1080, 1920, 4032, 3024)).toBeNull();
   });
 
   it('sin carta a la vista no inventa nada', () => {

@@ -47,8 +47,8 @@ export function fitCard(x: number, y: number, w: number, h: number, W: number, H
   return [nx, ny, nw, nh];
 }
 
-/** Lo que se ve dentro del marco guía, en píxeles del video (el video usa object-fit: cover). */
-export function cardFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTMLCanvasElement {
+/** El marco guía en píxeles del video (el video usa object-fit: cover), ya en proporción 63×88. */
+export function frameInVideo(video: HTMLVideoElement, frame: HTMLElement): [number, number, number, number] {
   const vw = video.videoWidth;
   const vh = video.videoHeight;
   const vr = video.getBoundingClientRect();
@@ -58,8 +58,42 @@ export function cardFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTML
   const oy = (vr.height - vh * s) / 2;
   const x = (fr.left - vr.left - ox) / s;
   const y = (fr.top - vr.top - oy) / s;
-  const [cx, cy, cw, ch] = fitCard(x, y, fr.width / s, fr.height / s, vw, vh);
-  return locateCard(video, cx, cy, cw, ch, vw, vh);
+  return fitCard(x, y, fr.width / s, fr.height / s, vw, vh);
+}
+
+/** Lo que se ve dentro del marco guía (cuadro del video): recortes posibles, del más probable al menos. */
+export function cardsFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTMLCanvasElement[] {
+  const [cx, cy, cw, ch] = frameInVideo(video, frame);
+  return locateCards(video, cx, cy, cw, ch, video.videoWidth, video.videoHeight);
+}
+
+export function cardFromVideo(video: HTMLVideoElement, frame: HTMLElement): HTMLCanvasElement {
+  return cardsFromVideo(video, frame)[0]!;
+}
+
+/**
+ * Lleva el marco guía (en píxeles del video vw×vh) a una foto de la cámara (W×H, normalmente
+ * mucho más grande). El video suele ser un recorte centrado del sensor (16:9 dentro de 4:3).
+ * Devuelve null si la foto viene girada respecto al video (no se puede mapear con seguridad).
+ */
+export function mapFrameToPhoto(rect: [number, number, number, number], vw: number, vh: number, W: number, H: number): [number, number, number, number] | null {
+  if (vw > vh !== W > H && Math.abs(vw - vh) > 8 && Math.abs(W - H) > 8) return null;
+  const av = vw / vh;
+  const ap = W / H;
+  // Zona de la foto que corresponde al video.
+  const cw = ap > av ? H * av : W;
+  const ch = ap > av ? H : W / av;
+  const ox = (W - cw) / 2;
+  const oy = (H - ch) / 2;
+  const k = cw / vw;
+  const [x, y, w, h] = rect;
+  return [ox + x * k, oy + y * k, w * k, h * k];
+}
+
+/** La carta desde una foto de la cámara a resolución completa (ImageCapture.takePhoto): recortes posibles. */
+export function cardsFromPhoto(photo: ImageBitmap, rect: [number, number, number, number], vw: number, vh: number): HTMLCanvasElement[] {
+  const r = mapFrameToPhoto(rect, vw, vh, photo.width, photo.height);
+  return r ? locateCards(photo, r[0], r[1], r[2], r[3], photo.width, photo.height) : [];
 }
 
 /** Caja con más bordes (la carta) en una imagen pequeña en gris. Devuelve null si no hay nada claro. */
@@ -120,6 +154,15 @@ export interface CardBox {
  * `minFrac`: alto mínimo de la carta respecto al de la imagen. Devuelve null si no hay nada claro.
  */
 export function findCard(gray: ArrayLike<number>, w: number, h: number, minFrac = 0.45): CardBox | null {
+  return findCards(gray, w, h, minFrac, 1)[0] ?? null;
+}
+
+/**
+ * Como findCard, pero devuelve hasta `max` rectángulos distintos, del más probable al menos.
+ * En fotos reales (fundas, carpetas, otra carta al lado) el primero a veces es la funda o el
+ * recuadro de texto: se prueban los siguientes si el primero no se deja leer.
+ */
+export function findCards(gray: ArrayLike<number>, w: number, h: number, minFrac = 0.45, max = 3): CardBox[] {
   // Gradientes una sola vez.
   const GX = new Float32Array(w * h);
   const GY = new Float32Array(w * h);
@@ -195,18 +238,30 @@ export function findCard(gray: ArrayLike<number>, w: number, h: number, minFrac 
       }
     }
   }
-  if (!best) return null;
+  if (!best) return [];
+  const top = best;
   // El marco de dentro también tiene forma de carta: entre los casi tan buenos (y casi igual de
   // girados), el más grande.
-  let pick = best;
-  for (const c of all) if (c.s >= best.s * 0.8 && Math.abs(c.a - best.a) < 0.04 && c.b - c.t > pick.b - pick.t) pick = c;
-  // Centro en ejes girados → en la imagen.
-  const u = pick.l + pick.cw / 2;
-  const v = (pick.t + pick.b) / 2;
-  const k = Math.tan(pick.a);
-  const cy = (v + (u - mx) * k + my * k * k) / (1 + k * k);
-  const cx = u - (cy - my) * k;
-  return { cx, cy, w: pick.cw, h: pick.b - pick.t, angle: pick.a };
+  let pick = top;
+  for (const c of all) if (c.s >= top.s * 0.8 && Math.abs(c.a - top.a) < 0.04 && c.b - c.t > pick.b - pick.t) pick = c;
+  const toBox = (p: Box): CardBox => {
+    // Centro en ejes girados → en la imagen.
+    const u = p.l + p.cw / 2;
+    const v = (p.t + p.b) / 2;
+    const k = Math.tan(p.a);
+    const cy = (v + (u - mx) * k + my * k * k) / (1 + k * k);
+    const cx = u - (cy - my) * k;
+    return { cx, cy, w: p.cw, h: p.b - p.t, angle: p.a };
+  };
+  const out = [toBox(pick)];
+  // Otros rectángulos bien distintos (otro alto o corridos), de mejor a peor puntaje.
+  const differs = (a: CardBox, b: CardBox) => Math.abs(a.h - b.h) / b.h > 0.06 || Math.abs(a.cy - b.cy) > b.h * 0.04;
+  for (const c of [top, ...all.sort((a, b) => b.s - a.s)]) {
+    if (out.length >= max) break;
+    const bx = toBox(c);
+    if (c.s >= top.s * 0.6 && out.every((o) => differs(bx, o))) out.push(bx);
+  }
+  return out;
 }
 
 /** Recorta (y endereza) una carta: centro, tamaño y giro en píxeles de la fuente. Máx. 1400 px de ancho. */
@@ -242,35 +297,38 @@ function smallGray(src: CanvasImageSource, x: number, y: number, w: number, h: n
 }
 
 /** Busca la carta en la zona (x, y, w, h) de la fuente; el resultado va en píxeles de la fuente. */
-function findIn(src: CanvasImageSource, x: number, y: number, w: number, h: number, minFrac: number): CardBox | null {
+function findIn(src: CanvasImageSource, x: number, y: number, w: number, h: number, minFrac: number, max = 1): CardBox[] {
   const { gray, sw, sh, k } = smallGray(src, x, y, w, h, 400);
-  const b = findCard(gray, sw, sh, minFrac);
-  return b && { cx: x + b.cx / k, cy: y + b.cy / k, w: b.w / k, h: b.h / k, angle: b.angle };
+  return findCards(gray, sw, sh, minFrac, max).map((b) => ({ cx: x + b.cx / k, cy: y + b.cy / k, w: b.w / k, h: b.h / k, angle: b.angle }));
 }
 
 /**
- * Recorta la carta que está más o menos en la zona (x, y, w, h) de la fuente (W×H): mira un poco
- * más allá de la zona, busca el borde real, endereza y recorta justo ahí. Si no lo encuentra,
- * recorta la zona. Así da igual si la carta llena el marco guía o queda más chica, corrida o girada.
+ * Recortes posibles de la carta que está más o menos en la zona (x, y, w, h) de la fuente (W×H),
+ * del más probable al menos: el borde real que se encuentre mirando un poco más allá de la zona
+ * (enderezado), la zona tal cual y otros bordes candidatos. Quien lee prueba en orden hasta que
+ * uno se reconoce. Así da igual si la carta llena el marco o queda más chica, corrida o girada.
  */
-export function locateCard(src: CanvasImageSource, x: number, y: number, w: number, h: number, W: number, H: number): HTMLCanvasElement {
+export function locateCards(src: CanvasImageSource, x: number, y: number, w: number, h: number, W: number, H: number): HTMLCanvasElement[] {
   const ax = Math.max(0, x - w * 0.08);
   const ay = Math.max(0, y - h * 0.06);
   const aw = Math.min(W, x + w * 1.08) - ax;
   const ah = Math.min(H, y + h * 1.06) - ay;
-  const b = findIn(src, ax, ay, aw, ah, 0.4);
-  if (b) return cropRotated(src, b);
+  const found = findIn(src, ax, ay, aw, ah, 0.4, 3);
   const [cx, cy, cw, ch] = fitCard(x, y, w, h, W, H);
-  return cropTo(src, cx, cy, cw, ch);
+  const zone = cropTo(src, cx, cy, cw, ch);
+  return found.length ? [cropRotated(src, found[0]!), zone, ...found.slice(1).map((f) => cropRotated(src, f))] : [zone];
 }
 
-/** Recorta la carta de una foto (de la galería o de la cámara del sistema). */
-export function cardFromImage(img: ImageBitmap | HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
+export function locateCard(src: CanvasImageSource, x: number, y: number, w: number, h: number, W: number, H: number): HTMLCanvasElement {
+  return locateCards(src, x, y, w, h, W, H)[0]!;
+}
+
+/** Recortes posibles de la carta en una foto (de la galería o de la cámara), del más probable al menos. */
+export function cardsFromImage(img: ImageBitmap | HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement[] {
   const W = img.width;
   const H = img.height;
-  const b = findIn(img, 0, 0, W, H, 0.3);
-  if (b) return cropRotated(img, b);
-  // Sin borde claro: si la foto ya tiene forma de carta se usa entera; si no, la zona con más bordes.
+  const found = findIn(img, 0, 0, W, H, 0.3, 3);
+  // Sin borde (o como segunda opción): si la foto ya tiene forma de carta, entera; si no, la zona con más bordes.
   let box: [number, number, number, number] | null = null;
   if (Math.abs(W / H - CARD_RATIO) / CARD_RATIO >= 0.1) {
     const { gray, sw, sh, k } = smallGray(img, 0, 0, W, H, 320);
@@ -279,7 +337,12 @@ export function cardFromImage(img: ImageBitmap | HTMLImageElement | HTMLCanvasEl
   }
   const [x, y, w, h] = box ?? [0, 0, W, H];
   const [cx, cy, cw, ch] = fitCard(x, y, w, h, W, H);
-  return cropTo(img, cx, cy, cw, ch);
+  const plain = cropTo(img, cx, cy, cw, ch);
+  return found.length ? [cropRotated(img, found[0]!), plain, ...found.slice(1).map((f) => cropRotated(img, f))] : [plain];
+}
+
+export function cardFromImage(img: ImageBitmap | HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
+  return cardsFromImage(img)[0]!;
 }
 
 /** Prepara una franja para el OCR: escala, gris, contraste (y opcionalmente invertida). */
