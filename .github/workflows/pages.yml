@@ -50,6 +50,16 @@ jobs:
         run: |
           command -v 7z >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full)
           node scripts/historial.mjs --cache .cache/tcgcsv --out public/historial
+      # Alertas de precio aunque la app esté cerrada: las lee del gist secreto que llena la app y
+      # avisa por Telegram. Sin los secretos GIST_TOKEN y TELEGRAM_TOKEN no hace nada. Nunca frena
+      # la publicación y no imprime datos de la colección (los registros de Actions son públicos).
+      - name: Avisar alertas
+        continue-on-error: true
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node --experimental-strip-types --no-warnings scripts/alertas.mjs --hist public/historial
       - uses: actions/cache/save@v4
         if: always() && steps.hist.outputs.changed == 'true'
         with:

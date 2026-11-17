@@ -18,7 +18,10 @@
 import { canon, findCard, isOwned } from './catalog';
 import { cardTitle } from './shop';
 import { histSeries } from './trend';
+import { evalSeries, holds, REASONS, ruleOn, stableDays, variation } from './alertRules';
 import type { AlertEvent, AlertReason, Collection, PriceAlert, PriceBook, SheetDef } from './types';
+
+export { eventId, eventText, evalSeries, holds, lastEvent, lastPerRule, REASON_TEXT, REASONS, ruleOn, stableDays, variation } from './alertRules';
 
 export const DIAS_DEF = 15;
 export const DIAS_MIN = 3;
@@ -27,8 +30,6 @@ export const UMBRAL_DEF = 5;
 export const UMBRAL_MIN = 0.5;
 export const UMBRAL_MAX = 50;
 const DAY = 864e5;
-
-export const REASONS: AlertReason[] = ['ambas', 'meta', 'estable'];
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const cents = (v: number) => Math.round(v * 100) / 100;
@@ -100,54 +101,6 @@ export function dayOf(d0: string, i: number): string {
   return new Date(Date.parse(d0) + i * DAY).toISOString().slice(0, 10);
 }
 
-/**
- * Cuántos días seguidos, contando hacia atrás desde el día `end`, lleva estable el precio
- * (máximo − mínimo ≤ umbral % del promedio de esos días). Cuenta hasta `cap` como mucho.
- * Un solo día cuenta como 1.
- */
-export function stableDays(v: number[], umbral: number, cap: number, end = v.length - 1): number {
-  if (end < 0 || end >= v.length) return 0;
-  let max = v[end]!;
-  let min = max;
-  let sum = max;
-  let n = 1;
-  while (n < cap && end - n >= 0) {
-    const x = v[end - n]!;
-    const mx = Math.max(max, x);
-    const mn = Math.min(min, x);
-    const sm = sum + x;
-    if (mx - mn > (umbral / 100) * (sm / (n + 1)) + 1e-9) break;
-    max = mx;
-    min = mn;
-    sum = sm;
-    n++;
-  }
-  return n;
-}
-
-/** Variación (máximo − mínimo, en % del promedio) de los últimos `days` días hasta `end`. */
-export function variation(v: number[], days: number, end = v.length - 1): number | null {
-  if (end < 0) return null;
-  const w = v.slice(Math.max(0, end - days + 1), end + 1);
-  if (!w.length) return null;
-  const avg = w.reduce((a, b) => a + b, 0) / w.length;
-  return avg > 0 ? ((Math.max(...w) - Math.min(...w)) / avg) * 100 : null;
-}
-
-/** ¿Se cumple esta regla el día `i`? */
-export function holds(a: PriceAlert, r: AlertReason, v: number[], i: number): boolean {
-  const p = v[i];
-  if (p == null) return false;
-  const bajo = a.meta != null && p <= a.meta;
-  if (r === 'meta') return bajo;
-  const estable = stableDays(v, a.umbral_pct, a.dias_estable, i) >= a.dias_estable;
-  return r === 'estable' ? estable : estable && bajo;
-}
-
-export function ruleOn(a: PriceAlert, r: AlertReason): boolean {
-  return r === 'meta' ? a.metaOn : r === 'estable' ? a.estableOn : a.ambasOn;
-}
-
 /** Cómo está una carta respecto a su alerta, ahora. */
 export interface AlertStatus {
   key: string;
@@ -207,17 +160,6 @@ export function alertHits(sheets: SheetDef[], col: Collection, pr: PriceBook, al
   return out.sort((a, b) => b.met.length - a.met.length || a.name.localeCompare(b.name));
 }
 
-export function eventId(d: string, k: string, r: AlertReason): string {
-  return `${d}|${k}|${r}`;
-}
-
-/** Última vez que se disparó esta regla de esta carta. */
-export function lastEvent(log: Record<string, AlertEvent>, k: string, r: AlertReason): AlertEvent | null {
-  let best: AlertEvent | null = null;
-  for (const e of Object.values(log ?? {})) if (e.k === k && e.motivo === r && (!best || e.d > best.d)) best = e;
-  return best;
-}
-
 /**
  * Revisa todas las alertas y devuelve las que se disparan ahora (todavía no están en el historial).
  * `day` es la fecha de hoy, que queda como fecha del disparo.
@@ -238,27 +180,7 @@ export function evaluate(
     if (!f) continue;
     const k = canon(alias, key);
     const { d0, v } = dailySeries(pr, alias, k);
-    const last = v.length - 1;
-    if (last < 0) continue;
-    for (const r of REASONS) {
-      if (!ruleOn(a, r) || !holds(a, r, v, last)) continue;
-      if (log[eventId(day, k, r)]) continue;
-      const prev = lastEvent(log, k, r);
-      if (prev && prev.d <= day) {
-        // ¿Se cumplió todos los días desde el último disparo? Entonces es el mismo evento.
-        const from = Math.max(0, Math.round((Date.parse(prev.d) - Date.parse(d0)) / DAY));
-        let same = true;
-        for (let i = Math.min(from, last); i <= last && same; i++) same = holds(a, r, v, i);
-        if (same) continue;
-      }
-      const e: AlertEvent = { d: day, k, n: cardTitle(f.card), motivo: r, p: v[last]! };
-      if (r !== 'estable' && a.meta != null) e.meta = a.meta;
-      if (r !== 'meta') {
-        e.dias = a.dias_estable;
-        e.umbral = a.umbral_pct;
-      }
-      out.push(e);
-    }
+    out.push(...evalSeries(a, k, cardTitle(f.card), d0, v, log, day));
   }
   return out;
 }
@@ -268,19 +190,6 @@ export function logList(col: Collection, k?: string): AlertEvent[] {
   return Object.values(col.alertLog ?? {})
     .filter((e) => !k || e.k === k)
     .sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : a.n.localeCompare(b.n)));
-}
-
-export const REASON_TEXT: Record<AlertReason, string> = {
-  meta: 'En tu meta',
-  estable: 'Precio estable',
-  ambas: 'Estable y en tu meta',
-};
-
-/** «Moltres ex: estable 15 días y en tu meta, $12.40». */
-export function eventText(e: AlertEvent, money: (v: number) => string): string {
-  if (e.motivo === 'meta') return `${e.n} bajó a ${money(e.p)} (tu meta: ${money(e.meta ?? e.p)})`;
-  if (e.motivo === 'estable') return `${e.n} lleva ${e.dias} días estable en ${money(e.p)}`;
-  return `${e.n} lleva ${e.dias} días estable y está en tu meta: ${money(e.p)}`;
 }
 
 /** «Estable hace 9 de 15 días». */

@@ -381,3 +381,7 @@ dialog.sheet:has(.sheet-wide){width:min(720px,calc(100vw - 32px))}
 .al-p{font:600 14px var(--f-mono);white-space:nowrap}
 .al-active li.met .al-p{color:var(--ok)}
 .shop-alerts h3 .linkish{margin-left:6px}
+/* Avisos con la app cerrada */
+.nube-set{margin-top:22px}
+.nube-steps{margin:0 0 8px;padding-left:20px;font-size:13.5px;display:grid;gap:6px}
+.nube-btns{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
