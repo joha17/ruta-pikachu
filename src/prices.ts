@@ -5,12 +5,12 @@
 // - Nunca en bucle: solo corre al abrir la app, al volver la conexión, al volver a la app otro día
 //   o cuando tocas «Actualizar precios», y nunca dos veces a la vez.
 
-import { signal } from '@preact/signals';
+import { effect, signal } from '@preact/signals';
 import { checkAlerts } from './alerts';
 import { savePrices } from './db';
 import { allKeys, canon, findCard } from './model/catalog';
 import { today } from './model/keys';
-import { recordDay } from './model/trend';
+import { pendingToday, recordDay } from './model/trend';
 import { alias, collection, prices, sheets } from './store';
 import { fetchCard, tcgCache, type Lang } from './tcgdex';
 
@@ -50,10 +50,12 @@ export function priceTargets(): Target[] {
   return out;
 }
 
-export async function refreshPrices(): Promise<void> {
+/** Actualiza los precios de todas las cartas, o solo de `only` (claves) si se indica. */
+export async function refreshPrices(only?: Set<string>): Promise<void> {
   if (priceRun.value?.running) return;
   const day = today();
-  const list = priceTargets();
+  const list = only ? priceTargets().filter((t) => only.has(t.key)) : priceTargets();
+  if (!list.length) return;
   const run: PriceRun = { running: true, done: 0, total: list.length, failed: 0, noPrice: 0, day };
   priceRun.value = { ...run };
   const results: Record<string, number | null> = {};
@@ -93,11 +95,44 @@ export function autoRefresh(why: 'start' | 'online' | 'visible'): void {
   void refreshPrices();
 }
 
+/** Claves ya intentadas hoy fuera de la actualización diaria (para no reintentar en bucle si fallan). */
+const triedKeys = new Set<string>();
+let triedKeysDay = '';
+let fillTimer: ReturnType<typeof setTimeout> | undefined;
+const FILL_MS = 3000;
+
+/**
+ * Si ya hay precios de hoy pero llegaron cartas nuevas (desde otro aparato por la sincronización,
+ * o añadidas aquí), busca el precio solo de esas, sin esperar a mañana.
+ */
+export function fillMissing(): void {
+  const day = today();
+  if (prices.value.date !== day || !navigator.onLine || priceRun.value?.running) return;
+  if (triedKeysDay !== day) {
+    triedKeys.clear();
+    triedKeysDay = day;
+  }
+  const keys = pendingToday(
+    prices.value,
+    day,
+    priceTargets().map((t) => t.key),
+  ).filter((k) => !triedKeys.has(k));
+  if (!keys.length) return;
+  for (const k of keys) triedKeys.add(k);
+  void refreshPrices(new Set(keys));
+}
+
 let wired = false;
 export function wirePriceUpdates(): void {
   if (wired) return;
   wired = true;
   autoRefresh('start');
+  // Cada vez que cambia la colección (también al sincronizar), mira si hay cartas sin consultar hoy.
+  effect(() => {
+    void collection.value;
+    clearTimeout(fillTimer);
+    fillTimer = setTimeout(fillMissing, FILL_MS);
+  });
   window.addEventListener('online', () => autoRefresh('online'));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') autoRefresh('visible');

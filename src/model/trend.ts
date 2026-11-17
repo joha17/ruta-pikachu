@@ -127,6 +127,16 @@ export function recordDay(pr: PriceBook, day: string, results: Record<string, nu
   pruneHist(pr, day);
 }
 
+/**
+ * Claves que todavía no tienen consulta de precio hoy (ni con precio ni «sin precio»).
+ * Sirve para cartas que llegan después de la actualización del día: por sincronización,
+ * escáner o «Añadir carta».
+ */
+export function pendingToday(pr: PriceBook, day: string, keys: string[]): string[] {
+  const h = pr.hist[day] ?? {};
+  return keys.filter((k) => !(k in h));
+}
+
 export function pruneHist(pr: PriceBook, day: string, keep = HIST_DAYS): void {
   const limit = Date.parse(day) - (keep - 1) * DAY;
   for (const d of Object.keys(pr.hist)) if (Date.parse(d) < limit) delete pr.hist[d];

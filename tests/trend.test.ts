@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeOf, histSeries, lastDays, lastPriceDate, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
+import { changeOf, histSeries, lastDays, lastPriceDate, pendingToday, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
 import { emptyCollection, emptyPrices, type PriceBook } from '../src/model/types';
 
 const AL = { 'e:moltres': 'r:moltres' };
@@ -102,5 +102,18 @@ describe('rangos de la gráfica', () => {
     expect(Math.round(c.pct)).toBe(-50);
     expect(c.days).toBe(24);
     expect(changeOf([s[0]!])).toBeNull();
+  });
+});
+
+describe('cartas sin consultar hoy', () => {
+  it('devuelve solo las que no tienen entrada del día (las «sin precio» ya cuentan como consultadas)', () => {
+    const p = emptyPrices();
+    recordDay(p, '2026-11-17', { a: 1.5, b: null });
+    expect(pendingToday(p, '2026-11-17', ['a', 'b', 'c'])).toEqual(['c']);
+  });
+  it('sin precios del día, todas están pendientes', () => {
+    const p = emptyPrices();
+    recordDay(p, '2026-11-16', { a: 1 });
+    expect(pendingToday(p, '2026-11-17', ['a', 'b'])).toEqual(['a', 'b']);
   });
 });

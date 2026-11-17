@@ -23,17 +23,16 @@ export function PriceStatus() {
       {failed > 0 && (
         <> No se pudieron traer {failed === 1 ? '1 precio' : `${failed} precios`} (sin conexión o TCGdex no respondió).</>
       )}
-      {(!fresh || failed > 0) && (
-        <button
-          class="linkish"
-          onClick={() => {
-            if (!navigator.onLine) return say('No hay conexión. Los precios se actualizan solos cuando vuelva.', false);
-            void refreshPrices();
-          }}
-        >
-          Actualizar precios
-        </button>
-      )}
+      {/* Siempre a mano: también sirve con precios de hoy, para cartas que llegaron después. */}
+      <button
+        class="linkish"
+        onClick={() => {
+          if (!navigator.onLine) return say('No hay conexión. Los precios se actualizan solos cuando vuelva.', false);
+          void refreshPrices();
+        }}
+      >
+        Actualizar precios
+      </button>
     </p>
   );
 }
