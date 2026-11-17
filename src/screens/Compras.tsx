@@ -3,7 +3,8 @@
 import { signal } from '@preact/signals';
 import { act, ops } from '../actions';
 import { currentHits } from '../alerts';
-import { alertOf, isActive, logList, REASON_TEXT, stableText } from '../model/alerts';
+import { alertOf, isActive, REASON_TEXT, stableText } from '../model/alerts';
+import { go } from '../ui/router';
 import { fmtDate, money } from '../model/money';
 import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } from '../model/shop';
 import { alias, collection, openKey, prices, sheets } from '../store';
@@ -23,7 +24,6 @@ function readPrefs(): { sort: ShopSort; sheet: string } {
 const prefs = signal(readPrefs());
 const showAll = signal(false);
 const copied = signal('');
-const showLog = signal(false);
 
 function setPrefs(p: Partial<{ sort: ShopSort; sheet: string }>) {
   prefs.value = { ...prefs.value, ...p };
@@ -53,7 +53,12 @@ function Hits() {
   if (!hits.length) return null;
   return (
     <div class="shop-alerts" role="region" aria-label="Alertas que se cumplen">
-      <h3>🔔 Se cumplen tus alertas</h3>
+      <h3>
+        🔔 Se cumplen tus alertas{' '}
+        <button class="linkish" onClick={() => go('alertas')}>
+          Ver todos los avisos
+        </button>
+      </h3>
       <ul>
         {hits.map((h) => (
           <li key={h.key}>
@@ -73,50 +78,6 @@ function Hits() {
         ))}
       </ul>
     </div>
-  );
-}
-
-/** Historial de alertas disparadas (fecha, carta, motivo, precio). */
-function AlertLog() {
-  const log = logList(collection.value);
-  if (!log.length) return null;
-  const shown = showLog.value ? log : log.slice(0, 5);
-  return (
-    <details class="alert-history">
-      <summary>Historial de alertas ({log.length})</summary>
-      <table>
-        <thead>
-          <tr>
-            <th scope="col">Fecha</th>
-            <th scope="col">Carta</th>
-            <th scope="col">Motivo</th>
-            <th scope="col">Precio</th>
-          </tr>
-        </thead>
-        <tbody>
-          {shown.map((e) => (
-            <tr key={`${e.d}|${e.k}|${e.motivo}`}>
-              <td>{fmtDate(e.d)}</td>
-              <td>
-                <button class="linkish" onClick={() => (openKey.value = e.k)}>
-                  {e.n}
-                </button>
-              </td>
-              <td>
-                {REASON_TEXT[e.motivo]}
-                {e.motivo !== 'meta' && e.dias ? <small> ({e.dias} días, ±{e.umbral} %)</small> : null}
-              </td>
-              <td>{money(e.p)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {log.length > 5 && (
-        <button class="btn quiet" onClick={() => (showLog.value = !showLog.value)}>
-          {showLog.value ? 'Ver menos' : `Ver las ${log.length}`}
-        </button>
-      )}
-    </details>
   );
 }
 
@@ -187,7 +148,6 @@ export function Compras() {
         </button>
       </div>
       <Hits />
-      <AlertLog />
       <div class="shop-tools">
         <div class="chips" role="group" aria-label="Filtrar por hoja">
           <span class="lbl">Hoja:</span>

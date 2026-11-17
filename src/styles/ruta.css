@@ -355,3 +355,22 @@ dialog.sheet::backdrop{background:var(--backdrop)}
 .alert-history td{padding:4px 6px 4px 0;border-top:1px solid var(--line);vertical-align:top}
 .alert-history td:last-child,.alert-history th:last-child{text-align:right;font-family:var(--f-mono);white-space:nowrap}
 .alert-history td small{color:var(--muted)}
+/* Pantalla de Alertas y campana de la cabecera */
+.bell-btn{position:relative}
+.bell-badge{position:absolute;top:3px;right:2px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#C62828;color:#fff;font:700 11px/17px var(--f-body);text-align:center;box-sizing:border-box}
+.al-h{display:flex;align-items:center;gap:8px;font-size:16px;margin:18px 0 8px}
+.al-new-count{font:600 12px var(--f-body);background:var(--yellow);color:#1a1a1a;border-radius:10px;padding:2px 8px}
+.al-empty{margin:0 0 8px}
+.al-day h4{margin:12px 0 6px;font-size:13px;color:var(--muted);font-weight:600}
+.al-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.al-list button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.al-list button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.al-dot{width:8px;height:8px;border-radius:50%;flex:none;background:transparent}
+.al-list li.new button{border-color:var(--ok)}
+.al-list li.new .al-dot{background:var(--ok)}
+.al-txt{display:grid;gap:2px;min-width:0;flex:1}
+.al-txt b{font-size:14px;overflow-wrap:anywhere}
+.al-txt small{font-size:12.5px;color:var(--muted)}
+.al-p{font:600 14px var(--f-mono);white-space:nowrap}
+.al-active li.met .al-p{color:var(--ok)}
+.shop-alerts h3 .linkish{margin-left:6px}
