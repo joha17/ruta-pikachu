@@ -287,3 +287,26 @@ export function eventText(e: AlertEvent, money: (v: number) => string): string {
 export function stableText(st: Pick<AlertStatus, 'stable' | 'alert'>): string {
   return `Estable hace ${Math.min(st.stable, st.alert.dias_estable)} de ${st.alert.dias_estable} días`;
 }
+
+/** Alertas disparadas que todavía no vi en este aparato. */
+export function unreadIds(col: Collection, read: Record<string, true> | undefined): string[] {
+  return Object.keys(col.alertLog ?? {}).filter((id) => !read?.[id]);
+}
+
+/** Marca todo el historial como visto. Solo guarda ids que existen (lo borrado no se acumula). */
+export function markAllRead(col: Collection): Record<string, true> {
+  const out: Record<string, true> = {};
+  for (const id of Object.keys(col.alertLog ?? {})) out[id] = true;
+  return out;
+}
+
+/** Cartas con alguna regla activa (para la lista de «Tus alertas»). */
+export function activeAlerts(sheets: SheetDef[], col: Collection, pr: PriceBook, alias: Record<string, string>): AlertStatus[] {
+  const out: AlertStatus[] = [];
+  for (const key of Object.keys(col.alerts ?? {})) {
+    if (!isActive(normAlert(col.alerts[key])) || isOwned(alias, col, key) || !findCard(sheets, col, key)) continue;
+    const st = alertStatus(sheets, col, pr, alias, key);
+    if (st) out.push(st);
+  }
+  return out.sort((a, b) => b.met.length - a.met.length || a.name.localeCompare(b.name));
+}

@@ -7,6 +7,7 @@ import { alertHits, evaluate, eventText, type AlertStatus } from './model/alerts
 import { today } from './model/keys';
 import * as ops from './model/ops';
 import { money } from './model/money';
+import { go } from './ui/router';
 import { alias, collection, openKey, prices, sheets } from './store';
 
 export function currentHits(): AlertStatus[] {
@@ -39,6 +40,7 @@ async function notify(title: string, body: string, key: string): Promise<void> {
     const n = new Notification(title, opts);
     n.onclick = () => {
       window.focus();
+      go('alertas');
       openKey.value = key;
     };
   } catch {
@@ -56,7 +58,7 @@ export async function checkAlerts(): Promise<void> {
   act((c) => ops.logAlerts(c, fresh));
   const m = (v: number) => money(v);
   const first = fresh[0]!;
-  say(fresh.length === 1 ? `🔔 ${eventText(first, m)}` : `🔔 ${fresh.length} alertas de precio. Míralas en Compras.`);
+  say(fresh.length === 1 ? `🔔 ${eventText(first, m)}` : `🔔 ${fresh.length} alertas de precio. Míralas en Alertas.`);
   if (fresh.length === 1) await notify('Alerta de precio', eventText(first, m), first.k);
   else await notify(`${fresh.length} alertas de precio`, fresh.map((e) => eventText(e, m)).join('\n'), first.k);
 }

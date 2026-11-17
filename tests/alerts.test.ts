@@ -6,7 +6,9 @@ import {
   alertStatus,
   evaluate,
   logList,
+  markAllRead,
   normAlert,
+  unreadIds,
   stableDays,
   stableText,
   variation,
@@ -196,5 +198,20 @@ describe('sincronización', () => {
     expect(back.alertLog).toEqual(c.alertLog);
     doc.atoms['alert:r:zapdos'] = { t: 2000, v: 12 };
     expect(implode(doc).alerts['r:zapdos']).toMatchObject({ meta: 12, metaOn: true, dias_estable: 15 });
+  });
+});
+
+describe('avisos nuevos en la pantalla de Alertas', () => {
+  it('cuenta lo que no vi y marcar como visto solo guarda lo que existe', () => {
+    const c = emptyCollection();
+    ops.setAlert(c, AL, K, alert({ meta: 15, metaOn: true, estableOn: true, dias_estable: 3 }));
+    run(c, withPrices([14, 14, 14]), 2);
+    expect(unreadIds(c, undefined)).toHaveLength(2);
+    const read = markAllRead(c);
+    expect(unreadIds(c, read)).toEqual([]);
+    expect(unreadIds(c, { ...read, 'viejo|x|meta': true })).toEqual([]);
+    const pr = withPrices([14, 14, 14, 16, 14]);
+    run(c, pr, 4);
+    expect(unreadIds(c, read)).toEqual([`${d(4)}|${K}|meta`]);
   });
 });

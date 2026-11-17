@@ -11,6 +11,8 @@ export interface Settings {
   lastBackup?: string;
   migratedAt?: string;
   migration?: MigrationReport;
+  /** Alertas disparadas ya vistas en este aparato (id del historial). */
+  alertsRead?: Record<string, true>;
 }
 
 /** Respaldo con Claude. Va aparte de los ajustes para que la clave nunca entre en un respaldo. */

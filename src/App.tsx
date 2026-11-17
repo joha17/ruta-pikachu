@@ -1,7 +1,8 @@
 import { signal } from '@preact/signals';
 import { useRegisterSW } from 'virtual:pwa-register/preact';
 import { backupDue } from './model/backup';
-import { isEmpty, ready, saveState, settings } from './store';
+import { unreadIds } from './model/alerts';
+import { collection, isEmpty, ready, saveState, settings } from './store';
 import { go, route } from './ui/router';
 import { Compartida } from './screens/Compartida';
 import { ShareDialog } from './ui/Share';
@@ -15,6 +16,7 @@ import { Respaldo } from './screens/Respaldo';
 import { SyncChip } from './screens/Sincronizar';
 import { syncStatus } from './sync/engine';
 import { Metas } from './screens/Metas';
+import { Alertas } from './screens/Alertas';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
 
@@ -25,6 +27,7 @@ const ICON: Record<string, string> = {
   escanear: 'M4 8h3l2-3h6l2 3h3v11H4zM12 10.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
   compras: 'M3 4h2l2.4 11h10.2L20 7H6.2M9 20a1 1 0 1 0 0-.01M17 20a1 1 0 1 0 0-.01',
   metas: 'M5 21V4M5 4h12l-2.5 4L17 12H5',
+  alertas: 'M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0',
   ajustes:
     'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19.4 13a7.5 7.5 0 0 0 0-2l2-1.6-2-3.4-2.4 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.4 7.4 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a7.5 7.5 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.3-2.6a7.4 7.4 0 0 0 1.7-1l2.4 1 2-3.4z',
 };
@@ -56,6 +59,22 @@ function SaveChip() {
     <span class="chip ok" title="Todo está guardado en este aparato">
       Guardado
     </span>
+  );
+}
+
+/** Campana de la cabecera: abre Alertas y dice cuántos avisos no vi. */
+function AlertBell({ r }: { r: string }) {
+  const n = unreadIds(collection.value, settings.value.alertsRead).length;
+  const label = n ? `Alertas: ${n} ${n === 1 ? 'aviso nuevo' : 'avisos nuevos'}` : 'Alertas de precio';
+  return (
+    <button class="iconbtn bell-btn" title={label} aria-label={label} aria-current={r === 'alertas' ? 'page' : undefined} onClick={() => go('alertas')}>
+      <Icon name="alertas" />
+      {n > 0 && (
+        <span class="bell-badge" aria-hidden="true">
+          {n > 99 ? '99+' : n}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -136,6 +155,7 @@ export function App() {
         <div class="topbar-r">
           <SaveChip />
           <SyncChip />
+          <AlertBell r={r} />
           <button
             class="iconbtn"
             title="Ajustes: respaldo, Google Drive y tema"
@@ -158,6 +178,8 @@ export function App() {
           <Compras />
         ) : r === 'metas' ? (
           <Metas />
+        ) : r === 'alertas' ? (
+          <Alertas />
         ) : r === 'ver' ? (
           <Compartida />
         ) : (
