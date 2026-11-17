@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { findCard, mapFrameToPhoto, CARD_RATIO } from '../src/scan/crop';
 import { identify } from '../src/scan/identify';
-import { buildIndex, clearWinner, digitEvidence, namesLike, setEra, type Brief, type SetBrief } from '../src/scan/match';
+import { buildIndex, clearWinner, digitEvidence, namesLike, setEra, suffixOf, type Brief, type SetBrief } from '../src/scan/match';
 import { copyrightYear, parseNumbers } from '../src/scan/parse';
 
 const SETS: SetBrief[] = [
@@ -16,6 +16,7 @@ const SETS: SetBrief[] = [
   { id: 'swsh12.5gg', name: 'Crown Zenith Galarian Gallery', cardCount: { total: 70, official: 70 } },
   { id: 'svp', name: 'SVP Black Star Promos', cardCount: { total: 200, official: 0 } },
 ];
+const NL = String.fromCharCode(10);
 const TOTALS = new Set(SETS.flatMap((s) => [s.cardCount.official, s.cardCount.total]));
 const b = (id: string, name: string): Brief => ({ id, localId: id.split('-').pop()!, name });
 
@@ -139,6 +140,14 @@ describe('índice de nombres', () => {
     b('me06-115', 'Azurill'),
     b('A1-1', 'Bulbasaur'),
   ]);
+
+  it('sufijo de la carta para desempatar «Pikachu» y «Pikachu VMAX»', () => {
+    expect(suffixOf('VMAX PikachuVMAX HP310')).toBe('VMAX');
+    expect(suffixOf('Rotom ex')).toBe('ex');
+    expect(suffixOf(`Pikachu V${NL}Evolves from Pichu`)).toBe('V');
+    expect(suffixOf(`Raichu${NL}Evolves from Pikachu V`)).toBeUndefined();
+    expect(suffixOf('Pikachu')).toBeUndefined();
+  });
 
   it('deja fuera TCG Pocket y encuentra nombres mal leídos', () => {
     expect(index.byName.has('Bulbasaur')).toBe(false);

@@ -105,6 +105,7 @@ export function rankCands(
   const promoMark = /S[VY5]P|SVE[A-Z]|\bMEP\b|SWSH|BLACK ?STAR/i.test(bottom);
   const order = new Map([...sets.keys()].map((k, i) => [k, i / Math.max(1, sets.size)]));
   const words = nameText ? ocrWords(nameText) : [];
+  const textSuf = nameText ? suffixOf(nameText) : undefined;
   const m = new Map<string, Cand & { strong: boolean; named: boolean }>();
   const get = (b: Brief) => {
     if (isPocket(b)) return null;
@@ -140,6 +141,8 @@ export function rankCands(
       c.named = true;
       c.firm = true;
       c.why.push('nombre');
+      // «Pikachu VMAX» frente a «Pikachu»: el sufijo leído arriba desempata.
+      if (textSuf) c.score += suffixOf(c.brief.name) === textSuf ? 20 : -10;
     }
     // El número a medio leer («0877/1 67» por 087/167) confirma una carta que ya cuadra por nombre.
     if (c.named && digits && !c.why.some((w) => w.startsWith('número'))) {
@@ -171,6 +174,17 @@ export function rankCands(
     .filter((c) => c.strong || c.named)
     .sort((a, b) => b.score - a.score)
     .map(({ strong: _s, named: _n, ...c }) => ({ ...c, score: Math.round(c.score), firm: !!c.firm }));
+}
+
+/** Sufijo de la carta (VMAX, VSTAR, GX, ex, V) en un nombre o en el texto leído arriba. */
+export function suffixOf(text: string): string | undefined {
+  if (/VMAX/i.test(text)) return 'VMAX';
+  if (/VSTAR/i.test(text)) return 'VSTAR';
+  if (/(?:\b|[a-z])GX\b/.test(text)) return 'GX';
+  if (/(?:\b|[a-z])(?:ex|EX)\b/.test(text)) return 'ex';
+  // «V» solo en la primera línea (la del nombre): abajo dice «Evolves from Pikachu V».
+  if (/[a-z] ?V\b/.test(text.split(/\r?\n/)[0] ?? '')) return 'V';
+  return undefined;
 }
 
 /**
@@ -224,7 +238,10 @@ export function namesLike(names: string[], nameText: string, min = 0.68, max = 1
     if (s >= min) scored.push([n, s]);
   }
   // A igualdad, el nombre más corto primero («Toxicroak» antes que «Toxicroak G»).
-  scored.sort((a, b) => b[1] - a[1] || a[0].length - b[0].length);
+  // Si arriba se lee un sufijo (VMAX, ex…), primero los nombres que lo tienen.
+  const suf = suffixOf(nameText);
+  const sw = (n: string) => (suf && suffixOf(n) === suf ? 0 : 1);
+  scored.sort((a, b) => b[1] - a[1] || sw(a[0]) - sw(b[0]) || a[0].length - b[0].length);
   const best = scored[0]?.[1] ?? 0;
   // Margen amplio: «Zee husin Goodra» se parece más a «Goodra» que a «Hisuian Goodra»; el número decide.
   return scored.filter(([, s]) => s >= best - 0.22).slice(0, max).map(([n]) => n);
