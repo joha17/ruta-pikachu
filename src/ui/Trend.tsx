@@ -128,8 +128,11 @@ export function PriceTrend({ k }: { k: string }) {
       >
         <path class="sl" d={d} vector-effect="non-scaling-stroke" />
         {hp && <line class="sx" x1={hp[0]} x2={hp[0]} y1={0} y2={H} vector-effect="non-scaling-stroke" />}
-        <circle class="sd" cx={lp[0].toFixed(1)} cy={lp[1].toFixed(1)} r={4} vector-effect="non-scaling-stroke" />
-        {hp && <circle class="sh" r={4} cx={hp[0]} cy={hp[1]} vector-effect="non-scaling-stroke" />}
+        {/* Puntos como trazos de largo cero: siguen redondos aunque la gráfica se estire a lo ancho. */}
+        <path class="sd-o" d={`M${lp[0].toFixed(1)} ${lp[1].toFixed(1)}h0`} vector-effect="non-scaling-stroke" />
+        <path class="sd" d={`M${lp[0].toFixed(1)} ${lp[1].toFixed(1)}h0`} vector-effect="non-scaling-stroke" />
+        {hp && <path class="sh-o" d={`M${hp[0]} ${hp[1]}h0`} vector-effect="non-scaling-stroke" />}
+        {hp && <path class="sh" d={`M${hp[0]} ${hp[1]}h0`} vector-effect="non-scaling-stroke" />}
       </svg>
       <p class="spark-read" aria-live="polite">
         {hover != null ? `${fmtDate(s[hover]!.d)}: ${money(s[hover]!.v)}` : `Mín. ${money(mn)} · Máx. ${money(mx)}`}
