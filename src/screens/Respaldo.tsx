@@ -9,6 +9,8 @@ import { go, route } from '../ui/router';
 import { Importar } from './Importar';
 import { Sincronizar } from './Sincronizar';
 import { syncOn } from '../sync/engine';
+import { makeExport, type ExportKind } from '../exportFile';
+import { money } from '../model/money';
 
 const fecha = (iso: string) =>
   iso
@@ -205,6 +207,67 @@ function Restaurar() {
   );
 }
 
+function Exportar() {
+  const [last, setLast] = useState('');
+
+  function file(kind: ExportKind) {
+    try {
+      const r = makeExport(kind);
+      setLast(`${r.file.name} · ${plural(r.cards, 'carta', 'cartas')} · ${money(r.total)}`);
+      return r.file;
+    } catch (e) {
+      say(`No se pudo armar el archivo (${(e as Error).message || 'error'}).`, false);
+      return null;
+    }
+  }
+
+  function onDownload(kind: ExportKind) {
+    const f = file(kind);
+    if (!f) return;
+    download(f);
+    say(kind === 'xlsx' ? 'Excel descargado.' : 'CSV descargado.');
+  }
+
+  async function onShare() {
+    const f = file('xlsx');
+    if (!f) return;
+    try {
+      await navigator.share({ files: [f], title: 'Mi colección de Ruta Pikachu' });
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') say('No se pudo compartir. Usa «Descargar Excel».', false);
+    }
+  }
+
+  const share = typeof navigator.canShare === 'function';
+  return (
+    <div class="panel">
+      <h3>Exportar la colección</h3>
+      <p>
+        Una tabla con las cartas que tienes: nombre, número, set, rareza, idioma, dónde está, cantidad, precio y total en
+        dólares. Sirve para el seguro, para vender o para tener tu inventario en una hoja de cálculo.
+      </p>
+      <div class="row">
+        <button class="btn primary" disabled={isEmpty.value} onClick={() => onDownload('xlsx')}>
+          ⬇ Descargar Excel
+        </button>
+        <button class="btn" disabled={isEmpty.value} onClick={() => onDownload('csv')}>
+          Descargar CSV
+        </button>
+        {share && (
+          <button class="btn" disabled={isEmpty.value} onClick={() => void onShare()}>
+            Compartir…
+          </button>
+        )}
+      </div>
+      {last && <p class="hint">{last}</p>}
+      <p class="hint">
+        Las copias iguales van en una sola fila con su cantidad. Los precios son los de TCGplayer del último día (o el que
+        pusiste a mano). El CSV se abre en Excel, Google Sheets o Numbers.
+      </p>
+    </div>
+  );
+}
+
 const TEMAS = [
   ['auto', 'Automático'],
   ['light', 'Claro'],
@@ -249,6 +312,7 @@ export function Respaldo() {
         <Sincronizar />
         <Hacer />
         <Restaurar />
+        <Exportar />
         <Tema />
       </section>
       <Importar />

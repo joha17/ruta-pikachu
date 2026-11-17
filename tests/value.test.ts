@@ -1,6 +1,6 @@
 // Valor de la colección en el tiempo.
 import { describe, expect, it } from 'vitest';
-import { recordValue, valueSeries } from '../src/model/value';
+import { recordValue, valueRange, valueSeries } from '../src/model/value';
 import { emptyPrices } from '../src/model/types';
 
 describe('valor de la colección', () => {
@@ -36,5 +36,13 @@ describe('valor de la colección', () => {
     expect(recordValue(p, '2026-11-13', 12.345, 3)).toBe(true);
     expect(p.value).toEqual({ '2026-11-13': { v: 12.35, n: 3 } });
     expect(recordValue(p, '2026-11-13', 12.35, 3)).toBe(false);
+  });
+
+  it('valueRange deja solo los últimos días del rango', () => {
+    const s = ['2026-05-01', '2026-10-20', '2026-11-03', '2026-11-04', '2026-11-17'].map((d) => ({ d, v: 1, n: 1, est: true }));
+    expect(valueRange(s, 15).map((p) => p.d)).toEqual(['2026-11-03', '2026-11-04', '2026-11-17']);
+    expect(valueRange(s, 30).map((p) => p.d)).toEqual(['2026-10-20', '2026-11-03', '2026-11-04', '2026-11-17']);
+    expect(valueRange(s, 180)).toHaveLength(4);
+    expect(valueRange([], 30)).toEqual([]);
   });
 });

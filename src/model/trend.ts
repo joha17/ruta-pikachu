@@ -160,3 +160,49 @@ export function pruneHist(pr: PriceBook, day: string, keep = HIST_DAYS): void {
   const limit = Date.parse(day) - (keep - 1) * DAY;
   for (const d of Object.keys(pr.hist)) if (Date.parse(d) < limit) delete pr.hist[d];
 }
+
+export interface WeekDrop {
+  /** Precio de hace una semana (el último conocido ese día o antes). */
+  from: Point;
+  /** Precio más reciente. */
+  to: Point;
+  /** Cuánto bajó, en USD (positivo). */
+  usd: number;
+  /** Cuánto bajó, en % (positivo). */
+  pct: number;
+}
+
+/**
+ * Bajada de precio de la última semana: el último precio contra el que tenía 7 días antes
+ * (el último conocido ese día o antes, porque el precio sigue igual hasta que hay otro).
+ * Solo cuenta si el último precio es de esta semana (`day` menos 7 días o después), si el de
+ * referencia no es de hace más de 14 días y si bajó al menos 1 %. Nada con precio a mano.
+ */
+export function weekDrop(col: Collection, pr: PriceBook, alias: Record<string, string>, key: string, day: string): WeekDrop | null {
+  if (manualOf(col, alias, key)) return null;
+  const s = histSeries(pr, alias, key);
+  if (s.length < 2) return null;
+  const to = s[s.length - 1]!;
+  const lt = Date.parse(to.d);
+  if (Date.parse(day) - lt > 7 * DAY) return null;
+  let from: Point | undefined;
+  for (let i = s.length - 2; i >= 0; i--) {
+    if (lt - Date.parse(s[i]!.d) >= 7 * DAY) {
+      from = s[i];
+      break;
+    }
+  }
+  if (!from || !from.v || lt - Date.parse(from.d) > 14 * DAY) return null;
+  const pct = ((from.v - to.v) / from.v) * 100;
+  if (pct < 1) return null;
+  return { from, to, usd: Math.round((from.v - to.v) * 100) / 100, pct };
+}
+
+export type DropSort = 'pct' | 'usd';
+
+/** Ordena de mayor a menor bajada, por % o por dólares (el otro desempata). */
+export function sortDrops<T extends { drop: WeekDrop }>(list: T[], by: DropSort): T[] {
+  return list
+    .slice()
+    .sort((a, b) => (by === 'usd' ? b.drop.usd - a.drop.usd || b.drop.pct - a.drop.pct : b.drop.pct - a.drop.pct || b.drop.usd - a.drop.usd));
+}
