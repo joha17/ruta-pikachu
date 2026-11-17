@@ -26,6 +26,9 @@ const BASE = arg('base', 'https://tcgcsv.com');
 const TODAY = arg('today', new Date().toISOString().slice(0, 10));
 export const SHARDS = 1000;
 const CATS = ['3', '85'];
+/** Pausa entre descargas y máximo de días nuevos por corrida, para no pasar el límite de tcgcsv. */
+const PAUSE_MS = Number(arg('pause', '3000'));
+const MAX_PER_RUN = Number(arg('max', '50'));
 const UA = 'RutaPikachu/1.0 (+https://github.com/joha17/ruta-pikachu)';
 const DAY = 864e5;
 
@@ -76,6 +79,7 @@ async function download(d) {
   const url = `${BASE}/archive/tcgplayer/prices-${d}.ppmd.7z`;
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
   if (r.status === 404 || r.status === 403) return 'missing';
+  if (r.status === 429) return { wait: Number(r.headers.get('retry-after')) || 0 };
   if (!r.ok) throw new Error(`${url} respondió ${r.status}`);
   const tmp = join(tmpdir(), `tcgcsv-${d}`);
   rmSync(tmp, { recursive: true, force: true });
@@ -116,10 +120,28 @@ async function main() {
   // Fuera de la ventana: se borra de la caché.
   for (const f of readdirSync(CACHE)) if (!keep.has(f)) rmSync(join(CACHE, f), { force: true });
   let got = 0;
-  for (const d of days) {
+  let throttled = false;
+  // Del más nuevo al más viejo: si tcgcsv frena las descargas, lo reciente queda primero y el
+  // resto se completa en las siguientes publicaciones.
+  for (const d of [...days].reverse()) {
     if (existsSync(join(CACHE, `${d}.json`))) continue;
+    if (got >= MAX_PER_RUN) {
+      console.log(`Límite de ${MAX_PER_RUN} días por corrida: el resto, en la próxima.`);
+      break;
+    }
     try {
-      const r = await download(d);
+      let r = await download(d);
+      for (let tries = 0; typeof r === 'object' && tries < 2; tries++) {
+        const s = Math.min(Math.max(r.wait, 60), 300);
+        console.log(`${d}: tcgcsv pide esperar (429); espero ${s} s`);
+        await sleep(s * 1000);
+        r = await download(d);
+      }
+      if (typeof r === 'object') {
+        console.warn(`${d}: tcgcsv sigue frenando las descargas; el resto, en la próxima corrida.`);
+        throttled = true;
+        break;
+      }
       if (r === 'missing') console.log(`${d}: todavía no hay archivo`);
       else {
         // Avisa enseguida a Actions para guardar la caché aunque el trabajo se corte después.
@@ -129,8 +151,9 @@ async function main() {
     } catch (e) {
       console.warn(`${d}: ${e.message}`);
     }
-    await sleep(400);
+    await sleep(PAUSE_MS);
   }
+  if (throttled) console.log('Quedan días sin bajar por el límite de tcgcsv.');
   const have = days.filter((d) => existsSync(join(CACHE, `${d}.json`)));
   if (!have.length) {
     console.warn('Sin historial: no se pudo bajar ningún día.');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changeOf, histSeries, lastDays, RANGES, lastPriceDate, pendingToday, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
+import { changeOf, histSeries, lastDays, rangeSeries, RANGES, lastPriceDate, pendingToday, pruneHist, recordDay, spanDays, trendOf, trendText } from '../src/model/trend';
 import { emptyCollection, emptyPrices, type PriceBook } from '../src/model/types';
 
 const AL = { 'e:moltres': 'r:moltres' };
@@ -98,6 +98,18 @@ describe('rangos de la gráfica', () => {
     expect([...RANGES]).toEqual([15, 30, 90, 180]);
     expect(lastDays(s, 15).map((p) => p.d)).toEqual(['2026-11-13']);
     expect(lastDays(s, 180).map((p) => p.d)).toEqual(['2026-09-01', '2026-10-20', '2026-11-13']);
+  });
+  it('rangeSeries empieza con el último precio conocido si al rango le faltan días', () => {
+    const r = rangeSeries(s, 15);
+    expect(r.carried).toBe('2026-10-20');
+    expect(r.pts).toEqual([
+      { d: '2026-10-30', v: 30 },
+      { d: '2026-11-12', v: 30 },
+      { d: '2026-11-13', v: 15 },
+    ]);
+    expect(rangeSeries(s, 365)).toEqual({ pts: s });
+    expect(rangeSeries([{ d: '2026-11-13', v: 1 }], 15)).toEqual({ pts: [{ d: '2026-11-13', v: 1 }] });
+    expect(rangeSeries([], 15)).toEqual({ pts: [] });
   });
   it('spanDays y changeOf', () => {
     expect(spanDays(s)).toBe(317);

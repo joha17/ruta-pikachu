@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { backfill } from '../history';
 import { fmtDate, manualOf, money } from '../model/money';
-import { changeOf, daysText, histSeries, lastDays, RANGES, spanDays, trendOf, trendText, type Point, type Range } from '../model/trend';
+import { changeOf, daysText, histSeries, rangeSeries, RANGES, spanDays, trendOf, trendText, type Point, type Range } from '../model/trend';
 import { alias, collection, prices } from '../store';
 
 export function TrendMark({ k }: { k: string }) {
@@ -58,8 +58,9 @@ export function PriceTrend({ k }: { k: string }) {
   // Los cuatro rangos siempre se pueden elegir. Si el historial guardado es más corto que el rango,
   // se dibuja lo que hay y se avisa de cuántos días cubre.
   const span = spanDays(full);
-  const s = lastDays(full, range);
+  const { pts: s, carried } = rangeSeries(full, range);
   const short = span < range;
+  const firstReal = carried ? full.find((p) => p.d > carried)?.d : undefined;
   const chips = (
     <div class="chips trange" role="group" aria-label="Rango de la gráfica">
       {RANGES.map((r) => (
@@ -133,6 +134,12 @@ export function PriceTrend({ k }: { k: string }) {
       <p class="spark-read" aria-live="polite">
         {hover != null ? `${fmtDate(s[hover]!.d)}: ${money(s[hover]!.v)}` : `Mín. ${money(mn)} · Máx. ${money(mx)}`}
       </p>
+      {carried && (
+        <p class="hint">
+          Sin precios guardados entre el {fmtDate(carried)} y el {fmtDate(firstReal)}: la línea sigue el último precio
+          conocido ({money(s[0]!.v)}).
+        </p>
+      )}
       {short && (
         <p class="hint">
           Por ahora hay precios guardados de {daysText(span)} (desde el {fmtDate(full[0]!.d)}). La gráfica se irá
@@ -149,7 +156,7 @@ export function PriceTrend({ k }: { k: string }) {
             </tr>
           </thead>
           <tbody>
-            {s
+            {(carried ? s.filter((o) => o.d >= firstReal!) : s)
               .slice()
               .reverse()
               .map((o) => (
