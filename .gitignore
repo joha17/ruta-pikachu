@@ -2,6 +2,10 @@ node_modules
 dist
 dev-dist
 *.local
+# Claves y variables de entorno: nunca al repo (es público).
+.env
+.env.*
+!.env.example
 # Nunca subir datos personales: paquetes de migración, respaldos ni fotos.
 migracion/
 *.respaldo.json
