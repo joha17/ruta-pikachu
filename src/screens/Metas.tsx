@@ -1,12 +1,15 @@
 // Metas: objetivos (algunos se marcan solos con las hojas), repetidas para cambiar y cartas a proteger.
 
+import { signal } from '@preact/signals';
 import { useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { LISTS } from '../data';
-import { money, usd } from '../model/money';
-import { goalStates } from '../model/shop';
+import { today } from '../model/keys';
+import { fmtDate, money, usd } from '../model/money';
+import { goalStates, shopItems } from '../model/shop';
+import { sortDrops, weekDrop, type DropSort } from '../model/trend';
 import type { Collection, GoalDef } from '../model/types';
-import { alias, collection, prices, sheets } from '../store';
+import { alias, collection, openKey, prices, sheets } from '../store';
 
 type Group = 'goals' | 'trade' | 'protect';
 
@@ -106,6 +109,88 @@ function AddGoal() {
   );
 }
 
+function readDropSort(): DropSort {
+  try {
+    return localStorage.getItem('ruta-drops') === 'usd' ? 'usd' : 'pct';
+  } catch {
+    return 'pct';
+  }
+}
+const dropSort = signal<DropSort>(readDropSort());
+const dropsAll = signal(false);
+
+/** Cartas que te faltan y bajaron de precio en la última semana, de mayor a menor bajada. */
+function Drops() {
+  const col = collection.value;
+  const sheetName = (id: string) => sheets.value.find((s) => s.id === id)?.name ?? '';
+  const day = today();
+  const list = sortDrops(
+    shopItems(sheets.value, col, prices.value, alias.value).flatMap((o) => {
+      const drop = weekDrop(col, prices.value, alias.value, o.key, day);
+      return drop ? [{ ...o, drop }] : [];
+    }),
+    dropSort.value,
+  );
+  const LIMIT = 8;
+  const shown = dropsAll.value ? list : list.slice(0, LIMIT);
+  const setSort = (v: DropSort) => {
+    dropSort.value = v;
+    try {
+      localStorage.setItem('ruta-drops', v);
+    } catch {
+      /* sin almacenamiento */
+    }
+  };
+  return (
+    <div class="panel drops">
+      <h3>📉 Bajaron esta semana</h3>
+      <p class="hint">
+        Cartas que te faltan y cuyo precio de TCGplayer bajó en los últimos 7 días. Buen momento para comprarlas.
+      </p>
+      {list.length > 0 && (
+        <div class="drop-sort" role="group" aria-label="Ordenar por">
+          <button class="chipf" aria-pressed={dropSort.value === 'pct'} onClick={() => setSort('pct')}>
+            Mayor bajada en %
+          </button>
+          <button class="chipf" aria-pressed={dropSort.value === 'usd'} onClick={() => setSort('usd')}>
+            Mayor bajada en $
+          </button>
+        </div>
+      )}
+      {list.length === 0 ? (
+        <p class="hint">Ninguna de las cartas que te faltan bajó de precio esta semana.</p>
+      ) : (
+        <ul class="drop-list">
+          {shown.map((o) => (
+            <li key={o.key} class={`shop-row${o.star ? ' starred' : ''}`}>
+              <button class="shop-open" aria-label={`Abrir ficha de ${o.n}`} onClick={() => (openKey.value = o.key)}>
+                <span class="sn">
+                  {o.star ? '★ ' : ''}
+                  {o.n}
+                </span>
+                <span class="sm">
+                  {sheetName(o.sheetId)} · antes {money(o.drop.from.v)} ({fmtDate(o.drop.from.d)})
+                </span>
+              </button>
+              <span class="sp drop-v">
+                <b>{money(o.drop.to.v)}</b>
+                <small class="down">
+                  ▼ {o.drop.pct.toFixed(0)} % · −{money(o.drop.usd)}
+                </small>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {list.length > LIMIT && (
+        <button class="linkish" onClick={() => (dropsAll.value = !dropsAll.value)}>
+          {dropsAll.value ? 'Ver menos' : `Ver las ${list.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function Metas() {
   const col = collection.value;
   const hiddenN = LISTS.goals.filter((g) => col.hiddenGoals?.[g.id]).length;
@@ -124,6 +209,7 @@ export function Metas() {
         </div>
       </div>
       <div class="lists">
+        <Drops />
         <div class="panel">
           <h3>Objetivos</h3>
           <div class="meter">
