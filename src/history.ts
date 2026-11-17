@@ -4,6 +4,7 @@
 import { savePrices } from './db';
 import { findCard } from './model/catalog';
 import { today } from './model/keys';
+import type { Point } from './model/trend';
 import { mergeRemote, remoteSeries, shardOf, type RemoteShard } from './model/remoteHist';
 import { alias, collection, prices, sheets } from './store';
 import { cachedCard, fetchCard, type Lang } from './tcgdex';
@@ -57,4 +58,9 @@ export async function backfill(keys: string[], fetchMissing = false): Promise<vo
   if (!changed) return;
   prices.value = p;
   await savePrices(p);
+}
+
+/** Historial publicado de un producto de TCGplayer (para Buscar: cartas que no están en la colección). */
+export async function remoteHistory(pid: number, variant?: string): Promise<Point[]> {
+  return remoteSeries(await shard(shardOf(pid)), pid, variant);
 }
