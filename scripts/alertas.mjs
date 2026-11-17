@@ -134,11 +134,27 @@ async function tg(token, method, body) {
   return j.result;
 }
 
-/** Primer chat privado que le escribió al bot (Telegram guarda los mensajes 24 horas). */
+/**
+ * Primer chat privado que le escribió al bot (Telegram guarda los mensajes 24 horas). También sirve
+ * tocar «Iniciar» o bloquear y desbloquear el bot.
+ */
+export function chatFromUpdates(ups) {
+  for (const u of ups ?? []) {
+    const chat = (u.message ?? u.edited_message ?? u.my_chat_member)?.chat;
+    if (chat?.type === 'private') return String(chat.id);
+  }
+  return null;
+}
+
 async function discoverChat(token) {
-  const ups = await tg(token, 'getUpdates', { allowed_updates: ['message'] });
-  const m = ups.map((u) => u.message).find((m) => m?.chat?.type === 'private');
-  return m ? String(m.chat.id) : null;
+  const ups = await tg(token, 'getUpdates', { allowed_updates: ['message', 'edited_message', 'my_chat_member'] });
+  const chat = chatFromUpdates(ups);
+  if (!chat) {
+    // Sin ids ni nombres: el registro es público.
+    const hook = await tg(token, 'getWebhookInfo').catch(() => null);
+    console.log(`Telegram: ${ups.length} mensajes pendientes para el bot${hook?.url ? '; el bot tiene un webhook puesto y así no recibe mensajes aquí' : ''}.`);
+  }
+  return chat;
 }
 
 async function main() {
@@ -176,7 +192,7 @@ async function main() {
   const firstTime = !chat;
   if (!chat) chat = await discoverChat(TELEGRAM_TOKEN);
   if (!chat) {
-    console.warn('El bot de Telegram no tiene chat: escríbele cualquier mensaje y vuelve a correr «Publicar en GitHub Pages».');
+    console.warn('El bot de Telegram no tiene chat: escríbele cualquier mensaje (en las últimas 24 horas) y vuelve a correr «Publicar en GitHub Pages». O pon tu id de chat en el secreto TELEGRAM_CHAT_ID.');
     return;
   }
   if (firstTime) {

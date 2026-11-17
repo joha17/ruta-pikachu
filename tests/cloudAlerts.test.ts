@@ -7,7 +7,7 @@ import * as ops from '../src/model/ops';
 import { emptyCollection, type AlertEvent, type PriceAlert } from '../src/model/types';
 import { FIXED_SHEETS as FIXED } from '../src/data';
 // @ts-expect-error: script de Node sin tipos
-import { check, message, seriesFor } from '../scripts/alertas.mjs';
+import { chatFromUpdates, check, message, seriesFor } from '../scripts/alertas.mjs';
 
 const sheets = allSheets(FIXED, emptyCollection());
 const AL = aliases(sheets);
@@ -83,5 +83,12 @@ describe('revisión nocturna', () => {
     expect(r.sent.chat).toBe('42');
     expect(Object.values(r.sent.events)).toEqual([old]);
     expect(r.sent.last).toBe('2026-11-17');
+  });
+
+  it('encuentra el chat privado en mensajes, ediciones o al tocar «Iniciar»', () => {
+    expect(chatFromUpdates([])).toBeNull();
+    expect(chatFromUpdates([{ message: { chat: { id: -5, type: 'group' } } }, { message: { chat: { id: 9, type: 'private' } } }])).toBe('9');
+    expect(chatFromUpdates([{ my_chat_member: { chat: { id: 7, type: 'private' } } }])).toBe('7');
+    expect(chatFromUpdates([{ edited_message: { chat: { id: 8, type: 'private' } } }])).toBe('8');
   });
 });
