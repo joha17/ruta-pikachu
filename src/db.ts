@@ -50,6 +50,10 @@ export interface NubeCfg {
   remoteLast?: string;
   chat?: boolean;
   error?: string;
+  /** Código de GitHub del último error (401 = token vencido o revocado). */
+  status?: number;
+  /** Cuándo vence el token de GitHub (ISO), según GitHub. */
+  expires?: string;
 }
 
 /** Sincronización con Google Drive. Solo de este aparato: nunca entra en un respaldo. */

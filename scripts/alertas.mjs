@@ -19,6 +19,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { evalSeries, eventText, lastPerRule } from '../src/model/alertRules.ts';
+import { EXPIRY_WARN_DAYS, parseTokenExpiry } from '../src/model/health.ts';
 import { apiSend, budget, explain, monthSpent } from './explicar.mjs';
 
 export const ALERTS_FILE = 'ruta-pikachu-alertas.json';
@@ -86,7 +87,27 @@ export function message(fresh, notes = []) {
   return [head, '', ...fresh.map(line), '', `Ábrelas en la app: ${APP_URL}`].join('\n');
 }
 
+/**
+ * Aviso por Telegram de que el token de GitHub está por vencer: una sola vez por fecha de
+ * vencimiento (`warned` es la fecha ya avisada). Devuelve el texto o null.
+ */
+export function expiryNotice(expires, warned, now) {
+  const t = Date.parse(expires ?? '');
+  if (!Number.isFinite(t) || warned === expires) return null;
+  const days = Math.ceil((t - now) / DAY);
+  if (days > EXPIRY_WARN_DAYS) return null;
+  const when = days <= 0 ? 'ya venció' : days === 1 ? 'vence mañana' : `vence en ${days} días`;
+  return [
+    `⚠️ El token de GitHub de tus avisos de Ruta Pikachu ${when} (${iso(t)}).`,
+    '',
+    'Crea uno nuevo (Gists: Read and write), pégalo en la app (Alertas, «Avisos con la app cerrada») y en el secreto GIST_TOKEN del repo. Si no, estos avisos se cortan.',
+  ].join('\n');
+}
+
 // ---------- GitHub y Telegram ----------
+
+/** Vencimiento del token según GitHub (cabecera de cada respuesta). */
+let tokenExpires;
 
 async function gh(path, token, init = {}) {
   const r = await fetch(`https://api.github.com${path}`, {
@@ -99,6 +120,7 @@ async function gh(path, token, init = {}) {
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
     },
   });
+  tokenExpires = parseTokenExpiry(r.headers.get('github-authentication-token-expiration')) ?? tokenExpires;
   if (!r.ok) throw new Error(`GitHub respondió ${r.status} (${path.split(/[/?]/)[1]})`);
   return r.json();
 }
@@ -231,6 +253,15 @@ async function main() {
     await tg(TELEGRAM_TOKEN, 'sendMessage', { chat_id: chat, text: message(res.fresh, notes), disable_web_page_preview: true });
   }
   if (!TELEGRAM_CHAT_ID) next.chat = chat;
+  // Para que la app ponga el puntito en ⚙ antes de que venza, y un aviso por Telegram una vez.
+  if (tokenExpires) next.tokenExpires = tokenExpires;
+  else delete next.tokenExpires;
+  const notice = expiryNotice(tokenExpires, sent.expiryWarned, Date.now());
+  if (notice) {
+    await tg(TELEGRAM_TOKEN, 'sendMessage', { chat_id: chat, text: notice, disable_web_page_preview: true });
+    next.expiryWarned = tokenExpires;
+    console.log('Token de GitHub por vencer: avisado por Telegram.');
+  }
   if (JSON.stringify(next) !== JSON.stringify(sent)) {
     await gh(`/gists/${gist.id}`, GIST_TOKEN, {
       method: 'PATCH',

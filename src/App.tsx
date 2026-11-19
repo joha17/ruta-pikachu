@@ -20,6 +20,7 @@ import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
 import { AsistenteDialog, AsistenteFab } from './ui/Asistente';
 import { BuyDialog } from './ui/Presupuesto';
+import { healthProblems } from './ui/Health';
 
 // Íconos de línea simples (24×24), del color del texto.
 const ICON: Record<string, string> = {
@@ -122,8 +123,10 @@ export function App() {
   if (!ready.value) return <p class="loading">Abriendo tu colección…</p>;
   const r = route.value;
   const inAjustes = r === 'respaldo' || r === 'importar';
-  const nag = backupNag(r);
-  const gear = nag ? `Ajustes: ${nag.toLowerCase()}` : 'Ajustes: respaldo, Google Drive y tema';
+  // Primero lo que dejó de funcionar (avisos de Telegram, Drive); después el respaldo pendiente.
+  const broken = healthProblems.value;
+  const nag = broken.length ? (broken.length === 1 ? broken[0].text : `${broken.length} cosas dejaron de funcionar`) : backupNag(r);
+  const gear = nag ? `Ajustes: ${nag}` : 'Ajustes: respaldo, Google Drive y tema';
   return (
     <>
       <UpdateBanner />
