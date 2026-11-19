@@ -10,6 +10,7 @@ import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } 
 import { alias, collection, openKey, prices, sheets } from '../store';
 import { TrendMark } from '../ui/Trend';
 import { AdviceTag, Consejero } from '../ui/Consejero';
+import { BudgetPanel, EnFrio } from '../ui/Presupuesto';
 
 function readPrefs(): { sort: ShopSort; sheet: string } {
   try {
@@ -149,6 +150,8 @@ export function Compras() {
           {copied.value || 'Copiar esta lista'}
         </button>
       </div>
+      <BudgetPanel />
+      <EnFrio />
       <Hits />
       {list.length > 0 && <Consejero />}
       <div class="shop-tools">

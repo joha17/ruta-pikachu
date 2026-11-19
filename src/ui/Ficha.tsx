@@ -19,6 +19,7 @@ import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
 import { Contexto } from './Contexto';
 import { Zoomable } from './Zoom';
+import { buyFlow, refundKey } from './Presupuesto';
 
 const LANG: Record<string, string> = { en: 'Inglés', ja: 'Japonés' };
 
@@ -237,10 +238,18 @@ function CardSheet({ k }: { k: string }) {
             <button
               class={own ? 'btn' : primary}
               onClick={() => {
-                act((cc) => {
-                  ops.toggle(cc, al, k);
-                });
                 setMsg(null);
+                if (own) {
+                  act((cc) => void ops.toggle(cc, al, k));
+                  refundKey(ck);
+                  return;
+                }
+                void buyFlow([{ name: title, price: usd(col, prices.value, al, k), key: ck }], () => {
+                  act((cc) => {
+                    if (!isOwned(alias.value, cc, k)) ops.toggle(cc, alias.value, k);
+                  });
+                  return [ck];
+                });
               }}
             >
               {own ? 'Desmarcar (no la tengo)' : 'Marcar como conseguida'}

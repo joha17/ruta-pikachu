@@ -410,3 +410,49 @@ body.camfs-open{overflow:hidden}
 .ideas-list{margin:0 0 6px;padding-left:20px;display:grid;gap:6px}
 .ideas-list .why{display:block;color:var(--muted)}
 .ideas-budget input{max-width:120px}
+
+/* Presupuesto mensual de compras */
+.budget,.enfrio{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px;display:grid;gap:8px}
+.budget.over{border-color:var(--warn)}
+.budget-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.budget h3,.enfrio h3{margin:0;font-size:16px}
+.budget-big{margin:0;font-size:15px}
+.budget-big strong{font-size:22px}
+.budget.over .budget-big strong{color:var(--warn)}
+.budget-big small{color:var(--muted);display:block}
+.bmeter{position:relative;display:flex;height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.bmeter b{display:block;height:100%}
+.bmeter .spent{background:var(--ok)}
+.bmeter .add{background:var(--yellow-deep)}
+.bmeter .over{background:var(--warn)}
+.bmeter i{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.budget-list,.enfrio ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.budget-list li,.enfrio li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px;border-top:1px solid var(--line);padding-top:4px}
+.enfrio li{grid-template-columns:minmax(0,1fr) auto}
+.budget-list .shop-open:disabled,.enfrio .shop-open:disabled{cursor:default}
+.frio-acts{display:flex;gap:6px}
+.budget-form{display:grid;gap:6px}
+.budget-form .row{display:flex;gap:6px;flex-wrap:wrap}
+.budget-form input{min-width:0;flex:1}
+.budget-past{width:100%;font-size:13.5px;border-collapse:collapse}
+.budget-past td{padding:3px 4px;border-top:1px solid var(--line)}
+.budget-past td:last-child{text-align:right}
+.buy-in{padding:18px;display:grid;gap:12px}
+.buy-in h2{margin:0;font-size:20px;padding-right:40px}
+.buy-items{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:38vh;overflow:auto}
+.buy-items li{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.buy-items label{font-weight:600;overflow-wrap:anywhere;min-width:0}
+.buy-price{display:flex;align-items:center;gap:4px;font-weight:700}
+.buy-price input{width:96px;font-size:18px;text-align:right}
+.buy-budget{display:grid;gap:3px;background:var(--bg,transparent);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.buy-row{display:flex;justify-content:space-between;gap:8px}
+.buy-row.big{font-size:17px;margin-top:2px}
+.buy-budget.over{border-color:var(--warn)}
+.buy-budget.over .buy-row.big b{color:var(--warn)}
+.buy-warn{border:2px solid var(--warn);border-radius:10px;padding:10px 12px;display:grid;gap:8px}
+.buy-warn p{margin:0;font-size:14px}
+.buy-warn strong{color:var(--warn)}
+.buy-sure{display:flex;gap:8px;align-items:center;font-weight:600;font-size:14px}
+.buy-sure input{width:20px;height:20px}
+.btn.danger{background:var(--warn);border-color:var(--warn);color:#fff}
+.btn.danger:disabled{opacity:.45}

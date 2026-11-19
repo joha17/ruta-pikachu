@@ -19,6 +19,7 @@ import { Metas } from './screens/Metas';
 import { Alertas } from './screens/Alertas';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
+import { BuyDialog } from './ui/Presupuesto';
 
 // Íconos de línea simples (24×24), del color del texto.
 const ICON: Record<string, string> = {
@@ -196,6 +197,7 @@ export function App() {
       </nav>
       <FichaDialog />
       <ShareDialog />
+      <BuyDialog />
       <Binder />
       {toast.value && (
         <div class={`toast${toast.value.ok ? '' : ' warn'}`} role="status">

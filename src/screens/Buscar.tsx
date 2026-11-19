@@ -9,6 +9,7 @@ import { Fragment, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
+import { buyFlow, priceOf } from '../ui/Presupuesto';
 import { findCard, isOwned, MAX_CARDS } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
@@ -522,7 +523,13 @@ function Detalle({ c }: { c: BrowseResult }) {
     setBusy(true);
     await fetchCard(c.id);
     setBusy(false);
-    if (fn()) {
+    const pre = preFromTcg(c);
+    let got = '';
+    await buyFlow([{ name: pre.n, price: priceOf(undefined, c.id), pre }], () => {
+      got = fn();
+      return [got];
+    });
+    if (got) {
       setDone(msg);
       say(msg);
     }
@@ -605,9 +612,15 @@ function Detalle({ c }: { c: BrowseResult }) {
               {!own && (
                 <button
                   class="btn primary"
-                  onClick={() => {
-                    act((cc) => void ops.toggle(cc, alias.value, key));
-                    setDone('Marcada como conseguida.');
+                  onClick={async () => {
+                    const name = found ? cardTitle(found.card) : full?.name || c.name;
+                    const ok = await buyFlow([{ name, price: priceOf(key, c.id), key }], () => {
+                      act((cc) => {
+                        if (!isOwned(alias.value, cc, key)) ops.toggle(cc, alias.value, key);
+                      });
+                      return [key];
+                    });
+                    if (ok === 'added') setDone('Marcada como conseguida.');
                   }}
                 >
                   Marcar como conseguida
