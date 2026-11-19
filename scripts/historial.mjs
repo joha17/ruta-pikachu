@@ -11,7 +11,7 @@
 // Necesita 7z (p7zip-full). Nunca falla el build: si algo sale mal, avisa y sigue.
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -31,6 +31,7 @@ const PAUSE_MS = Number(arg('pause', '3000'));
 const MAX_PER_RUN = Number(arg('max', '50'));
 const UA = 'RutaPikachu/1.0 (+https://github.com/joha17/ruta-pikachu)';
 const DAY = 864e5;
+const DAY_FILE = /^\d{4}-\d\d-\d\d\.json$/;
 
 const iso = (t) => new Date(t).toISOString().slice(0, 10);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -118,7 +119,7 @@ async function main() {
   const days = windowDays();
   const keep = new Set(days.map((d) => `${d}.json`));
   // Fuera de la ventana: se borra de la caché.
-  for (const f of readdirSync(CACHE)) if (!keep.has(f)) rmSync(join(CACHE, f), { force: true });
+  for (const f of readdirSync(CACHE)) if (DAY_FILE.test(f) && !keep.has(f)) rmSync(join(CACHE, f), { force: true });
   let got = 0;
   let throttled = false;
   // Del más nuevo al más viejo: si tcgcsv frena las descargas, lo reciente queda primero y el
@@ -154,9 +155,16 @@ async function main() {
     await sleep(PAUSE_MS);
   }
   if (throttled) console.log('Quedan días sin bajar por el límite de tcgcsv.');
+  let ids = null;
+  try {
+    ids = await productIndex();
+  } catch (e) {
+    console.warn(`Índice de productos: ${e.message}`);
+  }
   const have = days.filter((d) => existsSync(join(CACHE, `${d}.json`)));
   if (!have.length) {
     console.warn('Sin historial: no se pudo bajar ningún día.');
+    if (ids) writeIds(ids);
     return;
   }
   // La ventana va del primer al último día que hay, para no mandar arreglos llenos de vacíos.
@@ -164,9 +172,114 @@ async function main() {
   const shards = buildShards(win, (d) => (existsSync(join(CACHE, `${d}.json`)) ? JSON.parse(readFileSync(join(CACHE, `${d}.json`), 'utf8')) : null));
   rmSync(OUT, { recursive: true, force: true });
   mkdirSync(OUT, { recursive: true });
+  if (ids) writeIds(ids);
   for (const [s, p] of shards) writeFileSync(join(OUT, `${s}.json`), JSON.stringify({ d0: win[0], p }));
   writeFileSync(join(OUT, 'meta.json'), JSON.stringify({ d0: win[0], last: have[have.length - 1], days: have.length, shards: SHARDS }));
   console.log(`Historial: ${have.length} días (${win[0]} a ${have[have.length - 1]}), ${shards.size} archivos, ${got} días nuevos.`);
+}
+
+// ---- Índice de productos ----
+// TCGdex no trae el producto de TCGplayer de muchas cartas (sets nuevos, galerías…). Para esas, la app
+// busca el producto por set, número y nombre en este índice (src/model/productMatch.ts).
+
+export const ID_SHARDS = 100;
+/** Igual que numKey de src/model/productMatch.ts. */
+export function numKey(s) {
+  const head = String(s ?? '').split('/')[0].trim().toUpperCase().replace(/\s+/g, '');
+  const m = /^([A-Z]*)0*(\d+)([A-Z]*)$/.exec(head);
+  return m ? `${m[1]}${m[2]}${m[3]}` : head;
+}
+export function idShardOf(key) {
+  const d = /\d+/.exec(key);
+  return d ? Number(d[0]) % ID_SHARDS : 0;
+}
+/** Igual que nameKey y nameShardOf de src/model/productMatch.ts. */
+export function nameKey(s) {
+  return String(s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+-\s+[a-z]*\d+[a-z]*(\/[a-z]*\d+)?\s*$/, ' ')
+    .replace(/[^a-z0-9]/g, '');
+}
+export function nameShardOf(name) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 1000003;
+  return h % ID_SHARDS;
+}
+/** Los productos de un set se vuelven a pedir cada semana si el set salió hace menos de 90 días. */
+const FRESH_SET = 90 * DAY;
+const REFRESH = 7 * DAY;
+const MAX_GROUPS = Number(arg('max-groups', '400'));
+
+async function getJson(url) {
+  const r = await fetch(url, { headers: { 'User-Agent': UA } });
+  if (r.status === 429) return 429;
+  if (!r.ok) throw new Error(`${url} respondió ${r.status}`);
+  return r.json();
+}
+
+/** Baja (o lee de la caché) los productos de cada set de Pokémon en inglés y arma el índice. */
+async function productIndex() {
+  const dir = join(CACHE, 'products');
+  mkdirSync(dir, { recursive: true });
+  const g = await getJson(`${BASE}/tcgplayer/3/groups`);
+  if (g === 429 || !Array.isArray(g?.results)) throw new Error('no se pudo leer la lista de sets');
+  const now = Date.parse(TODAY);
+  let got = 0;
+  // Los sets más nuevos primero: son los que más faltan en TCGdex.
+  const list = g.results.slice().sort((a, b) => String(b.publishedOn).localeCompare(String(a.publishedOn)));
+  for (const grp of list) {
+    const f = join(dir, `${grp.groupId}.json`);
+    const fresh = now - Date.parse(grp.publishedOn || 0) < FRESH_SET;
+    if (existsSync(f) && (!fresh || now - statSync(f).mtimeMs < REFRESH)) continue;
+    if (got >= MAX_GROUPS) {
+      console.log(`Límite de ${MAX_GROUPS} sets por corrida: el resto, en la próxima.`);
+      break;
+    }
+    const p = await getJson(`${BASE}/tcgplayer/3/${grp.groupId}/products`);
+    if (p === 429) {
+      console.warn('tcgcsv frenó la lista de productos; el resto, en la próxima corrida.');
+      break;
+    }
+    const rows = [];
+    for (const it of p?.results ?? []) {
+      const num = (it.extendedData ?? []).find((e) => e.name === 'Number')?.value;
+      if (typeof it.productId === 'number' && num) rows.push([it.productId, grp.groupId, String(num), String(it.name ?? '')]);
+    }
+    writeFileSync(f, JSON.stringify(rows));
+    if (!got++ && process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, 'changed=true\n');
+    await sleep(1500);
+  }
+  const groups = {};
+  const shards = new Map();
+  const names = new Map();
+  let n = 0;
+  for (const grp of g.results) {
+    const f = join(dir, `${grp.groupId}.json`);
+    if (!existsSync(f)) continue;
+    groups[grp.groupId] = grp.name;
+    for (const r of JSON.parse(readFileSync(f, 'utf8'))) {
+      const s = idShardOf(numKey(r[2]));
+      if (!shards.has(s)) shards.set(s, []);
+      shards.get(s).push(r);
+      const k = nameShardOf(nameKey(r[3]));
+      if (!names.has(k)) names.set(k, []);
+      names.get(k).push(r);
+      n++;
+    }
+  }
+  console.log(`Índice de productos: ${Object.keys(groups).length} de ${g.results.length} sets, ${n} cartas, ${got} sets nuevos.`);
+  return { groups, shards, names };
+}
+
+function writeIds({ groups, shards, names }) {
+  const d = join(OUT, 'ids');
+  mkdirSync(d, { recursive: true });
+  writeFileSync(join(d, 'groups.json'), JSON.stringify(groups));
+  for (const [s, rows] of shards) writeFileSync(join(d, `${s}.json`), JSON.stringify({ rows }));
+  for (const [s, rows] of names) writeFileSync(join(d, `n${s}.json`), JSON.stringify({ rows }));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();

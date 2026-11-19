@@ -2,6 +2,7 @@
 // nocturno (scripts/alertas.mjs en GitHub Actions) las revise y avise por Telegram, y trae a
 // Alertas lo que ese aviso mandó. Se hace después de cada revisión de alertas.
 
+import { productIdOf } from './history';
 import { signal } from '@preact/signals';
 import { act, ops } from './actions';
 import { loadNube, saveNube, type NubeCfg } from './db';
@@ -100,7 +101,8 @@ async function productIds(keys: string[]): Promise<Map<string, { pid: number; va
       if (!tcg) return;
       const lang: Lang = c?.lang === 'ja' ? 'ja' : 'en';
       const card = cachedCard(tcg, lang) ?? (navigator.onLine ? await fetchCard(tcg, lang) : null);
-      if (card?.tcgpId) out.set(key, { pid: card.tcgpId, variant: card.usdVariant });
+      const pid = await productIdOf(card, lang);
+      if (pid) out.set(key, { pid, variant: card?.tcgpId ? card.usdVariant : undefined });
     }),
   );
   return out;

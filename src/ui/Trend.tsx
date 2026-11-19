@@ -1,10 +1,11 @@
 // Flecha ▲▼ junto al precio y gráfica con tabla en la ficha.
 
 import { useEffect, useState } from 'preact/hooks';
-import { backfill } from '../history';
+import { backfill, productIdOf, remoteHistory } from '../history';
 import { fmtDate, manualOf, money } from '../model/money';
 import { changeOf, daysText, histSeries, rangeSeries, RANGES, spanDays, trendOf, trendText, type Point, type Range } from '../model/trend';
 import { alias, collection, prices } from '../store';
+import { cachedCard } from '../tcgdex';
 
 export function TrendMark({ k }: { k: string }) {
   const t = trendOf(collection.value, prices.value, alias.value, k);
@@ -35,8 +36,6 @@ function geometry(s: Point[]) {
 const RANGE_LABEL: Record<Range, string> = { 15: '15 días', 30: '1 mes', 90: '3 meses', 180: '6 meses' };
 
 export function PriceTrend({ k }: { k: string }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const [range, setRange] = useState<Range>(30);
   // Meses de precios de TCGplayer publicados con la app (tcgcsv.com), además de los guardados aquí.
   useEffect(() => {
     void backfill([k], true);
@@ -46,13 +45,63 @@ export function PriceTrend({ k }: { k: string }) {
   const al = alias.value;
   const full = histSeries(pr, al, k);
   if (manualOf(col, al, k)) return null;
+  return (
+    <TrendChart
+      full={full}
+      empty="Aparecerá cuando haya precios de al menos dos días. La app guarda uno cada día que la abres con conexión."
+      grows
+    />
+  );
+}
+
+/**
+ * Gráfica de Buscar para cualquier carta, aunque no esté en tu colección: usa solo el historial de
+ * TCGplayer publicado con la app (tcgcsv.com) y no guarda nada en el aparato.
+ */
+export function SearchTrend({ tcg }: { tcg: string }) {
+  const card = cachedCard(tcg);
+  // undefined: buscando; 0: sin producto de TCGplayer; si no, los puntos.
+  const [st, setSt] = useState<{ id?: string; pid?: number; pts?: Point[] }>({});
+  useEffect(() => {
+    if (!card) return;
+    let live = true;
+    setSt({});
+    void (async () => {
+      const pid = await productIdOf(card);
+      const pts = pid ? await remoteHistory(pid, card.tcgpId ? card.usdVariant : undefined) : [];
+      if (live) setSt({ id: card.id, pid: pid ?? 0, pts });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [card?.id, card?.tcgpId]);
+  if (!card) return null;
+  if (st.id !== card.id)
+    return (
+      <div class="trendbox">
+        <div class="eyebrow">Tendencia del precio</div>
+        <p class="hint">Buscando historial…</p>
+      </div>
+    );
+  if (!st.pid)
+    return (
+      <div class="trendbox">
+        <div class="eyebrow">Tendencia del precio</div>
+        <p class="hint">No encontramos esta carta en TCGplayer, y el historial de precios sale de ahí.</p>
+      </div>
+    );
+  return <TrendChart full={st.pts ?? []} empty="TCGplayer no tiene precios de los últimos meses para esta carta." />;
+}
+
+/** Gráfica con rangos, lectura al tocar y tabla por día. `grows`: el historial se llena con el uso. */
+function TrendChart({ full, empty, grows }: { full: Point[]; empty: string; grows?: boolean }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [range, setRange] = useState<Range>(30);
   if (full.length < 2)
     return (
       <div class="trendbox">
         <div class="eyebrow">Tendencia del precio</div>
-        <p class="hint">
-          Aparecerá cuando haya precios de al menos dos días. La app guarda uno cada día que la abres con conexión.
-        </p>
+        <p class="hint">{empty}</p>
       </div>
     );
   // Los cuatro rangos siempre se pueden elegir. Si el historial guardado es más corto que el rango,
@@ -145,8 +194,8 @@ export function PriceTrend({ k }: { k: string }) {
       )}
       {short && (
         <p class="hint">
-          Por ahora hay precios guardados de {daysText(span)} (desde el {fmtDate(full[0]!.d)}). La gráfica se irá
-          llenando sola cada día que abras la app con conexión.
+          Por ahora hay precios guardados de {daysText(span)} (desde el {fmtDate(full[0]!.d)}).
+          {grows ? ' La gráfica se irá llenando sola cada día que abras la app con conexión.' : ''}
         </p>
       )}
       <details>

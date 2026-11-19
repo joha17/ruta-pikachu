@@ -1,6 +1,7 @@
 // «Buscar»: todas las cartas de TCGdex con filtros, y guardarlas en la Caja o en una hoja.
 
 import { TcgInfo } from '../ui/TcgInfo';
+import { PriceTrend, SearchTrend } from '../ui/Trend';
 import { Zoomable } from '../ui/Zoom';
 import { signal } from '@preact/signals';
 import { Fragment, type ComponentChildren } from 'preact';
@@ -580,6 +581,7 @@ function Detalle({ c }: { c: BrowseResult }) {
                 : 'Buscando…'}
           </dd>
         </dl>
+        {key ? <PriceTrend k={key} /> : <SearchTrend tcg={c.id} />}
         <TcgInfo tcg={c.id} />
         {done ? (
           <>

@@ -4,9 +4,11 @@
 import { savePrices } from './db';
 import { findCard } from './model/catalog';
 import { today } from './model/keys';
+import type { Point } from './model/trend';
+import { idShardOf, matchProduct, nameKey, nameShardOf, numKey, type Groups, type IdShard } from './model/productMatch';
 import { mergeRemote, remoteSeries, shardOf, type RemoteShard } from './model/remoteHist';
 import { alias, collection, prices, sheets } from './store';
-import { cachedCard, fetchCard, type Lang } from './tcgdex';
+import { cachedCard, fetchCard, type Lang, type TcgCard } from './tcgdex';
 
 const shards = new Map<number, Promise<RemoteShard | null>>();
 let shardsDay = '';
@@ -21,11 +23,49 @@ function shard(n: number): Promise<RemoteShard | null> {
   }
   let p = shards.get(n);
   if (!p) {
-    p = fetch(`${import.meta.env.BASE_URL}historial/${n}.json`)
+    p = fetch(`${base()}historial/${n}.json`)
       .then((r) => (r.ok ? (r.json() as Promise<RemoteShard>) : null))
       .then((j) => (j && typeof j.d0 === 'string' && j.p ? j : null))
       .catch(() => null);
     shards.set(n, p);
+  }
+  return p;
+}
+
+const base = () => import.meta.env.BASE_URL;
+function getJson<T>(path: string): Promise<T | null> {
+  return fetch(`${base()}${path}`)
+    .then((r) => (r.ok ? (r.json() as Promise<T>) : null))
+    .catch(() => null);
+}
+let groups: Promise<Groups | null> | null = null;
+const idShards = new Map<string, Promise<IdShard | null>>();
+const pids = new Map<string, Promise<number | undefined>>();
+
+/**
+ * Producto de TCGplayer de la carta: el que da TCGdex o, si no trae (pasa con muchas cartas nuevas
+ * y de galerías), el que se encuentra por set, número y nombre en el índice de tcgcsv.
+ */
+export function productIdOf(card: TcgCard | null | undefined, lang: Lang = 'en'): Promise<number | undefined> {
+  if (!card) return Promise.resolve(undefined);
+  if (card.tcgpId) return Promise.resolve(card.tcgpId);
+  if (lang !== 'en') return Promise.resolve(undefined);
+  let p = pids.get(card.id);
+  if (!p) {
+    const file = (f: string) => {
+      let sh = idShards.get(f);
+      if (!sh) idShards.set(f, (sh = getJson<IdShard>(`historial/ids/${f}.json`)));
+      return sh;
+    };
+    groups ??= getJson<Groups>('historial/ids/groups.json');
+    const ref = { name: card.name, localId: card.localId, setName: card.set.name, official: card.set.official };
+    p = Promise.all([file(String(idShardOf(numKey(card.localId)))), groups]).then(async ([s, g]) => {
+      const byNum = matchProduct(s, g, ref);
+      if (byNum) return byNum;
+      // Reimpresiones con su número original (Classic Collection…): por nombre, si el set coincide bien.
+      return matchProduct(s, g, ref, await file(`n${nameShardOf(nameKey(card.name))}`));
+    });
+    pids.set(card.id, p);
   }
   return p;
 }
@@ -45,9 +85,10 @@ export async function backfill(keys: string[], fetchMissing = false): Promise<vo
     if (!tcg) continue;
     const lang: Lang = c?.lang === 'ja' ? 'ja' : 'en';
     const card = cachedCard(tcg, lang) ?? (fetchMissing ? await fetchCard(tcg, lang) : null);
-    if (!card?.tcgpId) continue;
+    const pid = await productIdOf(card, lang);
+    if (!pid) continue;
     done.set(key, day);
-    todo.push({ key, pid: card.tcgpId, variant: card.usdVariant });
+    todo.push({ key, pid, variant: card!.tcgpId ? card!.usdVariant : undefined });
   }
   if (!todo.length) return;
   const got = await Promise.all(todo.map(async (t) => ({ ...t, sh: await shard(shardOf(t.pid)) })));
@@ -57,4 +98,9 @@ export async function backfill(keys: string[], fetchMissing = false): Promise<vo
   if (!changed) return;
   prices.value = p;
   await savePrices(p);
+}
+
+/** Historial publicado de un producto de TCGplayer (para Buscar: cartas que no están en la colección). */
+export async function remoteHistory(pid: number, variant?: string): Promise<Point[]> {
+  return remoteSeries(await shard(shardOf(pid)), pid, variant);
 }
