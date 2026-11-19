@@ -491,3 +491,10 @@ body.camfs-open{overflow:hidden}
 .bf-more>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--accent-text);padding:2px 0}
 .bf-more[open]>summary{margin-bottom:6px}
 .wrap:has(~ .ai-fab){padding-bottom:110px}
+/* Cuánto gano o pierdo (lo pagado frente a lo que vale hoy). */
+.gain-line{margin:4px 0 0;font-size:13.5px;color:var(--muted)}
+.gain-line strong{color:var(--ink);font-variant-numeric:tabular-nums}
+.gain-line .gain-diff{font-weight:700;white-space:nowrap}
+.gain-line.up .gain-diff{color:var(--ok)}
+.gain-line.down .gain-diff{color:var(--warn)}
+.ficha-gain{margin:0 0 10px}
