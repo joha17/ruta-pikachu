@@ -1,4 +1,3 @@
-import { signal } from '@preact/signals';
 import { useRegisterSW } from 'virtual:pwa-register/preact';
 import { backupDue } from './model/backup';
 import { unreadIds } from './model/alerts';
@@ -19,6 +18,7 @@ import { Metas } from './screens/Metas';
 import { Alertas } from './screens/Alertas';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
+import { AsistenteDialog, AsistenteFab } from './ui/Asistente';
 import { BuyDialog } from './ui/Presupuesto';
 
 // Íconos de línea simples (24×24), del color del texto.
@@ -54,13 +54,8 @@ function SaveChip() {
   if (s === 'saving') return <span class="chip">Guardando…</span>;
   if (s === 'pending') return <span class="chip warn">Sin guardar</span>;
   if (s === 'error') return <span class="chip warn">No se pudo guardar</span>;
-  // Con la sincronización activa, su indicador ya dice que está todo bien.
-  if (syncStatus.value !== 'off') return null;
-  return (
-    <span class="chip ok" title="Todo está guardado en este aparato">
-      Guardado
-    </span>
-  );
+  // Si todo está guardado no hace falta decirlo: solo avisamos cuando algo falla.
+  return null;
 }
 
 /** Campana de la cabecera: abre Alertas y dice cuántos avisos no vi. */
@@ -79,29 +74,13 @@ function AlertBell({ r }: { r: string }) {
   );
 }
 
-/** «Después» esconde el aviso de respaldo hasta que se vuelva a abrir la app. */
-const backupLater = signal(false);
-
-function BackupBanner({ r }: { r: string }) {
-  // Con Google Drive conectado ya hay una copia de todo: el aviso solo estorba.
-  if (backupLater.value || r === 'respaldo' || r === 'importar' || syncStatus.value !== 'off') return null;
+/** Hace cuántos días no hay respaldo (o null si no hace falta avisar). Se ve como un puntito en ⚙️. */
+function backupNag(r: string): string | null {
+  // Con Google Drive conectado ya hay una copia de todo: no hace falta avisar.
+  if (r === 'respaldo' || r === 'importar' || syncStatus.value !== 'off') return null;
   const due = backupDue(settings.value.lastBackup, new Date(), !isEmpty.value);
   if (due == null) return null;
-  return (
-    <div class="banner warn" role="status">
-      <span>
-        {due === 'never'
-          ? 'Todavía no has hecho un respaldo de tu colección.'
-          : `Hace ${due} días que no haces un respaldo de tu colección.`}
-      </span>
-      <button class="btn sm primary" onClick={() => go('respaldo')}>
-        Hacer respaldo
-      </button>
-      <button class="btn sm quiet" onClick={() => (backupLater.value = true)}>
-        Después
-      </button>
-    </div>
-  );
+  return due === 'never' ? 'Todavía no has hecho un respaldo de tu colección' : `Hace ${due} días que no haces un respaldo`;
 }
 
 function UpdateBanner() {
@@ -143,10 +122,11 @@ export function App() {
   if (!ready.value) return <p class="loading">Abriendo tu colección…</p>;
   const r = route.value;
   const inAjustes = r === 'respaldo' || r === 'importar';
+  const nag = backupNag(r);
+  const gear = nag ? `Ajustes: ${nag.toLowerCase()}` : 'Ajustes: respaldo, Google Drive y tema';
   return (
     <>
       <UpdateBanner />
-      <BackupBanner r={r} />
       <header class="topbar">
         <a class="brand" href="#/" aria-label="Ruta Pikachu, inicio">
           <img src={`${import.meta.env.BASE_URL}icon.svg`} alt="" width={28} height={28} />
@@ -159,12 +139,13 @@ export function App() {
           <AlertBell r={r} />
           <button
             class="iconbtn"
-            title="Ajustes: respaldo, Google Drive y tema"
-            aria-label="Ajustes: respaldo, Google Drive y tema"
+            title={gear}
+            aria-label={gear}
             aria-current={inAjustes ? 'page' : undefined}
             onClick={() => go('respaldo')}
           >
             <Icon name="ajustes" />
+            {nag && <span class="dot-badge" aria-hidden="true" />}
           </button>
         </div>
       </header>
@@ -195,7 +176,9 @@ export function App() {
           </button>
         ))}
       </nav>
+      <AsistenteFab />
       <FichaDialog />
+      <AsistenteDialog />
       <ShareDialog />
       <BuyDialog />
       <Binder />

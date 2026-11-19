@@ -253,15 +253,22 @@ export function BuyDialog() {
                 <button type="submit" class="btn primary" disabled={missing}>
                   {missing ? 'Escribe cuánto pagaste' : `Anotar compra (${money(total)})`}
                 </button>
-                <button type="button" class="btn" onClick={() => answer({ kind: 'later' })}>
-                  ❄️ Lo pienso en frío
-                </button>
               </>
             )}
-            <button type="button" class="btn quiet" onClick={() => answer({ kind: 'free' })}>
-              No fue compra (ya la tenía, regalo o cambio)
-            </button>
           </div>
+          <p class="buy-alt">
+            {!over && (
+              <>
+                <button type="button" class="linkish" onClick={() => answer({ kind: 'later' })}>
+                  ❄️ Lo pienso en frío
+                </button>
+                <span aria-hidden="true"> · </span>
+              </>
+            )}
+            <button type="button" class="linkish" onClick={() => answer({ kind: 'free' })}>
+              No fue compra (regalo, cambio o ya la tenía)
+            </button>
+          </p>
         </form>
       )}
     </dialog>
@@ -282,6 +289,8 @@ function BudgetMeter({ spent, add, budget }: { spent: number; add: number; budge
 }
 
 const editing = signal(false);
+/** El panel se ve en una línea; al tocarla se abre el detalle. */
+const budgetOpen = signal(false);
 const adding = signal(false);
 const showPast = signal(false);
 
@@ -300,10 +309,29 @@ export function BudgetPanel() {
   const [v, setV] = useState('');
   const [err, setErr] = useState('');
 
+  if (!budgetOpen.value)
+    return (
+      <section class={`budget compact${over ? ' over' : ''}`}>
+        <button class="budget-sum" aria-expanded={false} onClick={() => (budgetOpen.value = true)}>
+          <span>
+            💰 {over ? 'Te pasaste' : 'Te quedan'} <strong>{money(Math.abs(ck.left))}</strong> <small>de {money(ck.budget)}</small>
+          </span>
+          <span class="chev" aria-hidden="true">
+            ›
+          </span>
+        </button>
+        <BudgetMeter spent={ck.spent} add={0} budget={ck.budget} />
+      </section>
+    );
+
   return (
     <section class={`budget${over ? ' over' : ''}`} aria-labelledby="budget-h">
       <div class="budget-top">
-        <h3 id="budget-h">💰 Presupuesto de {monthName(month)}</h3>
+        <h3 id="budget-h">
+          <button class="linkplain" aria-expanded={true} onClick={() => ((budgetOpen.value = false), (editing.value = false), (adding.value = false))}>
+            💰 Presupuesto de {monthName(month)} <span aria-hidden="true">˅</span>
+          </button>
+        </h3>
         <button
           class="linkish"
           onClick={() => {

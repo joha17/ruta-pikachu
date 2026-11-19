@@ -109,6 +109,7 @@ const selected = signal<BrowseResult | null>(null);
 const failed = signal<Set<string>>(new Set());
 const retry = signal(0);
 const setList = signal<SetBrief[]>([]);
+const moreOpen = signal(false);
 const rarList = signal<string[]>([]);
 /** Rarezas de cada set elegido (undefined = cargando, null = no se pudo saber). */
 const setRars = signal<Record<string, string[] | null | undefined>>({});
@@ -311,9 +312,15 @@ function Filtros() {
         none="Todas"
         opts={rarOpts}
       />
-      <Chips k="type" label="Tipo" opts={TYPES.map(([value, label]) => ({ value, label }))} />
-      <Chips k="category" label="Categoría" opts={CATEGORIES.map(([value, label]) => ({ value, label }))} />
-      <p class="hint bf-tip">Puedes elegir varios en cada filtro: salen las cartas que tengan cualquiera de ellos.</p>
+      <details class="bf-more" open={moreOpen.value || f.type.length + f.category.length > 0} onToggle={(e) => (moreOpen.value = e.currentTarget.open)}>
+        <summary>
+          Más filtros: tipo y categoría
+          {f.type.length + f.category.length > 0 && ` (${f.type.length + f.category.length})`}
+        </summary>
+        <Chips k="type" label="Tipo" opts={TYPES.map(([value, label]) => ({ value, label }))} />
+        <Chips k="category" label="Categoría" opts={CATEGORIES.map(([value, label]) => ({ value, label }))} />
+        <p class="hint bf-tip">Puedes elegir varios en cada filtro: salen las cartas que tengan cualquiera de ellos.</p>
+      </details>
       <div class="bf-acts">
         <button class="btn primary" type="submit" disabled={!canSearch(f) || status.value === 'loading'}>
           Buscar

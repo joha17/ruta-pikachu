@@ -1,4 +1,4 @@
-// Ficha → «🤖 ¿Por qué vale esto?»: Claude explica el valor de la carta y qué tan difícil es conseguirla.
+// Ficha → 🤖 → «¿Por qué vale esto?»: Claude explica el valor de la carta y qué tan difícil es conseguirla.
 
 import { useEffect, useState } from 'preact/hooks';
 import { contextEstimate, contexts, loadSavedContexts, makeContext } from '../ideas';
@@ -10,8 +10,8 @@ import { AiError, budgetLeft, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg 
 import { alias, openKey } from '../store';
 import { go } from './router';
 
-export function Contexto({ k }: { k: string }) {
-  const [open, setOpen] = useState(false);
+export function Contexto({ k, open: inline = false }: { k: string; open?: boolean }) {
+  const [open, setOpen] = useState(inline);
   const [busy, setBusy] = useState<ClaudeModel | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -19,7 +19,7 @@ export function Contexto({ k }: { k: string }) {
     void loadSavedContexts();
   }, []);
   useEffect(() => {
-    setOpen(false);
+    setOpen(inline);
     setErr('');
   }, [k]);
   const cfg = claudeCfg.value;

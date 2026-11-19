@@ -19,9 +19,7 @@ import { syncConfigured, syncStatus } from '../sync/engine';
 import { currentSheet, showSheet } from '../ui/sheetView';
 import { sharing } from '../ui/Share';
 import { ValueChart } from '../ui/ValueChart';
-import { Informe } from '../ui/Informe';
-import { Preguntar } from '../ui/Preguntar';
-import { Ideas } from '../ui/Ideas';
+import { asistOpen } from '../ui/Asistente';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
 const arranging = signal('');
@@ -31,8 +29,6 @@ const previewing = signal<Set<string>>(new Set());
 /** Explicación de los precios (ⓘ) abierta. */
 const infoOpen = signal(false);
 const valueOpen = signal(false);
-const informeOpen = signal(false);
-const preguntarOpen = signal(false);
 
 /** $229.52 → «$230» para el resumen de arriba. */
 const money0 = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
@@ -609,15 +605,7 @@ export function Coleccion() {
           <button class="btn primary" onClick={() => (binderOpen.value = true)}>
             📖 Abrir mi binder
           </button>
-          <button class="btn" aria-expanded={informeOpen.value} onClick={() => (informeOpen.value = !informeOpen.value)}>
-            🤖 Informe
-          </button>
-          <button class="btn" aria-expanded={preguntarOpen.value} onClick={() => (preguntarOpen.value = !preguntarOpen.value)}>
-            💬 Preguntar
-          </button>
         </div>
-        {informeOpen.value && <Informe />}
-        {preguntarOpen.value && <Preguntar />}
       </header>
       <Nav items={nav} cur={cur} />
       {curSheet && <SheetSection key={curSheet.id} sh={curSheet} />}
@@ -637,7 +625,12 @@ export function Coleccion() {
             ) : (
               <p class="hint">Llegaste al máximo de {MAX_SHEETS} hojas.</p>
             )}
-            <Ideas />
+            <p class="hint">
+              ¿Sin ideas?{' '}
+              <button class="linkish" onClick={() => (asistOpen.value = 'ideas')}>
+                Pídeselas al 🤖 Asistente
+              </button>
+            </p>
             <HiddenSheets />
           </div>
         </section>

@@ -9,7 +9,7 @@ import { fmtDate, money } from '../model/money';
 import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } from '../model/shop';
 import { alias, collection, openKey, prices, sheets } from '../store';
 import { TrendMark } from '../ui/Trend';
-import { AdviceTag, Consejero } from '../ui/Consejero';
+import { AdviceTag } from '../ui/Consejero';
 import { BudgetPanel, EnFrio } from '../ui/Presupuesto';
 
 function readPrefs(): { sort: ShopSort; sheet: string } {
@@ -26,6 +26,7 @@ function readPrefs(): { sort: ShopSort; sheet: string } {
 const prefs = signal(readPrefs());
 const showAll = signal(false);
 const copied = signal('');
+const helpOpen = signal(false);
 
 function setPrefs(p: Partial<{ sort: ShopSort; sheet: string }>) {
   prefs.value = { ...prefs.value, ...p };
@@ -140,51 +141,48 @@ export function Compras() {
     <section id="s-shop">
       <div class="section-head">
         <div>
-          <h2>Lista de compras</h2>
-          <p>
-            Todo lo que te falta de todas las hojas, en un solo lugar. Toca ☆ para marcar las que vas a buscar primero: suben arriba con su
-            propio total. Toca una carta para abrir su ficha; ahí puedes poner alertas 🔔 por precio meta o por precio estable.
-          </p>
+          <h2>
+            Lista de compras{' '}
+            <button
+              class="info-btn"
+              aria-expanded={helpOpen.value}
+              aria-label="Cómo funciona la lista"
+              title="Cómo funciona la lista"
+              onClick={() => (helpOpen.value = !helpOpen.value)}
+            >
+              ⓘ
+            </button>
+          </h2>
+          {helpOpen.value && (
+            <p>
+              Todo lo que te falta de todas las hojas, en un solo lugar. Toca ☆ para marcar las que vas a buscar primero: suben arriba con su
+              propio total. Toca una carta para abrir su ficha; ahí puedes poner alertas 🔔 por precio meta o por precio estable. El 🤖 Asistente
+              te dice cuáles comprar ya y cuáles esperar.
+            </p>
+          )}
         </div>
-        <button class="btn" onClick={copy}>
-          {copied.value || 'Copiar esta lista'}
-        </button>
       </div>
       <BudgetPanel />
       <EnFrio />
       <Hits />
-      {list.length > 0 && <Consejero />}
-      <div class="shop-tools">
-        <div class="chips" role="group" aria-label="Filtrar por hoja">
-          <span class="lbl">Hoja:</span>
-          <button class="chipf" aria-pressed={sheet === 'all'} onClick={() => setPrefs({ sheet: 'all' })}>
-            Todas<small>{all.length}</small>
-          </button>
+      <div class="shop-sel">
+        <select aria-label="Filtrar por hoja" value={sheet} onChange={(e) => setPrefs({ sheet: e.currentTarget.value })}>
+          <option value="all">Todas las hojas ({all.length})</option>
           {sheets.value.map((s) => {
             const n = all.filter((o) => o.sheetId === s.id).length;
-            if (!n) return null;
+            if (!n && s.id !== sheet) return null;
             return (
-              <button key={s.id} class="chipf" aria-pressed={sheet === s.id} onClick={() => setPrefs({ sheet: s.id })}>
-                {s.short ?? s.name}
-                <small>{n}</small>
-              </button>
+              <option key={s.id} value={s.id}>
+                {s.short ?? s.name} ({n})
+              </option>
             );
           })}
-        </div>
-        <div class="chips" role="group" aria-label="Ordenar">
-          <span class="lbl">Ordenar:</span>
-          {(
-            [
-              ['price-desc', 'Más caras'],
-              ['price-asc', 'Más baratas'],
-              ['sheet', 'Por hoja'],
-            ] as const
-          ).map(([v, l]) => (
-            <button key={v} class="chipf" aria-pressed={sort === v} onClick={() => setPrefs({ sort: v })}>
-              {l}
-            </button>
-          ))}
-        </div>
+        </select>
+        <select aria-label="Ordenar" value={sort} onChange={(e) => setPrefs({ sort: e.currentTarget.value as ShopSort })}>
+          <option value="price-desc">Más caras primero</option>
+          <option value="price-asc">Más baratas primero</option>
+          <option value="sheet">Por hoja</option>
+        </select>
       </div>
       {!list.length ? (
         <p class="shop-empty">No te falta nada{sheet === 'all' ? '' : ' en esta hoja'}. 🎉</p>
@@ -203,6 +201,9 @@ export function Compras() {
                 Prioridad <strong>{money(st.t)}</strong>
               </span>
             )}
+            <button class="linkish" onClick={copy}>
+              {copied.value || 'Copiar lista'}
+            </button>
           </p>
           {stars.length > 0 && (
             <>

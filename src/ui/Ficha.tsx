@@ -17,7 +17,7 @@ import { AlertForm } from './AlertForm';
 import { Forms } from './Forms';
 import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
-import { Contexto } from './Contexto';
+import { openAsistente } from './Asistente';
 import { Zoomable } from './Zoom';
 import { buyFlow, refundKey } from './Presupuesto';
 
@@ -144,9 +144,14 @@ function CardSheet({ k }: { k: string }) {
 
   return (
     <div class="sheet-in">
-      <button class="btn close" aria-label="Cerrar" onClick={() => (openKey.value = '')}>
-        ×
-      </button>
+      <div class="sheet-tools">
+        <button class="btn close ai" aria-label="Asistente: ¿por qué vale esta carta?" title="Asistente: ¿por qué vale esta carta?" onClick={() => openAsistente()}>
+          🤖
+        </button>
+        <button class="btn close" aria-label="Cerrar" onClick={() => (openKey.value = '')}>
+          ×
+        </button>
+      </div>
       <div class={`sheet-img${img ? ' has-img' : ''}`}>
         {img ? (
           <Zoomable src={img} alt={`Imagen de ${title}`}>
@@ -167,7 +172,20 @@ function CardSheet({ k }: { k: string }) {
       </div>
       <div class="sheet-body">
         <div class="eyebrow">{isBox ? '📦 En la caja' : own ? 'En tu carpeta' : 'Te falta'}</div>
-        <h3 id="sheet-title">{title}</h3>
+        <h3 id="sheet-title">
+          {title}
+          {!isBox && !own && (
+            <button
+              class={`star-btn${col.wish[ck] ? ' on' : ''}`}
+              aria-pressed={!!col.wish[ck]}
+              aria-label={col.wish[ck] ? 'Quitar de prioridad' : 'Marcar como prioridad'}
+              title={col.wish[ck] ? 'Quitar de prioridad' : 'Marcar como prioridad: sube arriba en Compras'}
+              onClick={() => act((cc) => void ops.toggleWish(cc, al, k))}
+            >
+              {col.wish[ck] ? '★' : '☆'}
+            </button>
+          )}
+        </h3>
         {art.kind && (
           <p class="img-src">
             {showMine || art.kind === 'photo' ? 'Tu foto' : 'Imagen oficial de TCGdex'}
@@ -186,11 +204,33 @@ function CardSheet({ k }: { k: string }) {
             </>
           ))}
         </dl>
+        {!isBox && (
+          <div class="actions ficha-main">
+            <button
+              class={own ? 'btn' : primary}
+              onClick={() => {
+                setMsg(null);
+                if (own) {
+                  act((cc) => void ops.toggle(cc, al, k));
+                  refundKey(ck);
+                  return;
+                }
+                void buyFlow([{ name: title, price: usd(col, prices.value, al, k), key: ck }], () => {
+                  act((cc) => {
+                    if (!isOwned(alias.value, cc, k)) ops.toggle(cc, alias.value, k);
+                  });
+                  return [ck];
+                });
+              }}
+            >
+              {own ? 'Desmarcar (no la tengo)' : 'Marcar como conseguida'}
+            </button>
+          </div>
+        )}
       </div>
       {/* De la tendencia en adelante ocupa todo el ancho: en escritorio usa el hueco bajo la imagen. */}
       <div class="sheet-body sheet-wide">
         <PriceTrend k={k} />
-        <Contexto k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
 
@@ -233,34 +273,6 @@ function CardSheet({ k }: { k: string }) {
           </div>
         )}
 
-        {!isBox && (
-          <div class="actions">
-            <button
-              class={own ? 'btn' : primary}
-              onClick={() => {
-                setMsg(null);
-                if (own) {
-                  act((cc) => void ops.toggle(cc, al, k));
-                  refundKey(ck);
-                  return;
-                }
-                void buyFlow([{ name: title, price: usd(col, prices.value, al, k), key: ck }], () => {
-                  act((cc) => {
-                    if (!isOwned(alias.value, cc, k)) ops.toggle(cc, alias.value, k);
-                  });
-                  return [ck];
-                });
-              }}
-            >
-              {own ? 'Desmarcar (no la tengo)' : 'Marcar como conseguida'}
-            </button>
-            {!own && (
-              <button class="btn quiet" aria-pressed={!!col.wish[ck]} onClick={() => act((cc) => void ops.toggleWish(cc, al, k))}>
-                {col.wish[ck] ? '★ Quitar de prioridad' : '☆ Marcar como prioridad'}
-              </button>
-            )}
-          </div>
-        )}
         {!isBox && !own && <AlertForm k={k} />}
 
         {isBox && <DealPick b={f.box!} />}
