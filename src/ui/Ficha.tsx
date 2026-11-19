@@ -17,6 +17,7 @@ import { AlertForm } from './AlertForm';
 import { Forms } from './Forms';
 import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
+import { Contexto } from './Contexto';
 import { Zoomable } from './Zoom';
 
 const LANG: Record<string, string> = { en: 'Inglés', ja: 'Japonés' };
@@ -188,6 +189,7 @@ function CardSheet({ k }: { k: string }) {
       {/* De la tendencia en adelante ocupa todo el ancho: en escritorio usa el hueco bajo la imagen. */}
       <div class="sheet-body sheet-wide">
         <PriceTrend k={k} />
+        <Contexto k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
 

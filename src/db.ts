@@ -75,11 +75,12 @@ export interface TcgCacheEntry {
 
 import type { SavedReport } from './model/report';
 import type { SavedAdvice } from './model/advice';
+import type { SavedContext, SavedIdeas } from './model/ideas';
 
 interface RutaDB extends DBSchema {
   kv: {
-    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube' | 'informe' | 'consejo';
-    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg | SavedReport | SavedAdvice;
+    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube' | 'informe' | 'consejo' | 'contexto' | 'ideas';
+    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg | SavedReport | SavedAdvice | Record<string, SavedContext> | SavedIdeas;
   };
   photos: { key: string; value: Photo };
   tcg: { key: string; value: TcgCacheEntry };
@@ -132,6 +133,20 @@ export async function loadAdvice(): Promise<SavedAdvice | undefined> {
 }
 export async function saveAdvice(a: SavedAdvice): Promise<void> {
   await (await db()).put('kv', a, 'consejo');
+}
+
+/** Contexto de cartas de Claude (clave → respuesta), solo de este aparato. */
+export async function loadContexts(): Promise<Record<string, SavedContext>> {
+  return ((await (await db()).get('kv', 'contexto')) as Record<string, SavedContext> | undefined) ?? {};
+}
+export async function saveContexts(c: Record<string, SavedContext>): Promise<void> {
+  await (await db()).put('kv', c, 'contexto');
+}
+export async function loadIdeas(): Promise<SavedIdeas | undefined> {
+  return (await (await db()).get('kv', 'ideas')) as SavedIdeas | undefined;
+}
+export async function saveIdeas(i: SavedIdeas): Promise<void> {
+  await (await db()).put('kv', i, 'ideas');
 }
 
 export async function loadClaude(): Promise<ClaudeCfg | undefined> {

@@ -3,6 +3,7 @@
 import { TcgInfo } from '../ui/TcgInfo';
 import { PriceTrend, SearchTrend } from '../ui/Trend';
 import { Zoomable } from '../ui/Zoom';
+import { go } from '../ui/router';
 import { signal } from '@preact/signals';
 import { Fragment, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
@@ -151,6 +152,12 @@ function change(p: Partial<BrowseFilters>, wait = 0) {
   filters.value = { ...filters.value, ...p };
   clearTimeout(timer);
   timer = setTimeout(() => void run(filters.value), wait);
+}
+
+/** Abre Buscar con una búsqueda por nombre (desde las ideas de Claude). */
+export function searchName(name: string): void {
+  change({ ...NO_FILTERS, name });
+  go('buscar');
 }
 
 /** ID de TCGdex → claves de tu colección (para marcar las que ya tienes). */

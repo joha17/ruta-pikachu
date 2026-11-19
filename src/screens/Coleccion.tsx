@@ -21,6 +21,7 @@ import { sharing } from '../ui/Share';
 import { ValueChart } from '../ui/ValueChart';
 import { Informe } from '../ui/Informe';
 import { Preguntar } from '../ui/Preguntar';
+import { Ideas } from '../ui/Ideas';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
 const arranging = signal('');
@@ -636,6 +637,7 @@ export function Coleccion() {
             ) : (
               <p class="hint">Llegaste al máximo de {MAX_SHEETS} hojas.</p>
             )}
+            <Ideas />
             <HiddenSheets />
           </div>
         </section>

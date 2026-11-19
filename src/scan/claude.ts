@@ -169,3 +169,47 @@ export async function askClaude(photo: Blob, entries: LocalEntry[], model: Claud
   const card = readMessage(msg, new Set(entries.map((e) => e.key)));
   return { card, model, cost };
 }
+
+/** Envío de una consulta de texto con respuesta JSON (se puede inyectar en las pruebas). */
+export type JsonSend = (body: { model: ClaudeModel; max_tokens: number; prompt: string; schema: object }) => Promise<MiniMessage>;
+
+async function sdkJsonSend(apiKey: string): Promise<JsonSend> {
+  const { default: Anthropic } = await import('@anthropic-ai/sdk');
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: 60_000 });
+  return async ({ model, max_tokens, prompt, schema }) => {
+    try {
+      return (await client.messages.create({
+        model,
+        max_tokens,
+        output_config: { effort: MODELS[model].effort, format: { type: 'json_schema' as const, schema: schema as Record<string, unknown> } },
+        messages: [{ role: 'user', content: prompt }],
+      })) as unknown as MiniMessage;
+    } catch (e) {
+      throw new AiError(errorText(e, Anthropic));
+    }
+  };
+}
+
+/**
+ * Pregunta a Claude y devuelve el JSON de la respuesta y su costo. Revisa el tope del mes, la clave
+ * y la conexión, y suma el gasto.
+ */
+export async function askJson(model: ClaudeModel, prompt: string, schema: object, max_tokens: number, send?: JsonSend): Promise<{ raw: unknown; cost: number }> {
+  const cfg = claudeCfg.value;
+  checkBudget(cfg);
+  if (!send) {
+    if (!claudeReady(cfg)) throw new AiError('Activa «Ayuda de Claude» y pon tu clave primero.');
+    if (!navigator.onLine) throw new AiError('Sin conexión: Claude necesita internet.');
+    send = await sdkJsonSend(cfg.key.trim());
+  }
+  const msg = await send({ model, max_tokens, prompt, schema });
+  const cost = costOf(model, msg.usage);
+  await addSpend(cost);
+  if (msg.stop_reason === 'refusal') throw new AiError('Claude no quiso responder. Prueba otra vez.');
+  if (msg.stop_reason === 'max_tokens') throw new AiError('La respuesta quedó cortada. Prueba otra vez.');
+  try {
+    return { raw: JSON.parse(msg.content.find((b) => b.type === 'text')?.text ?? ''), cost };
+  } catch {
+    throw new AiError('Claude respondió algo que no se pudo leer. Prueba otra vez.');
+  }
+}
