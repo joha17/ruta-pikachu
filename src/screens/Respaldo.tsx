@@ -8,6 +8,7 @@ import { isEmpty, settings, updateSettings } from '../store';
 import { go, route } from '../ui/router';
 import { Importar } from './Importar';
 import { Sincronizar } from './Sincronizar';
+import { Health } from '../ui/Health';
 import { syncOn } from '../sync/engine';
 import { makeExport, type ExportKind } from '../exportFile';
 import { money } from '../model/money';
@@ -309,6 +310,7 @@ export function Respaldo() {
             </p>
           </div>
         </div>
+        <Health />
         <Sincronizar />
         <Hacer />
         <Restaurar />

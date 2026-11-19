@@ -215,3 +215,34 @@ describe('avisos nuevos en la pantalla de Alertas', () => {
     expect(unreadIds(c, read)).toEqual([`${d(4)}|${K}|meta`]);
   });
 });
+
+describe('goodPrice (precio meta sugerido)', async () => {
+  const { goodPrice } = await import('../src/model/alerts');
+  const book = (vals: [string, number][]): PriceBook => {
+    const pr = emptyPrices();
+    for (const [d, v] of vals) pr.hist[d] = { k1: v };
+    return pr;
+  };
+  it('propone lo más bajo de los últimos 6 meses, sin contar lo más viejo', () => {
+    const pr = book([
+      ['2025-01-01', 1], // fuera de la ventana de 6 meses
+      ['2026-06-01', 20],
+      ['2026-08-10', 14.5],
+      ['2026-09-01', 15],
+      ['2026-11-18', 18],
+    ]);
+    const g = goodPrice(pr, {}, 'k1')!;
+    expect(g.v).toBe(14.5);
+    expect(g.d).toBe('2026-08-10');
+    expect(g.full).toBe(true);
+    expect(g.today).toBe(false);
+  });
+  it('dice desde cuándo si hay menos historial, y avisa si hoy es lo más bajo', () => {
+    const g = goodPrice(book([['2026-10-01', 10], ['2026-11-18', 9]]), {}, 'k1')!;
+    expect(g).toMatchObject({ v: 9, since: '2026-10-01', full: false, today: true });
+  });
+  it('no propone nada con menos de una semana de precios', () => {
+    expect(goodPrice(book([['2026-11-15', 10], ['2026-11-18', 9]]), {}, 'k1')).toBeNull();
+    expect(goodPrice(book([['2026-11-18', 9]]), {}, 'k1')).toBeNull();
+  });
+});
