@@ -1,5 +1,10 @@
 // «Contexto» de una carta e «Ideas para tu próxima hoja».
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/scan/search', () => ({
+  loadSets: async () => [{ id: 'sv08.5', name: 'Prismatic Evolutions', cardCount: { total: 180, official: 131 } }],
+  loadIndex: async () => undefined,
+}));
 import 'fake-indexeddb/auto';
 import { FIXED_SHEETS } from '../src/data';
 import { aliases, allSheets } from '../src/model/catalog';
@@ -76,18 +81,18 @@ describe('ideas para la próxima hoja', () => {
     expect(ideasPrompt('RES', 'PERFIL', t, 25)).toContain('Monthly budget: $25 USD.');
   });
 
-  it('limpia: solo faltantes con id conocido, sin repetir, y hasta 9 cartas nuevas', () => {
+  it('limpia: solo faltantes con id conocido, sin repetir, y hasta 14 candidatas nuevas', () => {
     const out = cleanIdeas(
       {
         resumen: 'Ok',
         completar: [{ id: 'c1', why: 'barata' }, { id: 'c1', why: 'otra vez' }, { id: 'c999', why: 'no existe' }],
-        nueva: { nombre: '', idea: 'Eevees', cartas: Array.from({ length: 12 }, (_, i) => ({ n: `Eevee ${i}`, set: 'X', why: '' })) },
+        nueva: { nombre: '', idea: 'Eevees', cartas: Array.from({ length: 20 }, (_, i) => ({ n: `Eevee ${i}`, set: 'X', why: '' })) },
       },
       { c1: 'r:moltres' },
     );
     expect(out.completar).toEqual([{ key: 'r:moltres', why: 'barata' }]);
     expect(out.nueva.nombre).toBe('Hoja nueva');
-    expect(out.nueva.cartas).toHaveLength(9);
+    expect(out.nueva.cartas).toHaveLength(14);
   });
 
   beforeEach(() => {
@@ -103,15 +108,28 @@ describe('ideas para la próxima hoja', () => {
     let n = 0;
     const send: JsonSend = async () => {
       n++;
-      return reply({ resumen: `Empieza por [Carta](${id}).`, completar: [{ id, why: 'barata' }], nueva: { nombre: 'Eevees', idea: 'x', cartas: [{ n: 'Eevee', set: 'Prismatic Evolutions', why: 'y' }] } });
+      return reply({ resumen: `Empieza por [Carta](${id}).`, completar: [{ id, why: 'barata' }], nueva: {
+          nombre: 'Eevees',
+          idea: 'x',
+          cartas: [
+            { n: 'Eevee', set: 'Prismatic Evolutions', num: '74', why: 'y' },
+            { n: 'Moltres ex', set: 'Scarlet & Violet—151', num: '146', why: 'inventada' },
+          ],
+        },
+      });
     };
-    const r = await makeIdeas(25, 'claude-haiku-5-5', send);
+    const lookup = async (name: string) => (name === 'Eevee' ? [{ id: 'sv08.5-074', localId: '074', name: 'Eevee' }] : []);
+    const r = await makeIdeas(25, 'claude-haiku-5-5', send, lookup);
+    expect(r.out.nueva.cartas).toEqual([
+      { n: 'Eevee', set: 'Prismatic Evolutions', setId: 'sv08.5', tcg: 'sv08.5-074', num: '074/131', why: 'y' },
+    ]);
+    expect(r.out.nueva.descartadas).toBe(1);
     expect(r.budget).toBe(25);
     expect(r.out.completar).toHaveLength(1);
     expect(Object.keys(r.refs ?? {})).toEqual([id]);
-    await makeIdeas(25, 'claude-haiku-5-5', send);
+    await makeIdeas(25, 'claude-haiku-5-5', send, lookup);
     expect(n).toBe(1);
-    await makeIdeas(50, 'claude-haiku-5-5', send);
+    await makeIdeas(50, 'claude-haiku-5-5', send, lookup);
     expect(n).toBe(2);
   });
 });

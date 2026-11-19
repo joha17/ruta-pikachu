@@ -48,6 +48,7 @@ export function contextPrompt(f: CardFacts): string {
     'You explain a Pokémon TCG card to a collector, in Spanish (Latin American), plain and friendly.',
     'Use the data below and your general knowledge of the Pokémon TCG (rarity tiers, pull rates, set popularity, artist, character demand, reprints).',
     'Prices: use only the numbers below; never invent other prices. If you are not sure about a fact, say it is uncertain instead of guessing.',
+    'Talk about this card only. Do not name other specific cards (reprints, other versions, cards from the same set) unless you are completely sure they exist; never make up card names.',
     'Fields: "porque" = why it is worth what it is (2–3 sentences); "dificultad" = how hard it is to get (pull rate, print run, reprints, availability; 1–2 sentences); "nivel" = facil | media | dificil; "consejo" = one practical tip to buy or keep it (1 sentence).',
     '',
     ...lines,
@@ -138,7 +139,9 @@ export function ideasPrompt(summary: string, profile: string, missing: string, b
     'You suggest what a Pokémon TCG collector could collect next. Answer in Spanish (Latin American), short and friendly.',
     `Monthly budget: $${budget} USD.`,
     '"completar": up to 5 missing cards from the table (use their exact ids) that best fit the budget and finish sheets that are close to complete; "why" = one short sentence.',
-    '"nueva": an idea for a NEW 9-card sheet that fits the collector\'s style (artists, Pokémon, rarities they like) and is different from their current sheets: a name, one sentence about the idea, and 9 real cards (English name and English set name) that you are confident exist. Do not state prices for these new cards; say in "idea" if it is a cheap or expensive sheet only in general terms.',
+    '"nueva": an idea for a NEW 9-card sheet that fits the collector\'s style (artists, Pokémon, rarities they like) and is different from their current sheets: a name, one sentence about the idea, and a list of 14 candidate cards, best first.',
+    'Each candidate must be a real printed English card: "n" = the exact card name as printed (e.g. "Pikachu ex", "Umbreon VMAX"), "set" = the exact English set name, "num" = the collector number in that set. The app checks every card against the official card database and silently drops any that does not exist in that set, so only list cards you are sure about; never guess a name, set or number, and do not combine a Pokémon with a mechanic (ex, V, GX…) unless that exact card exists. Prefer well-known prints over obscure ones.',
+    'Do not state prices for these new cards; say in "idea" if it is a cheap or expensive sheet only in general terms. In "idea" and "resumen" do not name specific new cards (they may be dropped); talk about the theme.',
     '"resumen": 1–2 sentences.',
     REF_RULE,
     '',
@@ -175,8 +178,8 @@ export const IDEAS_SCHEMA = {
           items: {
             type: 'object',
             additionalProperties: false,
-            required: ['n', 'set', 'why'],
-            properties: { n: { type: 'string' }, set: { type: 'string' }, why: { type: 'string' } },
+            required: ['n', 'set', 'num', 'why'],
+            properties: { n: { type: 'string' }, set: { type: 'string' }, num: { type: 'string' }, why: { type: 'string' } },
           },
         },
       },
@@ -188,7 +191,14 @@ export interface IdeasOut {
   resumen: string;
   /** Faltantes sugeridas: clave de carta + por qué. */
   completar: Array<{ key: string; why: string }>;
-  nueva: { nombre: string; idea: string; cartas: Array<{ n: string; set: string; why: string }> };
+  nueva: {
+    nombre: string;
+    idea: string;
+    /** Cartas comprobadas en TCGdex (las guardadas antes de comprobarlas no traen tcg). */
+    cartas: Array<{ n: string; set: string; why: string; num?: string; tcg?: string; setId?: string }>;
+    /** Cartas que nombró Claude y no existen en el catálogo (se descartaron). */
+    descartadas?: number;
+  };
 }
 
 export interface SavedIdeas {
@@ -201,7 +211,13 @@ export interface SavedIdeas {
   refs?: Record<string, string>;
 }
 
-/** Limpia la respuesta; solo deja faltantes que existen (por su id) y hasta 9 cartas nuevas. */
+/** Candidatas para la hoja nueva que se piden (luego se comprueban y quedan hasta 9). */
+export const NEW_CANDIDATES = 14;
+
+/**
+ * Limpia la respuesta; solo deja faltantes que existen (por su id) y hasta 14 candidatas nuevas,
+ * todavía sin comprobar (eso lo hace groundCards en model/ground.ts).
+ */
 export function cleanIdeas(raw: unknown, byId: Record<string, string>): IdeasOut {
   const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const completar: IdeasOut['completar'] = [];
@@ -211,9 +227,9 @@ export function cleanIdeas(raw: unknown, byId: Record<string, string>): IdeasOut
   }
   const nv = (o.nueva && typeof o.nueva === 'object' ? o.nueva : {}) as Record<string, unknown>;
   const cartas = (Array.isArray(nv.cartas) ? (nv.cartas as Array<Record<string, unknown>>) : [])
-    .map((c) => ({ n: s0(c?.n, 80), set: s0(c?.set, 80), why: s0(c?.why, 200) }))
+    .map((c) => ({ n: s0(c?.n, 80), set: s0(c?.set, 80), num: s0(c?.num, 20), why: s0(c?.why, 200) }))
     .filter((c) => c.n)
-    .slice(0, 9);
+    .slice(0, NEW_CANDIDATES);
   return {
     resumen: s0(o.resumen, 500),
     completar: completar.slice(0, 5),

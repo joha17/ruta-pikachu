@@ -94,6 +94,7 @@ export function advicePrompt(table: string, day: string): string {
     '- "esperar": price is above its average, near its 90-day high, or rising fast (likely hype).',
     '- "vigilar": not enough data or mixed signals.',
     'Cards with few days of data (under 10) should usually be "vigilar". Prices are TCGplayer market prices in USD.',
+    'Only mention cards from the table; never name other cards.',
     'Use only these numbers. Write "why" in Spanish, plain, at most 90 characters, citing the key number.',
     'Also write "resumen": 1 or 2 sentences in Spanish with the best buys right now, especially among ★ priorities.',
     'In "resumen", whenever you mention a card write it as [card name](c12) with its exact id from the table. In "cartas", "id" is the same id, like "c12".',

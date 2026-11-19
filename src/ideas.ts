@@ -21,12 +21,15 @@ import {
 import { today } from './model/keys';
 import { manualOf, usd as priceOf } from './model/money';
 import { usedRefs } from './model/refs';
+import { groundCards, normText, type NameLookup } from './model/ground';
+import type { Brief, CardIndex } from './scan/match';
+import { loadIndex, loadSets } from './scan/search';
 import { hashText, reportFresh } from './model/report';
 import { costOf, type ClaudeModel } from './scan/claude-core';
 import { AiError, askJson, type JsonSend } from './scan/claude';
 import { currentRefs, currentSummary } from './report';
 import { alias, collection, prices, sheets } from './store';
-import { cachedCard } from './tcgdex';
+import { cachedCard, getJson } from './tcgdex';
 
 // ---------------- Contexto ----------------
 
@@ -112,15 +115,42 @@ export function ideasEstimate(model: ClaudeModel, prompt: string): number {
   return costOf(model, { input_tokens: Math.ceil(prompt.length / 3.5), output_tokens: model === 'claude-sonnet-5-5' ? 1200 : 900 });
 }
 
-export async function makeIdeas(budget: number, model: ClaudeModel, send?: JsonSend): Promise<SavedIdeas> {
+let normIx: { ix: CardIndex; m: Map<string, Brief[]> } | null = null;
+
+/** Impresiones con ese nombre: del índice de cartas guardado, o preguntando a TCGdex si no está. */
+export const catalogLookup: NameLookup = async (name) => {
+  const ix = await loadIndex();
+  if (ix) {
+    if (normIx?.ix !== ix) {
+      const m = new Map<string, Brief[]>();
+      for (const [n, l] of ix.byName) {
+        const k = normText(n);
+        m.set(k, [...(m.get(k) ?? []), ...l]);
+      }
+      normIx = { ix, m };
+    }
+    return normIx.m.get(normText(name)) ?? [];
+  }
+  const r = await getJson(`en/cards?name=${encodeURIComponent(name.slice(0, 60))}`);
+  return Array.isArray(r) ? (r as Brief[]) : [];
+};
+
+export async function makeIdeas(budget: number, model: ClaudeModel, send?: JsonSend, lookup: NameLookup = catalogLookup): Promise<SavedIdeas> {
   await loadLastIdeas();
   const { prompt, byId } = ideasInput(budget);
   const h = hashText(prompt);
   const day = today();
   const prev = lastIdeas.value;
   if (reportFresh(prev, day, h, model)) return prev!;
+  // Sin la lista de sets no se pueden comprobar las cartas: mejor no gastar en Claude.
+  const sets = await loadSets();
+  if (!sets.length) throw new AiError('No pude abrir el catálogo de cartas para comprobar las ideas. Revisa la conexión e intenta de nuevo.');
   const { raw, cost } = await askJson(model, prompt, IDEAS_SCHEMA, 3000, send);
   const out = cleanIdeas(raw, byId);
+  // Solo cartas que existen de verdad en ese set (Claude a veces inventa cartas).
+  const { cards, dropped } = await groundCards(out.nueva.cartas, sets, lookup);
+  out.nueva.cartas = cards;
+  out.nueva.descartadas = dropped;
   const texts = [out.resumen, out.nueva.idea, ...out.completar.map((c) => c.why), ...out.nueva.cartas.map((c) => c.why)];
   const r: SavedIdeas = { d: day, h, model, cost, budget, out, refs: usedRefs(texts, byId) };
   lastIdeas.value = r;
