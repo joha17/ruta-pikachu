@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
 import { buyFlow, priceOf } from '../ui/Presupuesto';
-import { findCard, isOwned, MAX_CARDS } from '../model/catalog';
+import { findCard, isOwned, roomSheets } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
@@ -521,7 +521,7 @@ function Detalle({ c }: { c: BrowseResult }) {
   const own = key ? isOwned(alias.value, col, key) : false;
   const found = key ? findCard(sheets.value, col, key) : null;
   const where = key ? (sheets.value.find((s) => s.id === sheetOfKey(key))?.name ?? (key.startsWith('b:') ? 'la caja' : '')) : '';
-  const room = col.custom.filter((s) => s.cards.length < MAX_CARDS);
+  const room = roomSheets(sheets.value, col);
   const [sid, setSid] = useState(room[0]?.id ?? '');
   const [done, setDone] = useState('');
   const [busy, setBusy] = useState(false);
@@ -649,7 +649,7 @@ function Detalle({ c }: { c: BrowseResult }) {
             </button>
             {room.length > 0 && (
               <div class="scan-add">
-                <label for="browse-sheet">O darle bolsillo en una hoja tuya</label>
+                <label for="browse-sheet">O darle bolsillo en una hoja</label>
                 <select id="browse-sheet" value={sid} onChange={(e) => setSid(e.currentTarget.value)}>
                   {room.map((s) => (
                     <option key={s.id} value={s.id}>

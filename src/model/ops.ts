@@ -1,7 +1,7 @@
 // Cambios sobre la colección. Funciones puras: modifican el objeto que reciben
 // (la tienda pasa una copia) y devuelven qué fotos hay que mover o borrar.
 
-import { aliases, canon, findCard, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
+import { aliases, canon, findCard, isExtra, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
 import { keyOf, localOfKey, newId, sheetOfKey, today } from './keys';
 import { eventId, normAlert } from './alerts';
 import type { AlertEvent, BoxCard, CardDef, Collection, CustomSheet, MyGoal, PriceAlert, PriceBook, SheetDef } from './types';
@@ -168,16 +168,17 @@ export function boxToVariant(
 
 function boxInto(col: Collection, prices: PriceBook, id: string, sid: string, altOf?: string): { key: string; photos: PhotoChanges } | null {
   const b = col.box.find((x) => x.id === id);
-  const sh = customOf(col, sid);
-  if (!b || !sh) return null;
+  const e = b ? editableOf(col, sid, !altOf) : undefined;
+  if (!b || !e) return null;
+  const sh = e.cs;
   const slot = altOf ? sh.cards.find((c) => c.k === altOf) : undefined;
   if (altOf ? !slot : sh.cards.length >= MAX_CARDS) return null;
   sh.seq = (sh.seq || 0) + 1;
-  const nc: CardDef = { k: newId('c', sh.seq), ...pickFields<CardDef>(b, ['n', 'num', 'set', 'rar', 'tcg', 'url', 'lang', 'graded']) } as CardDef;
+  const nc: CardDef = { k: newId(e.pfx, sh.seq), ...pickFields<CardDef>(b, ['n', 'num', 'set', 'rar', 'tcg', 'url', 'lang', 'graded']) } as CardDef;
   if (slot) slot.alts = [...(slot.alts ?? []), nc];
   else sh.cards.push(nc);
   const from = `b:${id}`;
-  const to = keyOf(`u:${sh.id}`, nc.k);
+  const to = keyOf(e.sid, nc.k);
   col.owned[to] = true;
   delete col.wish[to];
   if (col.manual[from]) {
@@ -200,6 +201,27 @@ function boxInto(col: Collection, prices: PriceBook, id: string, sid: string, al
 export function customOf(col: Collection, sheetId: string): CustomSheet | undefined {
   const sid = sheetId.startsWith('u:') ? sheetId.slice(2) : sheetId;
   return col.custom.find((s) => s.id === sid);
+}
+
+/**
+ * Lista de cartas que puedo editar en una hoja: la hoja propia entera ("s1" o "u:s1"), o las
+ * cartas que agregué a una hoja fija ("p"). `sid` es el id completo de la hoja y `pfx` la letra
+ * de los ids nuevos. Con `create`, una hoja fija sin cartas agregadas recibe su lista vacía.
+ */
+export function editableOf(
+  col: Collection,
+  sheetId: string,
+  create = false,
+): { cs: CustomSheet; sid: string; pfx: string } | undefined {
+  const own = customOf(col, sheetId);
+  if (own) return { cs: own, sid: `u:${own.id}`, pfx: 'c' };
+  if (!sheetId || sheetId.startsWith('u:')) return undefined;
+  let cs = (col.extra ?? []).find((s) => s.id === sheetId);
+  if (!cs && create) {
+    cs = { id: sheetId, name: '', seq: 0, cards: [] };
+    col.extra = [...(col.extra ?? []), cs];
+  }
+  return cs ? { cs, sid: sheetId, pfx: 'n' } : undefined;
 }
 
 export function createSheet(col: Collection, name: string, desc?: string): CustomSheet | null {
@@ -243,23 +265,26 @@ export function deleteSheet(col: Collection, sid: string): PhotoChanges {
 
 const CARD_FIELDS = ['n', 'num', 'set', 'rar', 'tcg', 'url', 'lang'] as const;
 
-/** Añade una carta a una hoja propia (o una variante a un bolsillo con `altOf`). */
+/**
+ * Añade una carta a una hoja propia o al final de una hoja fija (o una variante a un bolsillo
+ * con `altOf`; en una hoja fija, solo a una carta que agregué yo).
+ */
 export function addCard(col: Collection, sid: string, c: CardInput, altOf?: string): string | null {
-  const sh = customOf(col, sid);
-  if (!sh) return null;
+  const e = editableOf(col, sid, !altOf);
+  if (!e) return null;
+  const sh = e.cs;
   if (!altOf && sh.cards.length >= MAX_CARDS) return null;
+  const slot = altOf ? sh.cards.find((x) => x.k === altOf) : undefined;
+  if (altOf && !slot) return null;
   sh.seq = (sh.seq || 0) + 1;
-  const nc = { k: newId('c', sh.seq), ...pickFields<CardDef>(c, CARD_FIELDS) } as CardDef;
-  if (altOf) {
-    const slot = sh.cards.find((x) => x.k === altOf);
-    if (!slot) return null;
-    slot.alts = [...(slot.alts ?? []), nc];
-  } else sh.cards.push(nc);
-  return keyOf(`u:${sh.id}`, nc.k);
+  const nc = { k: newId(e.pfx, sh.seq), ...pickFields<CardDef>(c, CARD_FIELDS) } as CardDef;
+  if (slot) slot.alts = [...(slot.alts ?? []), nc];
+  else sh.cards.push(nc);
+  return keyOf(e.sid, nc.k);
 }
 
 export function editCard(col: Collection, key: string, c: CardInput): void {
-  const sh = customOf(col, sheetOfKey(key));
+  const sh = editableOf(col, sheetOfKey(key))?.cs;
   const local = localOfKey(key);
   if (!sh) return;
   for (const slot of sh.cards) {
@@ -287,12 +312,16 @@ export function moveCard(col: Collection, key: string, dir: -1 | 1): number {
   return j;
 }
 
-/** Quita una carta de una hoja propia. Si es variante, el bolsillo vuelve a la carta base. */
+/**
+ * Quita una carta de una hoja propia (o una que agregué a una hoja fija). Si es variante, el
+ * bolsillo vuelve a la carta base.
+ */
 export function deleteCard(col: Collection, sheets: SheetDef[], key: string): PhotoChanges {
   const f = findCard(sheets, col, key);
-  const sh = customOf(col, sheetOfKey(key));
-  if (!f || !f.sheet || !sh || !f.slot) return {};
-  const sid = `u:${sh.id}`;
+  const e = editableOf(col, sheetOfKey(key));
+  if (!f || !f.sheet || !e || !f.slot) return {};
+  const sh = e.cs;
+  const sid = e.sid;
   const slotKey = keyOf(sid, f.slot.k);
   if (f.isAlt) {
     const slot = sh.cards.find((c) => c.k === f.slot!.k)!;
@@ -309,6 +338,10 @@ export function deleteCard(col: Collection, sheets: SheetDef[], key: string): Ph
     remove.push(k);
   }
   sh.cards = sh.cards.filter((c) => c.k !== f.slot!.k);
+  if (col.order[sid]) {
+    col.order[sid] = col.order[sid].filter((k) => k !== f.slot!.k);
+    if (!col.order[sid].length) delete col.order[sid];
+  }
   return { remove };
 }
 
@@ -459,7 +492,8 @@ export function renameSheet(col: Collection, fixed: SheetDef | undefined, sheetI
 }
 
 /**
- * Quita una carta de una hoja propia. Si estaba marcada (ella o sus variantes, si es un
+ * Quita una carta de una hoja propia o de una fija (las que trae la hoja se ocultan; las que
+ * agregué yo se borran). Si estaba marcada (ella o sus variantes, si es un
  * bolsillo), pasa a la Caja en vez de perderse.
  */
 export function removeCard(
@@ -474,7 +508,7 @@ export function removeCard(
   const list = f.isAlt ? [{ key, card: f.card as CardDef }] : [f.slot, ...(f.slot.alts ?? [])].map((o) => ({ key: keyOf(f.sheet!.id, o.k), card: o }));
   const r = ownedToBox(col, prices, sheets, list, hasPhoto);
   if ('err' in r) return r;
-  if (f.sheet.fixed) {
+  if (f.sheet.fixed && !isExtra(col, f.sheet.id, localOfKey(key))) {
     // Hoja fija: la carta se oculta (se puede volver a mostrar); sus fotos se quedan.
     const alias = aliases(sheets);
     const elsewhere = usedKeys(sheets, alias, new Set(list.map((x) => x.key)));

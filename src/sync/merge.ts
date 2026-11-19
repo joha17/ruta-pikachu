@@ -1,7 +1,7 @@
 // Sincronización entre aparatos: la parte pura (sin red ni IndexedDB).
 //
 // La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, alerta de precio, alerta disparada, compra, carta en frío, presupuesto, variante,
-// orden de hoja, hoja propia, carta de hoja propia, carta de la Caja y foto. Cada átomo
+// orden de hoja, hoja propia, carta de hoja propia, carta agregada a una hoja fija, carta de la Caja y foto. Cada átomo
 // lleva la hora de su último cambio. Al combinar dos copias gana, átomo por átomo, el cambio
 // más reciente. Un borrado deja una marca (átomo sin valor) para que un aparato
 // desactualizado no resucite lo borrado.
@@ -76,6 +76,11 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
     out[`sheet:${sh.id}`] = head;
     for (const c of sh.cards) out[`card:${sh.id}.${c.k}`] = c;
   }
+  for (const ex of col.extra ?? []) {
+    if (!ex.cards.length) continue;
+    out[`xsheet:${ex.id}`] = { cards: ex.cards.map((c) => c.k) };
+    for (const c of ex.cards) out[`xcard:${ex.id}.${c.k}`] = c;
+  }
   for (const b of col.box ?? []) out[`box:${b.id}`] = b;
   for (const [k, v] of Object.entries(col.rename ?? {})) out[`rename:${k}`] = v;
   for (const g of col.myGoals ?? []) out[`mygoal:${g.id}`] = g;
@@ -87,6 +92,7 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
 export function seqsOf(col: Collection): Record<string, number> {
   const s: Record<string, number> = { customSeq: col.customSeq || 0, boxSeq: col.boxSeq || 0, goalSeq: col.goalSeq || 0 };
   for (const sh of col.custom ?? []) s[`s:${sh.id}`] = sh.seq || 0;
+  for (const ex of col.extra ?? []) if (ex.seq) s[`x:${ex.id}`] = ex.seq;
   return s;
 }
 
@@ -183,6 +189,8 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
   col.saved = saved;
   const sheets = new Map<string, { name: string; desc?: string; cards: string[] }>();
   const cards = new Map<string, Map<string, CardDef>>();
+  const xheads = new Map<string, { cards: string[] }>();
+  const xcards = new Map<string, Map<string, CardDef>>();
   const box: BoxCard[] = [];
   const goals: MyGoal[] = [];
   for (const [key, v] of Object.entries(liveValues(doc))) {
@@ -208,23 +216,39 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
       const sid = k.slice(0, dot);
       if (!cards.has(sid)) cards.set(sid, new Map());
       cards.get(sid)!.set(k.slice(dot + 1), v as CardDef);
+    } else if (kind === 'xsheet') xheads.set(k, v as { cards: string[] });
+    else if (kind === 'xcard') {
+      const dot = k.indexOf('.');
+      const sid = k.slice(0, dot);
+      if (!xcards.has(sid)) xcards.set(sid, new Map());
+      xcards.get(sid)!.set(k.slice(dot + 1), v as CardDef);
     } else if (kind === 'box') box.push(v as BoxCard);
     else if (kind === 'rename') col.rename[k] = v as SheetRename;
     else if (kind === 'mygoal') goals.push(v as MyGoal);
   }
   const seqs = doc.seqs;
-  for (const sid of [...sheets.keys()].sort(byId)) {
-    const head = sheets.get(sid)!;
-    const mine = cards.get(sid) ?? new Map<string, CardDef>();
-    // Primero el orden guardado; después las cartas que otro aparato añadió y ese orden no conoce.
-    const ids = head.cards.filter((c) => mine.has(c));
+  /** Cartas de una hoja: primero el orden guardado; después las que otro aparato añadió y ese orden no conoce. */
+  const cardList = (order: string[] | undefined, mine: Map<string, CardDef>, seq0: number) => {
+    const ids = (order ?? []).filter((c) => mine.has(c));
     for (const c of [...mine.keys()].sort(byId)) if (!ids.includes(c)) ids.push(c);
     const list = ids.map((c) => mine.get(c)!);
-    let seq = seqs[`s:${sid}`] ?? 0;
+    let seq = seq0;
     for (const c of list) for (const o of [c, ...(c.alts ?? [])]) seq = Math.max(seq, seqNum(o.k));
+    return { list, seq };
+  };
+  for (const sid of [...sheets.keys()].sort(byId)) {
+    const head = sheets.get(sid)!;
+    const { list, seq } = cardList(head.cards, cards.get(sid) ?? new Map(), seqs[`s:${sid}`] ?? 0);
     const sh: CustomSheet = { id: sid, name: head.name, seq, cards: list };
     if (head.desc) sh.desc = head.desc;
     col.custom.push(sh);
+  }
+  // Cartas agregadas a hojas fijas. También quedan las hojas sin cartas agregadas que tienen
+  // contador, para no repetir ids (y que una carta nueva no herede datos de una borrada).
+  const xids = new Set([...xcards.keys(), ...Object.keys(seqs).filter((k) => k.startsWith('x:')).map((k) => k.slice(2))]);
+  for (const sid of [...xids].sort()) {
+    const { list, seq } = cardList(xheads.get(sid)?.cards, xcards.get(sid) ?? new Map(), seqs[`x:${sid}`] ?? 0);
+    if (list.length || seq) col.extra!.push({ id: sid, name: '', seq, cards: list });
   }
   col.box = box.sort((a, b) => byId(a.id, b.id));
   col.customSeq = Math.max(seqs.customSeq ?? 0, ...col.custom.map((s) => seqNum(s.id)));

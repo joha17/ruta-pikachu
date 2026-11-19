@@ -32,7 +32,8 @@ export const isEmpty = computed(
   () =>
     !Object.keys(collection.value.owned).length &&
     !collection.value.custom.length &&
-    !collection.value.box.length,
+    !collection.value.box.length &&
+    !(collection.value.extra ?? []).some((e) => e.cards.length),
 );
 
 export async function boot(): Promise<void> {
