@@ -7,7 +7,8 @@ import { today } from './model/keys';
 import { cardTable, chatMessages, chatSystem, type ChatTurn } from './model/report';
 import { costOf, MODELS, type ClaudeModel } from './scan/claude-core';
 import { addSpend, AiError, checkBudget, claudeCfg, claudeReady, errorText, type MiniMessage } from './scan/claude';
-import { currentSummary } from './report';
+import { currentRefs, currentSummary } from './report';
+import { usedRefs, type RefMap } from './model/refs';
 import { alias, collection, prices, sheets } from './store';
 import { currentSeries } from './value';
 
@@ -19,8 +20,9 @@ export interface ChatEntry extends ChatTurn {
 /** Conversación de esta visita (no se guarda: al cerrar la app empieza de cero). */
 export const chat = signal<ChatEntry[]>([]);
 
-export function currentSystem(): string {
+export function currentSystem(map: RefMap = currentRefs()): string {
   const table = cardTable({
+    ids: map.byKey,
     sheets: sheets.value,
     col: collection.value,
     pr: prices.value,
@@ -28,7 +30,7 @@ export function currentSystem(): string {
     day: today(),
     series: currentSeries(),
   });
-  return chatSystem(currentSummary(), table);
+  return chatSystem(currentSummary(map.byKey), table);
 }
 
 type Msg = { role: 'user' | 'assistant'; content: string };
@@ -70,7 +72,8 @@ export async function askCollection(q: string, model: ClaudeModel, send?: ChatSe
     if (!navigator.onLine) throw new AiError('Sin conexión: Claude necesita internet.');
     send = await sdkSend(cfg.key.trim());
   }
-  const msg = await send(model, currentSystem(), chatMessages(chat.value, question));
+  const map = currentRefs();
+  const msg = await send(model, currentSystem(map), chatMessages(chat.value, question));
   const cost = costOf(model, msg.usage);
   await addSpend(cost);
   if (msg.stop_reason === 'refusal') throw new AiError('Claude no quiso responder esa pregunta.');
@@ -80,7 +83,8 @@ export async function askCollection(q: string, model: ClaudeModel, send?: ChatSe
     .join('')
     .trim();
   if (!text) throw new AiError('Claude no respondió nada. Prueba otra vez.');
-  const entry: ChatEntry = { q: question, a: msg.stop_reason === 'max_tokens' ? `${text}…` : text, model, cost };
+  const a = msg.stop_reason === 'max_tokens' ? `${text}…` : text;
+  const entry: ChatEntry = { q: question, a, model, cost, refs: usedRefs([a], map.byId) };
   chat.value = [...chat.value, entry];
   return entry;
 }

@@ -5,6 +5,7 @@ import { askCollection, chat, currentSystem, estimateQuestion } from '../chat';
 import { MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf } from '../scan/claude';
 import { go } from './router';
+import { RefText } from './RefText';
 
 const IDEAS = [
   '¿Qué hoja me sale más barato completar?',
@@ -56,7 +57,9 @@ export function Preguntar() {
           {list.map((t, i) => (
             <li key={i}>
               <p class="chat-q">{t.q}</p>
-              <p class="chat-a">{t.a}</p>
+              <p class="chat-a">
+                <RefText text={t.a} refs={t.refs} />
+              </p>
               <small class="hint">
                 {MODELS[t.model].label} · {usd(t.cost)}
               </small>

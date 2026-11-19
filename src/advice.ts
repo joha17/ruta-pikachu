@@ -2,7 +2,8 @@
 
 import { signal } from '@preact/signals';
 import { loadAdvice, saveAdvice } from './db';
-import { adviceRows, advicePrompt, adviceTable, ADVICE_SCHEMA, cleanAdvice, type AdviceRow, type SavedAdvice } from './model/advice';
+import { adviceRefs, adviceRows, advicePrompt, adviceTable, ADVICE_SCHEMA, cleanAdvice, type AdviceRow, type SavedAdvice } from './model/advice';
+import { usedRefs } from './model/refs';
 import { today } from './model/keys';
 import { hashText, reportFresh } from './model/report';
 import { shopItems } from './model/shop';
@@ -78,7 +79,8 @@ export async function makeAdvice(model: ClaudeModel, send?: AdviceSend): Promise
   } catch {
     throw new AiError('Claude respondió algo que no se pudo leer. Prueba otra vez.');
   }
-  const a: SavedAdvice = { d: day, h, model, cost, out: cleanAdvice(raw, rows) };
+  const out = cleanAdvice(raw, rows);
+  const a: SavedAdvice = { d: day, h, model, cost, out, refs: usedRefs([out.resumen], adviceRefs(rows)) };
   lastAdvice.value = a;
   await saveAdvice(a);
   return a;

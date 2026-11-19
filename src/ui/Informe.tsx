@@ -10,6 +10,7 @@ import { currentSummary, estimateReport, lastReport, loadLastReport, makeReport 
 import { MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf } from '../scan/claude';
 import { go } from './router';
+import { RefText } from './RefText';
 
 const KIND: Record<ClaudeModel, string> = {
   'claude-haiku-5-5': 'Informe rápido',
@@ -55,11 +56,17 @@ export function Informe() {
       {r ? (
         <article class="inf-out">
           <h3>{r.out.titulo}</h3>
-          {r.out.resumen && <p>{r.out.resumen}</p>}
+          {r.out.resumen && (
+            <p>
+              <RefText text={r.out.resumen} refs={r.refs} />
+            </p>
+          )}
           {r.out.destacados.length > 0 && (
             <ul>
               {r.out.destacados.map((t, i) => (
-                <li key={i}>{t}</li>
+                <li key={i}>
+                  <RefText text={t} refs={r.refs} />
+                </li>
               ))}
             </ul>
           )}
@@ -68,7 +75,9 @@ export function Informe() {
               <h4>Sugerencias</h4>
               <ul>
                 {r.out.sugerencias.map((t, i) => (
-                  <li key={i}>{t}</li>
+                  <li key={i}>
+                  <RefText text={t} refs={r.refs} />
+                </li>
                 ))}
               </ul>
             </>

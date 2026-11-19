@@ -48,7 +48,7 @@ describe('señales de precio', () => {
     const many = Array.from({ length: 60 }, (_, i) => item(`x:${i}`, i + 1));
     expect(adviceRows(many, emptyPrices(), alias)).toHaveLength(ADVICE_MAX);
     const t = adviceTable(rows);
-    expect(t.split('\n')[1]).toBe('1 | x:d | ★ | 1.00 | - | - | - | - | - | - | 0');
+    expect(t.split('\n')[1]).toBe('c1 | x:d | ★ | 1.00 | - | - | - | - | - | - | 0');
     expect(advicePrompt(t, '2026-11-19')).toContain('"comprar"');
   });
 

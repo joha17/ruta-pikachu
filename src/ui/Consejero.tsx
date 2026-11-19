@@ -11,6 +11,7 @@ import { MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf } from '../scan/claude';
 import { alias } from '../store';
 import { go } from './router';
+import { RefText } from './RefText';
 
 function openSettings() {
   claudeOpen.value = true;
@@ -49,7 +50,11 @@ export function Consejero() {
         <button class="btn" aria-expanded={false} onClick={() => setOpen(true)}>
           🤖 Consejero
         </button>
-        {a?.out.resumen && <p class="hint">{a.out.resumen}</p>}
+        {a?.out.resumen && (
+          <p class="hint">
+            <RefText text={a.out.resumen} refs={a.refs} />
+          </p>
+        )}
       </div>
     );
 
@@ -80,7 +85,11 @@ export function Consejero() {
       </div>
       {a ? (
         <>
-          {a.out.resumen && <p>{a.out.resumen}</p>}
+          {a.out.resumen && (
+            <p>
+              <RefText text={a.out.resumen} refs={a.refs} />
+            </p>
+          )}
           <p class="hint">
             {counts.comprar ?? 0} para comprar ya, {counts.vigilar ?? 0} para vigilar y {counts.esperar ?? 0} para esperar: lo ves junto a cada carta
             de la lista. {MODELS[a.model as ClaudeModel]?.label ?? a.model}, {fmtDate(a.d)}, costó unos {usd(a.cost)}.
