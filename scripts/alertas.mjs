@@ -10,6 +10,8 @@
 //
 // Avisa por Telegram con los secretos TELEGRAM_TOKEN (bot de @BotFather) y, si se quiere,
 // TELEGRAM_CHAT_ID. Sin chat, usa el primer chat privado que le escribió al bot y lo recuerda.
+// Con el secreto ANTHROPIC_API_KEY, cada alerta lleva además una línea de Claude que explica el
+// movimiento del precio (scripts/explicar.mjs), dentro del tope mensual de la app.
 //
 // El repo es público y sus registros de Actions también: aquí solo se imprimen cuentas, nunca
 // nombres de cartas, precios ni ids. Nunca falla el build: si algo sale mal, avisa y sigue.
@@ -17,6 +19,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { evalSeries, eventText, lastPerRule } from '../src/model/alertRules.ts';
+import { apiSend, budget, explain, monthSpent } from './explicar.mjs';
 
 export const ALERTS_FILE = 'ruta-pikachu-alertas.json';
 export const SENT_FILE = 'ruta-pikachu-enviadas.json';
@@ -76,10 +79,11 @@ export function check(alerts, sent, loadShard, day) {
   return { fresh, checked, sent: { ...(sent ?? {}), events: keep, last: day } };
 }
 
-/** Texto del mensaje de Telegram. */
-export function message(fresh) {
+/** Texto del mensaje de Telegram. `notes` (opcional): una línea de Claude por alerta. */
+export function message(fresh, notes = []) {
   const head = fresh.length === 1 ? '🔔 Alerta de precio' : `🔔 ${fresh.length} alertas de precio`;
-  return [head, '', ...fresh.map((e) => `• ${eventText(e, usd)}`), '', `Ábrelas en la app: ${APP_URL}`].join('\n');
+  const line = (e, i) => `• ${eventText(e, usd)}${notes[i] ? `\n   🤖 ${notes[i]}` : ''}`;
+  return [head, '', ...fresh.map(line), '', `Ábrelas en la app: ${APP_URL}`].join('\n');
 }
 
 // ---------- GitHub y Telegram ----------
@@ -164,7 +168,7 @@ async function main() {
   };
   const HIST = arg('hist', 'public/historial');
   const DAY_NOW = arg('today', iso(Date.now()));
-  const { GIST_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID } = process.env;
+  const { GIST_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, ANTHROPIC_API_KEY } = process.env;
   if (!GIST_TOKEN) return console.log('Sin el secreto GIST_TOKEN: el aviso con la app cerrada está apagado.');
   if (!TELEGRAM_TOKEN) return console.log('Sin el secreto TELEGRAM_TOKEN: no hay por dónde avisar.');
   if (!existsSync(join(HIST, 'meta.json'))) return console.log('Sin historial de precios hoy: no se revisan alertas.');
@@ -202,10 +206,30 @@ async function main() {
     });
     console.log('Chat de Telegram encontrado y guardado.');
   }
-  if (res.fresh.length) {
-    await tg(TELEGRAM_TOKEN, 'sendMessage', { chat_id: chat, text: message(res.fresh), disable_web_page_preview: true });
-  }
   const next = { ...res.sent };
+  let notes = [];
+  if (res.fresh.length && ANTHROPIC_API_KEY) {
+    const month = DAY_NOW.slice(0, 7);
+    if (budget(sent.ia, month, alerts.iaLeft) <= 0) console.log('Explicación con Claude: tope del mes alcanzado, va sin explicación.');
+    else {
+      try {
+        const byKey = new Map((alerts.cards ?? []).map((c) => [c.k, c]));
+        const items = res.fresh.map((e) => {
+          const c = byKey.get(e.k);
+          return { e, v: c ? seriesFor(loadShard(c.pid), c.pid, c.variant).v : [] };
+        });
+        const r = await explain(items, apiSend(ANTHROPIC_API_KEY));
+        notes = r.notes;
+        next.ia = { month, spent: monthSpent(sent.ia, month) + r.cost };
+        console.log(`Explicación con Claude: ${notes.filter(Boolean).length} de ${items.length} alertas.`);
+      } catch (e) {
+        console.warn(`Explicación con Claude: ${e.message}. Va sin explicación.`);
+      }
+    }
+  }
+  if (res.fresh.length) {
+    await tg(TELEGRAM_TOKEN, 'sendMessage', { chat_id: chat, text: message(res.fresh, notes), disable_web_page_preview: true });
+  }
   if (!TELEGRAM_CHAT_ID) next.chat = chat;
   if (JSON.stringify(next) !== JSON.stringify(sent)) {
     await gh(`/gists/${gist.id}`, GIST_TOKEN, {

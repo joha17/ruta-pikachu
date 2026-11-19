@@ -23,7 +23,12 @@ export function capOf(c: ClaudeCfg): number {
 
 /** Gasto del mes `month` (AAAA-MM); 0 si lo guardado es de otro mes. */
 export function monthSpentOf(c: ClaudeCfg, month = today().slice(0, 7)): number {
-  return c.month === month ? (c.monthSpent ?? 0) : 0;
+  return (c.month === month ? (c.monthSpent ?? 0) : 0) + nightSpentOf(c, month);
+}
+
+/** Gasto del mes en las explicaciones de Telegram (lo trae la app del gist). */
+export function nightSpentOf(c: ClaudeCfg, month = today().slice(0, 7)): number {
+  return c.night?.month === month ? c.night.spent : 0;
 }
 
 /** Lo que queda del tope este mes (puede ser negativo). */
@@ -35,7 +40,8 @@ export function budgetLeft(c: ClaudeCfg, month = today().slice(0, 7)): number {
 export async function addSpend(cost: number): Promise<void> {
   const c = claudeCfg.value;
   const month = today().slice(0, 7);
-  await setClaudeCfg({ spent: c.spent + cost, calls: c.calls + 1, month, monthSpent: monthSpentOf(c, month) + cost });
+  const own = c.month === month ? (c.monthSpent ?? 0) : 0;
+  await setClaudeCfg({ spent: c.spent + cost, calls: c.calls + 1, month, monthSpent: own + cost });
 }
 
 /** Corta antes de llamar si ya se llegó al tope del mes. */

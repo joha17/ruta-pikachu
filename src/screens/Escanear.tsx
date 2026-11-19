@@ -11,7 +11,7 @@ import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
 import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
-import { AiError, askClaude, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf, setClaudeCfg, type AiResult } from '../scan/claude';
+import { AiError, askClaude, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf, nightSpentOf, setClaudeCfg, type AiResult } from '../scan/claude';
 import type { Identified, Reading } from '../scan/identify';
 import type { Cand } from '../scan/match';
 import { ocrProgress, ocrState, readCard, warmUp } from '../scan/ocr';
@@ -980,7 +980,7 @@ function ClaudeSettings() {
           }}
         />
         <small class={budgetLeft(cfg) <= 0 ? 'msg warn' : 'hint'}>
-          Este mes van {usd(monthSpentOf(cfg))} de ${capOf(cfg)}.{budgetLeft(cfg) <= 0 ? ' Llegaste al tope: Claude queda en pausa hasta el mes que viene.' : ''}
+          Este mes van {usd(monthSpentOf(cfg))} de ${capOf(cfg)}{nightSpentOf(cfg) ? ` (incluye ${usd(nightSpentOf(cfg))} de las explicaciones en Telegram)` : ''}.{budgetLeft(cfg) <= 0 ? ' Llegaste al tope: Claude queda en pausa hasta el mes que viene.' : ''}
         </small>
       </div>
       <p class="hint">

@@ -7,6 +7,7 @@ import { signal } from '@preact/signals';
 import { act, ops } from './actions';
 import { loadNube, saveNube, type NubeCfg } from './db';
 import { ALERTS_FILE, buildCloud, newFromCloud, SENT_FILE, type CloudSent } from './model/cloudAlerts';
+import { budgetLeft, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg } from './scan/claude';
 import { findCard } from './model/catalog';
 import { alias, collection, sheets } from './store';
 import { cachedCard, fetchCard, type Lang } from './tcgdex';
@@ -125,10 +126,16 @@ async function run(): Promise<void> {
     const sent = gist ? await readJson<CloudSent>(gist.files[SENT_FILE]) : null;
     const fresh = newFromCloud(collection.value, sent);
     if (fresh.length) act((c) => ops.logAlerts(c, fresh));
+    // Lo que gastó Claude de noche cuenta en el tope mensual de la app.
+    const ccfg = await loadClaudeCfg();
+    const ia = sent?.ia;
+    if (ia && typeof ia.spent === 'number' && (ccfg.night?.month !== ia.month || ccfg.night?.spent !== ia.spent))
+      await setClaudeCfg({ night: { month: ia.month, spent: ia.spent } });
 
     const keys = Object.keys(collection.value.alerts ?? {});
     const pids = await productIds(keys);
     const { data, skipped } = buildCloud(sheets.value, collection.value, alias.value, (k) => pids.get(k) ?? null);
+    if (claudeReady(ccfg)) data.iaLeft = Math.max(0, Math.floor(budgetLeft(claudeCfg.value)));
     const content = JSON.stringify(data, null, 1);
     const hash = `${content.length}:${[...content].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
     if (!gist) {

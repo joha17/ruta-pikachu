@@ -29,6 +29,8 @@ export interface ClaudeCfg {
   month?: string;
   /** Gasto estimado de ese mes (USD). */
   monthSpent?: number;
+  /** Gasto del mes en las explicaciones del aviso nocturno de Telegram (del gist). */
+  night?: { month: string; spent: number };
 }
 
 /**
