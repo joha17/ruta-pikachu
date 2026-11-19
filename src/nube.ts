@@ -9,6 +9,7 @@ import { loadNube, saveNube, type NubeCfg } from './db';
 import { ALERTS_FILE, buildCloud, newFromCloud, SENT_FILE, type CloudSent } from './model/cloudAlerts';
 import { budgetLeft, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg } from './scan/claude';
 import { findCard } from './model/catalog';
+import { parseTokenExpiry } from './model/health';
 import { alias, collection, sheets } from './store';
 import { cachedCard, fetchCard, type Lang } from './tcgdex';
 
@@ -37,6 +38,9 @@ class GhError extends Error {
   }
 }
 
+/** Vencimiento del token que dijo GitHub en la última respuesta (si el navegador deja leerlo). */
+let seenExpiry: string | undefined;
+
 async function gh<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const r = await fetch(`https://api.github.com${path}`, {
     ...init,
@@ -47,6 +51,7 @@ async function gh<T>(path: string, token: string, init: RequestInit = {}): Promi
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
     },
   });
+  seenExpiry = parseTokenExpiry(r.headers.get('github-authentication-token-expiration')) ?? seenExpiry;
   if (r.status === 401) throw new GhError('GitHub no aceptó el token: revisa que esté bien copiado y que no haya vencido.', 401);
   if (r.status === 403 || r.status === 404)
     throw new GhError('El token no tiene permiso para gists. Al crearlo, en «Account permissions» pon «Gists: Read and write».', r.status);
@@ -120,6 +125,7 @@ export function syncNube(): Promise<void> {
 async function run(): Promise<void> {
   const cfg = await loadNubeCfg();
   if (!cfg?.token || !navigator.onLine) return;
+  seenExpiry = undefined;
   try {
     let gist = await findGist(cfg.token, cfg.gistId);
     // Lo que avisó la noche entra al historial de Alertas (y así la app no lo repite).
@@ -159,11 +165,19 @@ async function run(): Promise<void> {
       skipped,
       remoteLast: sent?.last,
       chat: !!sent?.chat,
+      // El aviso nocturno anota cuándo vence el secreto (suele ser el mismo token que el de aquí).
+      expires: earliest(seenExpiry, sent?.tokenExpires),
       error: undefined,
+      status: undefined,
     });
   } catch (e) {
-    await put({ ...cfg, error: e instanceof Error ? e.message : String(e) });
+    await put({ ...cfg, error: e instanceof Error ? e.message : String(e), status: e instanceof GhError ? e.status : undefined });
   }
+}
+
+function earliest(...dates: Array<string | undefined>): string | undefined {
+  const ok = dates.filter((d): d is string => !!d && Number.isFinite(Date.parse(d)));
+  return ok.sort((a, b) => Date.parse(a) - Date.parse(b))[0];
 }
 
 /** Guarda el token y copia las alertas enseguida. */
