@@ -196,7 +196,7 @@ export function idShardOf(key) {
 /** Los productos de un set se vuelven a pedir cada semana si el set salió hace menos de 90 días. */
 const FRESH_SET = 90 * DAY;
 const REFRESH = 7 * DAY;
-const MAX_GROUPS = Number(arg('max-groups', '120'));
+const MAX_GROUPS = Number(arg('max-groups', '400'));
 
 async function getJson(url) {
   const r = await fetch(url, { headers: { 'User-Agent': UA } });
