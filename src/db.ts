@@ -23,6 +23,12 @@ export interface ClaudeCfg {
   /** Gasto acumulado estimado en este aparato (USD) y número de consultas. */
   spent: number;
   calls: number;
+  /** Tope de gasto al mes (USD) para todo lo de Claude en este aparato. Sin poner: 30. */
+  cap?: number;
+  /** Mes (AAAA-MM) al que corresponde `monthSpent`. */
+  month?: string;
+  /** Gasto estimado de ese mes (USD). */
+  monthSpent?: number;
 }
 
 /**
@@ -65,10 +71,12 @@ export interface TcgCacheEntry {
   data: unknown;
 }
 
+import type { SavedReport } from './model/report';
+
 interface RutaDB extends DBSchema {
   kv: {
-    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube';
-    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg;
+    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube' | 'informe';
+    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg | SavedReport;
   };
   photos: { key: string; value: Photo };
   tcg: { key: string; value: TcgCacheEntry };
@@ -105,6 +113,14 @@ export async function loadSettings(): Promise<Settings> {
 }
 export async function saveSettings(s: Settings): Promise<void> {
   await (await db()).put('kv', s, 'settings');
+}
+
+/** Último informe de la colección hecho por Claude (solo de este aparato). */
+export async function loadReport(): Promise<SavedReport | undefined> {
+  return (await (await db()).get('kv', 'informe')) as SavedReport | undefined;
+}
+export async function saveReport(r: SavedReport): Promise<void> {
+  await (await db()).put('kv', r, 'informe');
 }
 
 export async function loadClaude(): Promise<ClaudeCfg | undefined> {
