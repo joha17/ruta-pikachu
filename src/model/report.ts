@@ -213,3 +213,71 @@ export function hashText(s: string): string {
 export function reportFresh(r: SavedReport | undefined, day: string, h: string, model: string): boolean {
   return !!r && r.d === day && r.h === h && r.model === model;
 }
+
+/**
+ * Tabla compacta de todas las cartas (una línea por carta) para las preguntas libres:
+ * «nombre | set número | hoja | tengo/falta | precio | cambio ≥7 días | ★ | alerta».
+ * Unos 15–25 tokens por carta: con ~150 cartas, unos 3.000 tokens.
+ */
+export function cardTable(inp: ReportInput): string {
+  const { sheets, col, pr, alias } = inp;
+  const seen = new Set<string>();
+  const rows: string[] = ['nombre | set número | hoja | estado | precio USD | cambio | marcas'];
+  const row = (key: string, c: CardDef | BoxCard, where: string, owned: boolean) => {
+    const k = canon(alias, key);
+    if (seen.has(k)) return;
+    seen.add(k);
+    const v = priceOf(col, pr, alias, k);
+    const t = owned ? trendOf(col, pr, alias, k) : null;
+    const marks = [col.wish[k] ? '★deseo' : '', col.alerts[k] ? 'alerta' : '', 'deal' in c && c.deal ? (c.deal === 'trade' ? 'para cambiar' : 'para vender') : '']
+      .filter(Boolean)
+      .join(' ');
+    const pre = 'prefix' in c && c.prefix ? c.prefix : '';
+    rows.push(
+      [
+        pre + c.n,
+        [c.set, c.num].filter(Boolean).join(' ') || '-',
+        where,
+        owned ? 'tengo' : 'falta',
+        v == null ? 'sin precio' : v.toFixed(2),
+        t && t.dir !== 0 ? `${t.pct >= 0 ? '+' : ''}${t.pct.toFixed(0)}% en ${t.days}d` : '-',
+        marks || '-',
+      ].join(' | '),
+    );
+  };
+  for (const sh of sheets) for (const s of slots(sh, col)) row(s.key, s.card, sh.name, isOwned(alias, col, s.key));
+  for (const b of col.box) row(`b:${b.id}`, b, 'Caja', true);
+  return rows.join('\n');
+}
+
+/** Instrucciones del chat: resumen + tabla. Va como «system» y es igual en cada pregunta del día. */
+export function chatSystem(summary: string, table: string): string {
+  return [
+    'You answer questions about a Pokémon TCG collection, using only the data below from the collector\'s app.',
+    'Answer in Spanish (Latin American), short and plain: 1 to 5 sentences, or a short list when listing cards.',
+    'Use only these numbers and cards. If the data does not answer the question, say so honestly. Never invent prices or cards.',
+    'You may add up or compare prices from the table. Prices are TCGplayer market prices in USD, a reference only.',
+    'Do not use Markdown headings or tables; plain text, and "- " for list items.',
+    '',
+    'RESUMEN',
+    summary,
+    '',
+    'TODAS LAS CARTAS',
+    table,
+  ].join('\n');
+}
+
+export interface ChatTurn {
+  q: string;
+  a: string;
+}
+
+/** Solo las últimas preguntas viajan con la nueva (para seguir el hilo sin gastar de más). */
+export const CHAT_HISTORY = 3;
+
+export function chatMessages(history: ChatTurn[], q: string): Array<{ role: 'user' | 'assistant'; content: string }> {
+  const out: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  for (const t of history.slice(-CHAT_HISTORY)) out.push({ role: 'user', content: t.q }, { role: 'assistant', content: t.a });
+  out.push({ role: 'user', content: q.trim().slice(0, 500) });
+  return out;
+}

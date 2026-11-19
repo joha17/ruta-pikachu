@@ -20,6 +20,7 @@ import { currentSheet, showSheet } from '../ui/sheetView';
 import { sharing } from '../ui/Share';
 import { ValueChart } from '../ui/ValueChart';
 import { Informe } from '../ui/Informe';
+import { Preguntar } from '../ui/Preguntar';
 
 /** Hoja en modo «ordenar» y bolsillo elegido. */
 const arranging = signal('');
@@ -30,6 +31,7 @@ const previewing = signal<Set<string>>(new Set());
 const infoOpen = signal(false);
 const valueOpen = signal(false);
 const informeOpen = signal(false);
+const preguntarOpen = signal(false);
 
 /** $229.52 → «$230» para el resumen de arriba. */
 const money0 = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
@@ -609,8 +611,12 @@ export function Coleccion() {
           <button class="btn" aria-expanded={informeOpen.value} onClick={() => (informeOpen.value = !informeOpen.value)}>
             🤖 Informe
           </button>
+          <button class="btn" aria-expanded={preguntarOpen.value} onClick={() => (preguntarOpen.value = !preguntarOpen.value)}>
+            💬 Preguntar
+          </button>
         </div>
         {informeOpen.value && <Informe />}
+        {preguntarOpen.value && <Preguntar />}
       </header>
       <Nav items={nav} cur={cur} />
       {curSheet && <SheetSection key={curSheet.id} sh={curSheet} />}
