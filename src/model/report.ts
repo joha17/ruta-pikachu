@@ -210,7 +210,7 @@ export function hashText(s: string): string {
 }
 
 /** ¿El informe guardado sigue al día? (mismo día, mismos datos y mismo modelo). */
-export function reportFresh(r: SavedReport | undefined, day: string, h: string, model: string): boolean {
+export function reportFresh(r: { d: string; h: string; model: string } | undefined, day: string, h: string, model: string): boolean {
   return !!r && r.d === day && r.h === h && r.model === model;
 }
 

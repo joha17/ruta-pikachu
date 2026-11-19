@@ -72,11 +72,12 @@ export interface TcgCacheEntry {
 }
 
 import type { SavedReport } from './model/report';
+import type { SavedAdvice } from './model/advice';
 
 interface RutaDB extends DBSchema {
   kv: {
-    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube' | 'informe';
-    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg | SavedReport;
+    key: 'collection' | 'prices' | 'settings' | 'claude' | 'sync' | 'nube' | 'informe' | 'consejo';
+    value: Collection | PriceBook | Settings | ClaudeCfg | SyncState | NubeCfg | SavedReport | SavedAdvice;
   };
   photos: { key: string; value: Photo };
   tcg: { key: string; value: TcgCacheEntry };
@@ -121,6 +122,14 @@ export async function loadReport(): Promise<SavedReport | undefined> {
 }
 export async function saveReport(r: SavedReport): Promise<void> {
   await (await db()).put('kv', r, 'informe');
+}
+
+/** Último consejo de compras de Claude (solo de este aparato). */
+export async function loadAdvice(): Promise<SavedAdvice | undefined> {
+  return (await (await db()).get('kv', 'consejo')) as SavedAdvice | undefined;
+}
+export async function saveAdvice(a: SavedAdvice): Promise<void> {
+  await (await db()).put('kv', a, 'consejo');
 }
 
 export async function loadClaude(): Promise<ClaudeCfg | undefined> {
