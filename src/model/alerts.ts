@@ -17,7 +17,7 @@
 
 import { canon, findCard, isOwned } from './catalog';
 import { cardTitle } from './shop';
-import { histSeries } from './trend';
+import { histSeries, lastDays } from './trend';
 import { evalSeries, holds, REASONS, ruleOn, stableDays, variation } from './alertRules';
 import type { AlertEvent, AlertReason, Collection, PriceAlert, PriceBook, SheetDef } from './types';
 
@@ -147,6 +147,41 @@ export function statusWith(
     varPct: variation(v, a.dias_estable),
     met: last < 0 ? [] : REASONS.filter((r) => ruleOn(a, r) && holds(a, r, v, last)),
   };
+}
+
+/** Precio meta sugerido: lo más barato del historial de la carta en una ventana de días. */
+export interface GoodPrice {
+  /** Precio más bajo (USD). */
+  v: number;
+  /** Día de ese precio (el más reciente si se repite). */
+  d: string;
+  /** Primer día con precio dentro de la ventana. */
+  since: string;
+  /** Si la ventana tiene historial completo (cubre casi todos los días pedidos). */
+  full: boolean;
+  /** Si lo más bajo es el precio de hoy (el último guardado). */
+  today: boolean;
+}
+
+export const GOOD_DAYS = 180;
+/** Mínimo de días de historial para proponer algo (con menos, «lo más bajo» no dice nada). */
+const GOOD_MIN_SPAN = 7;
+
+/**
+ * «Buen precio» para la meta: el más bajo de los últimos `days` días (6 meses), contando desde el
+ * último precio guardado. Usa el historial de TCGplayer (nunca el precio puesto a mano). Null si
+ * hay menos de una semana de precios.
+ */
+export function goodPrice(pr: PriceBook, alias: Record<string, string>, key: string, days = GOOD_DAYS): GoodPrice | null {
+  const s = lastDays(histSeries(pr, alias, key), days);
+  if (s.length < 2) return null;
+  const first = s[0]!;
+  const last = s[s.length - 1]!;
+  const span = Math.round((Date.parse(last.d) - Date.parse(first.d)) / 864e5) + 1;
+  if (span < GOOD_MIN_SPAN) return null;
+  let low = first;
+  for (const p of s) if (p.v <= low.v) low = p;
+  return { v: low.v, d: low.d, since: first.d, full: span >= days - 10, today: low.d === last.d };
 }
 
 /** Cartas que me faltan con alguna regla cumplida ahora (para la lista de Compras). */
