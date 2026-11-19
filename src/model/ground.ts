@@ -94,7 +94,7 @@ export async function groundCards(
   list: Suggested[],
   sets: SetBrief[],
   lookup: NameLookup,
-  max = 9,
+  max = Infinity,
 ): Promise<{ cards: Grounded[]; dropped: number }> {
   const found = await Promise.all(list.map((s) => groundOne(s, sets, lookup)));
   const cards: Grounded[] = [];
@@ -104,4 +104,43 @@ export async function groundCards(
     else if (!cards.some((c) => c.tcg === g.tcg) && cards.length < max) cards.push(g);
   }
   return { cards, dropped };
+}
+
+// ---------------- Presupuesto ----------------
+
+/** Precio para mostrar: USD de TCGplayer o, si no hay, EUR de Cardmarket. */
+export interface CardPrice {
+  v: number;
+  cur: 'USD' | 'EUR';
+}
+export type PriceLookup = (tcg: string) => Promise<CardPrice | null>;
+
+export interface Priced extends Grounded {
+  price: CardPrice;
+}
+
+/**
+ * Deja las cartas (en el orden de Claude) que caben en el presupuesto: ninguna más cara que el
+ * presupuesto y la hoja entera, sumada, tampoco. Las cartas sin precio se quitan porque no se
+ * puede prometer que quepan. `caras` = cuántas se quitaron por precio (o por no tener precio).
+ */
+export function fitBudget(cards: Array<Grounded & { price: CardPrice | null }>, budget: number, max = 9): { cards: Priced[]; caras: number; total: number } {
+  const out: Priced[] = [];
+  let total = 0;
+  let caras = 0;
+  for (const c of cards) {
+    if (out.length >= max) break;
+    if (!c.price || c.price.v > budget || total + c.price.v > budget + 1e-9) {
+      caras++;
+      continue;
+    }
+    out.push(c as Priced);
+    total += c.price.v;
+  }
+  return { cards: out, caras, total: Math.round(total * 100) / 100 };
+}
+
+/** Busca el precio de cada carta comprobada (si falla, queda sin precio). */
+export async function withPrices(cards: Grounded[], price: PriceLookup): Promise<Array<Grounded & { price: CardPrice | null }>> {
+  return Promise.all(cards.map(async (c) => ({ ...c, price: await price(c.tcg).catch(() => null) })));
 }

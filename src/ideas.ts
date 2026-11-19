@@ -21,7 +21,8 @@ import {
 import { today } from './model/keys';
 import { manualOf, usd as priceOf } from './model/money';
 import { usedRefs } from './model/refs';
-import { groundCards, normText, type NameLookup } from './model/ground';
+import { fitBudget, groundCards, normText, withPrices, type NameLookup, type PriceLookup } from './model/ground';
+import { shownPrice } from './scan/browse';
 import type { Brief, CardIndex } from './scan/match';
 import { loadIndex, loadSets } from './scan/search';
 import { hashText, reportFresh } from './model/report';
@@ -29,7 +30,7 @@ import { costOf, type ClaudeModel } from './scan/claude-core';
 import { AiError, askJson, type JsonSend } from './scan/claude';
 import { currentRefs, currentSummary } from './report';
 import { alias, collection, prices, sheets } from './store';
-import { cachedCard, getJson } from './tcgdex';
+import { cachedCard, fetchCard, getJson } from './tcgdex';
 
 // ---------------- Contexto ----------------
 
@@ -135,7 +136,16 @@ export const catalogLookup: NameLookup = async (name) => {
   return Array.isArray(r) ? (r as Brief[]) : [];
 };
 
-export async function makeIdeas(budget: number, model: ClaudeModel, send?: JsonSend, lookup: NameLookup = catalogLookup): Promise<SavedIdeas> {
+/** Precio de TCGplayer (o Cardmarket) de la carta, como en Buscar. */
+export const catalogPrice: PriceLookup = async (tcg) => shownPrice(await fetchCard(tcg));
+
+export async function makeIdeas(
+  budget: number,
+  model: ClaudeModel,
+  send?: JsonSend,
+  lookup: NameLookup = catalogLookup,
+  price: PriceLookup = catalogPrice,
+): Promise<SavedIdeas> {
   await loadLastIdeas();
   const { prompt, byId } = ideasInput(budget);
   const h = hashText(prompt);
@@ -149,8 +159,12 @@ export async function makeIdeas(budget: number, model: ClaudeModel, send?: JsonS
   const out = cleanIdeas(raw, byId);
   // Solo cartas que existen de verdad en ese set (Claude a veces inventa cartas).
   const { cards, dropped } = await groundCards(out.nueva.cartas, sets, lookup);
-  out.nueva.cartas = cards;
+  // Y que quepan en el presupuesto: ninguna más cara que el presupuesto ni la hoja entera tampoco.
+  const fit = fitBudget(await withPrices(cards, price), budget);
+  out.nueva.cartas = fit.cards;
   out.nueva.descartadas = dropped;
+  out.nueva.caras = fit.caras;
+  out.nueva.total = fit.total;
   const texts = [out.resumen, out.nueva.idea, ...out.completar.map((c) => c.why), ...out.nueva.cartas.map((c) => c.why)];
   const r: SavedIdeas = { d: day, h, model, cost, budget, out, refs: usedRefs(texts, byId) };
   lastIdeas.value = r;

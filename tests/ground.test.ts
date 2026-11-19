@@ -1,6 +1,6 @@
 // Las cartas que sugiere Claude se comprueban en el catálogo antes de mostrarlas.
 import { describe, expect, it } from 'vitest';
-import { groundCards, groundOne, normText, setScore } from '../src/model/ground';
+import { fitBudget, groundCards, groundOne, normText, setScore, withPrices } from '../src/model/ground';
 import type { Brief, SetBrief } from '../src/scan/match';
 
 const SETS: SetBrief[] = [
@@ -59,5 +59,22 @@ describe('comprobar cartas sugeridas', () => {
       throw new Error('sin red');
     });
     expect(r).toEqual({ cards: [], dropped: 1 });
+  });
+
+  it('presupuesto: ninguna carta más cara que el presupuesto y la hoja entera tampoco', () => {
+    const g = (tcg: string, v: number | null) => ({ n: tcg, set: 'S', setId: 's', tcg, num: '1', why: '', price: v == null ? null : { v, cur: 'USD' as const } });
+    const r = fitBudget([g('felt-hat', 932.09), g('a', 30), g('b', 25), g('sin-precio', null), g('c', 20), g('d', 10), g('e', 4)], 80);
+    expect(r.cards.map((c) => c.tcg)).toEqual(['a', 'b', 'c', 'e']);
+    expect(r.total).toBe(79);
+    expect(r.caras).toBe(3);
+  });
+
+  it('busca el precio de cada carta y si falla queda sin precio', async () => {
+    const g = { n: 'x', set: 'S', setId: 's', tcg: 'x', num: '1', why: '' };
+    const r = await withPrices([g, { ...g, tcg: 'y' }], async (t) => {
+      if (t === 'y') throw new Error('red');
+      return { v: 3, cur: 'USD' };
+    });
+    expect(r.map((c) => c.price)).toEqual([{ v: 3, cur: 'USD' }, null]);
   });
 });
