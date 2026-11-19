@@ -249,7 +249,7 @@ export function Sincronizar() {
               Desconectar
             </button>
           </div>
-          <p class="hint">La clave de Claude, el tema y los precios automáticos no se sincronizan: cada aparato tiene los suyos.</p>
+          <p class="hint">La clave de Claude y el tema no se sincronizan: cada aparato tiene los suyos. Los precios sí: por carta se queda el más reciente, así los totales dan igual en todos.</p>
           <Copias />
         </>
       )}

@@ -48,6 +48,37 @@ export function emptyDoc(): SyncDoc {
 
 const SETS = ['owned', 'wish', 'goals', 'trade', 'protect', 'hidden', 'hiddenCards', 'hiddenGoals'] as const;
 
+/**
+ * Tipos de átomo que entiende esta versión. Un átomo de otro tipo lo escribió una versión más nueva
+ * de la app (en otro aparato): se guarda tal cual y nunca se marca como borrado, aunque aquí no se
+ * pueda mostrar. Si no, un aparato con la app sin actualizar borraría en todos lo que no conoce.
+ * Al añadir un tipo nuevo en `explode`, añádelo también aquí.
+ */
+const KINDS = new Set<string>([
+  ...SETS,
+  'variant',
+  'order',
+  'manual',
+  'alert',
+  'alertlog',
+  'budget',
+  'sheetorder',
+  'spend',
+  'later',
+  'sheet',
+  'card',
+  'xsheet',
+  'xcard',
+  'box',
+  'rename',
+  'mygoal',
+  'photo',
+]);
+
+export function knownKind(key: string): boolean {
+  return KINDS.has(key.slice(0, key.indexOf(':')));
+}
+
 /** JSON con las claves ordenadas: el mismo valor da siempre el mismo texto. */
 export function stable(v: unknown): string {
   if (v === undefined) return '';
@@ -132,7 +163,7 @@ export function stamp(prev: SyncDoc, current: Record<string, unknown>, seqs: Rec
   }
   for (const [k, old] of Object.entries(prev.atoms)) {
     if (k in current) continue;
-    if (old.v === undefined) atoms[k] = old;
+    if (old.v === undefined || !knownKind(k)) atoms[k] = old;
     else {
       atoms[k] = { t: next(k) };
       changed++;

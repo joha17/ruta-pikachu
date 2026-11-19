@@ -134,9 +134,11 @@ export function wirePriceUpdates(): void {
   if (wired) return;
   wired = true;
   autoRefresh('start');
-  // Cada vez que cambia la colección (también al sincronizar), mira si hay cartas sin consultar hoy.
+  // Cada vez que cambia la colección o los precios (también al sincronizar), mira si hay cartas sin consultar hoy.
   effect(() => {
     void collection.value;
+    // También cuando llegan precios de otro aparato: las cartas que allá no tenían precio de hoy se consultan aquí.
+    void prices.value;
     clearTimeout(fillTimer);
     fillTimer = setTimeout(fillMissing, FILL_MS);
   });

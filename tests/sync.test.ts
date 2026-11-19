@@ -276,3 +276,18 @@ describe('documento de Drive', () => {
     expect(parseDoc(JSON.stringify({ ...d.doc, version: 99 }))).toBeNull();
   });
 });
+
+describe('aparato con la app sin actualizar', () => {
+  it('no borra los datos que no conoce (los escribió una versión más nueva)', () => {
+    const prev: SyncDoc = {
+      kind: 'ruta-pikachu-sync',
+      version: 1,
+      atoms: { 'owned:p:1': { t: 5, v: true }, 'futuro:x': { t: 5, v: { algo: 1 } } },
+      seqs: {},
+    };
+    const col = implode(prev);
+    const r = stamp(prev, explode(col), seqsOf(col), 100);
+    expect(r.doc.atoms['futuro:x']).toEqual({ t: 5, v: { algo: 1 } });
+    expect(r.doc.atoms['owned:p:1']).toEqual({ t: 5, v: true });
+  });
+});
