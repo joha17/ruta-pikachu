@@ -394,3 +394,10 @@ dialog.sheet:has(.sheet-wide){width:min(720px,calc(100vw - 32px))}
 .drop-v{display:grid;justify-items:end;gap:1px}
 .drop-v .down{font-size:12px;color:var(--ok)}
 .panel.drops>.linkish{justify-self:start}
+
+/* Condición de la copia (NM, LP… o gradeada) en la ficha. */
+.cond-line{margin:8px 0 0;font-size:14px}
+.cond-line .muted{color:var(--muted,#888)}
+.cond-pick{display:grid;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.cond-graded{display:flex;gap:8px}
+.cond-graded input{flex:1;min-width:0}

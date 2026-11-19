@@ -2,7 +2,8 @@
 // Todo es puro: recibe hojas, colección y precios, y devuelve texto o bytes.
 
 import { DEAL_LABEL, boxDupes } from './box';
-import { findCard, haveAndMissing } from './catalog';
+import { canon, findCard, haveAndMissing } from './catalog';
+import { condOf } from './condition';
 import { fmtDate, manualOf, autoUsd } from './money';
 import { cardTitle } from './shop';
 import type { BoxCard, CardDef, Collection, PriceBook, SheetDef } from './types';
@@ -32,7 +33,7 @@ export const HEADERS = [
   'Set',
   'Rareza',
   'Idioma',
-  'Gradeo',
+  'Condición',
   'Variante de',
   'Dónde está',
   'Estado',
@@ -52,7 +53,7 @@ function addTo(list: string[], v: string) {
 
 /**
  * Una fila por carta distinta que tengo (lo mismo que suma «tienes» en Colección).
- * Copias iguales (mismo nombre, número, set, rareza, idioma y gradeo) se juntan en una fila con su cantidad.
+ * Copias iguales (mismo nombre, número, set, rareza, idioma y condición) se juntan en una fila con su cantidad.
  */
 export function exportRows(sheets: SheetDef[], col: Collection, pr: PriceBook, alias: Record<string, string>): ExportRow[] {
   const { have } = haveAndMissing(sheets, col);
@@ -73,7 +74,7 @@ export function exportRows(sheets: SheetDef[], col: Collection, pr: PriceBook, a
       set: c.set ?? '',
       rareza: c.rar ?? '',
       idioma: langName(c.lang),
-      gradeo: c.graded ?? '',
+      gradeo: condOf(col, box ? key : canon(alias, key), c.graded),
       variante: f.isAlt && f.slot ? cardTitle(f.slot) : '',
       ubicacion: '',
       estado: '',
