@@ -11,7 +11,7 @@ import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
 import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
-import { AiError, askClaude, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg, type AiResult } from '../scan/claude';
+import { AiError, askClaude, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf, setClaudeCfg, type AiResult } from '../scan/claude';
 import type { Identified, Reading } from '../scan/identify';
 import type { Cand } from '../scan/match';
 import { ocrProgress, ocrState, readCard, warmUp } from '../scan/ocr';
@@ -44,8 +44,6 @@ interface Shot {
   aiErr?: string;
 }
 
-/** Abre el panel «Ayuda de Claude» (y lo lleva a la vista). */
-const claudeOpen = signal(false);
 
 const shots = signal<Shot[]>([]);
 const burst = signal(readBurst());
@@ -967,6 +965,24 @@ function ClaudeSettings() {
           </fieldset>
         </>
       )}
+      <div class="fld claude-cap">
+        <label for="claude-cap">Tope de gasto al mes (USD), para el escáner y el informe</label>
+        <input
+          id="claude-cap"
+          type="number"
+          min={0}
+          step={1}
+          inputMode="decimal"
+          value={capOf(cfg)}
+          onChange={(e) => {
+            const v = Number(e.currentTarget.value);
+            if (Number.isFinite(v) && v >= 0) void setClaudeCfg({ cap: v });
+          }}
+        />
+        <small class={budgetLeft(cfg) <= 0 ? 'msg warn' : 'hint'}>
+          Este mes van {usd(monthSpentOf(cfg))} de ${capOf(cfg)}.{budgetLeft(cfg) <= 0 ? ' Llegaste al tope: Claude queda en pausa hasta el mes que viene.' : ''}
+        </small>
+      </div>
       <p class="hint">
         {cfg.calls
           ? `En este aparato llevas ${cfg.calls === 1 ? '1 consulta' : `${cfg.calls} consultas`}, unos ${usd(cfg.spent)} en total (cálculo de la app; el cobro real está en console.anthropic.com).`

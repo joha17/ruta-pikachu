@@ -7,9 +7,42 @@ import { loadClaude, saveClaude, type ClaudeCfg } from '../db';
 import { blobToB64 } from '../model/backup';
 import { AI_SCHEMA, cleanAi, costOf, MODELS, scanPrompt, type AiCard, type ClaudeModel } from './claude-core';
 import type { LocalEntry } from './match';
+import { today } from '../model/keys';
 
 export const DEFAULT_CFG: ClaudeCfg = { on: false, key: '', model: 'claude-haiku-5-5', spent: 0, calls: 0 };
 export const claudeCfg = signal<ClaudeCfg>(DEFAULT_CFG);
+/** Abre el panel «Ayuda de Claude» en Escanear (también desde el informe de Colección). */
+export const claudeOpen = signal(false);
+
+/** Tope mensual por defecto (USD). */
+export const DEFAULT_CAP = 30;
+
+export function capOf(c: ClaudeCfg): number {
+  return typeof c.cap === 'number' && c.cap >= 0 ? c.cap : DEFAULT_CAP;
+}
+
+/** Gasto del mes `month` (AAAA-MM); 0 si lo guardado es de otro mes. */
+export function monthSpentOf(c: ClaudeCfg, month = today().slice(0, 7)): number {
+  return c.month === month ? (c.monthSpent ?? 0) : 0;
+}
+
+/** Lo que queda del tope este mes (puede ser negativo). */
+export function budgetLeft(c: ClaudeCfg, month = today().slice(0, 7)): number {
+  return capOf(c) - monthSpentOf(c, month);
+}
+
+/** Suma una consulta al gasto total y al del mes. */
+export async function addSpend(cost: number): Promise<void> {
+  const c = claudeCfg.value;
+  const month = today().slice(0, 7);
+  await setClaudeCfg({ spent: c.spent + cost, calls: c.calls + 1, month, monthSpent: monthSpentOf(c, month) + cost });
+}
+
+/** Corta antes de llamar si ya se llegó al tope del mes. */
+export function checkBudget(c = claudeCfg.value): void {
+  if (budgetLeft(c) <= 0)
+    throw new AiError(`Llegaste al tope de $${capOf(c)} de este mes. Puedes subirlo en «Ayuda de Claude» o esperar al mes que viene.`);
+}
 let loaded = false;
 
 export async function loadClaudeCfg(): Promise<ClaudeCfg> {
@@ -118,6 +151,7 @@ export function readMessage(msg: MiniMessage, keys: Set<string>): AiCard {
  */
 export async function askClaude(photo: Blob, entries: LocalEntry[], model: ClaudeModel, send?: Send): Promise<AiResult> {
   const cfg = claudeCfg.value;
+  checkBudget(cfg);
   if (!send) {
     if (!claudeReady(cfg)) throw new AiError('Activa «Ayuda de Claude» y pon tu clave primero.');
     if (!navigator.onLine) throw new AiError('Sin conexión: Claude necesita internet.');
@@ -125,7 +159,7 @@ export async function askClaude(photo: Blob, entries: LocalEntry[], model: Claud
   }
   const msg = await send(model, await blobToB64(photo), scanPrompt(entries));
   const cost = costOf(model, msg.usage);
-  await setClaudeCfg({ spent: claudeCfg.value.spent + cost, calls: claudeCfg.value.calls + 1 });
+  await addSpend(cost);
   const card = readMessage(msg, new Set(entries.map((e) => e.key)));
   return { card, model, cost };
 }
