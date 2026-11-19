@@ -1,7 +1,9 @@
 // Explicación de alertas con Claude en el aviso nocturno de Telegram (scripts/explicar.mjs).
 import { beforeEach, describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
+// @ts-expect-error: script de Node sin tipos
 import { budget, contextLine, explain, NIGHT_CAP, readNotes } from '../scripts/explicar.mjs';
+// @ts-expect-error: script de Node sin tipos
 import { message } from '../scripts/alertas.mjs';
 import { budgetLeft, claudeCfg, DEFAULT_CAP, DEFAULT_CFG, monthSpentOf, nightSpentOf, addSpend } from '../src/scan/claude';
 import { today } from '../src/model/keys';
