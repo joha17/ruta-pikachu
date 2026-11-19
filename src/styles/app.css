@@ -381,3 +381,14 @@ body.camfs-open{overflow:hidden}
 .chat-ideas{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .chat-form{display:flex;gap:8px;margin:6px 0}
 .chat-form input{flex:1;min-width:0}
+
+/* Consejero de compras */
+.adv-bar{display:grid;gap:4px;margin:10px 0}
+.adv-bar .btn{justify-self:start}
+.consejero .eyebrow{display:flex;justify-content:space-between;align-items:center}
+.consejero p{margin:0 0 6px}
+.adv{display:block;font-size:12px;font-weight:600;margin-top:2px}
+.adv small{font-weight:400;color:var(--muted)}
+.adv-comprar{color:var(--ok)}
+.adv-esperar{color:var(--warn)}
+.adv-vigilar{color:var(--muted)}

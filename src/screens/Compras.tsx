@@ -9,6 +9,7 @@ import { fmtDate, money } from '../model/money';
 import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } from '../model/shop';
 import { alias, collection, openKey, prices, sheets } from '../store';
 import { TrendMark } from '../ui/Trend';
+import { AdviceTag, Consejero } from '../ui/Consejero';
 
 function readPrefs(): { sort: ShopSort; sheet: string } {
   try {
@@ -98,6 +99,7 @@ function Row({ o, name }: { o: ShopItem; name: string }) {
           {name} · {o.num}
           {o.manual ? ' · precio a mano' : ''}
         </span>
+        <AdviceTag k={o.key} />
       </button>
       <span class="sp">
         {money(o.p)}
@@ -148,6 +150,7 @@ export function Compras() {
         </button>
       </div>
       <Hits />
+      {list.length > 0 && <Consejero />}
       <div class="shop-tools">
         <div class="chips" role="group" aria-label="Filtrar por hoja">
           <span class="lbl">Hoja:</span>
