@@ -47,7 +47,8 @@ export function NubeCard() {
       </summary>
       <p>
         Cada noche, después de bajar los precios del día, GitHub revisa tus alertas y te escribe por Telegram si alguna se cumple, aunque no
-        abras la app. Usa las mismas reglas de aquí y no repite lo que ya te avisó.
+        abras la app. Usa las mismas reglas de aquí y no repite lo que ya te avisó. El día 1 también te manda el resumen del mes: lo que
+        gastaste frente a tu presupuesto, las cartas que conseguiste y cuánto subió o bajó tu colección.
       </p>
 
       {on ? (

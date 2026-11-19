@@ -1,6 +1,7 @@
 // Alertas con la app cerrada: copia las alertas a un gist secreto de GitHub para que el aviso
 // nocturno (scripts/alertas.mjs en GitHub Actions) las revise y avise por Telegram, y trae a
-// Alertas lo que ese aviso mandó. Se hace después de cada revisión de alertas.
+// Alertas lo que ese aviso mandó. Se hace después de cada revisión de alertas. En el mismo gist
+// va lo del resumen del mes por Telegram (model/monthly.ts, scripts/resumen.mjs).
 
 import { productIdOf } from './history';
 import { signal } from '@preact/signals';
@@ -9,8 +10,12 @@ import { loadNube, saveNube, type NubeCfg } from './db';
 import { ALERTS_FILE, buildCloud, newFromCloud, SENT_FILE, type CloudSent } from './model/cloudAlerts';
 import { budgetLeft, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg } from './scan/claude';
 import { findCard } from './model/catalog';
+import { MONTH_FILE } from './model/monthly';
+import { buildMonth } from './model/monthlyData';
+import { today } from './model/keys';
+import { currentSeries } from './value';
 import { parseTokenExpiry } from './model/health';
-import { alias, collection, sheets } from './store';
+import { alias, collection, prices, sheets } from './store';
 import { cachedCard, fetchCard, type Lang } from './tcgdex';
 
 export const nube = signal<NubeCfg | null>(null);
@@ -143,18 +148,22 @@ async function run(): Promise<void> {
     const { data, skipped } = buildCloud(sheets.value, collection.value, alias.value, (k) => pids.get(k) ?? null);
     if (claudeReady(ccfg)) data.iaLeft = Math.max(0, Math.floor(budgetLeft(claudeCfg.value)));
     const content = JSON.stringify(data, null, 1);
-    const hash = `${content.length}:${[...content].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
+    // Para el resumen del mes por Telegram (scripts/resumen.mjs): compras, cartas y valor.
+    const month = JSON.stringify(buildMonth(sheets.value, collection.value, alias.value, prices.value, currentSeries(), today()));
+    const all = content + month;
+    const hash = `${all.length}:${[...all].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
+    const files = { [ALERTS_FILE]: { content }, [MONTH_FILE]: { content: month } };
     if (!gist) {
       gist = await gh<Gist>('/gists', cfg.token, {
         method: 'POST',
         body: JSON.stringify({
           description: 'Ruta Pikachu: alertas de precio para el aviso nocturno (lo escribe la app)',
           public: false,
-          files: { [ALERTS_FILE]: { content } },
+          files,
         }),
       });
     } else if (hash !== cfg.hash || gist.id !== cfg.gistId) {
-      await gh<Gist>(`/gists/${gist.id}`, cfg.token, { method: 'PATCH', body: JSON.stringify({ files: { [ALERTS_FILE]: { content } } }) });
+      await gh<Gist>(`/gists/${gist.id}`, cfg.token, { method: 'PATCH', body: JSON.stringify({ files }) });
     }
     await put({
       ...cfg,

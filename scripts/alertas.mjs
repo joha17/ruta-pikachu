@@ -109,7 +109,7 @@ export function expiryNotice(expires, warned, now) {
 /** Vencimiento del token según GitHub (cabecera de cada respuesta). */
 let tokenExpires;
 
-async function gh(path, token, init = {}) {
+export async function gh(path, token, init = {}) {
   const r = await fetch(`https://api.github.com${path}`, {
     ...init,
     headers: {
@@ -125,7 +125,7 @@ async function gh(path, token, init = {}) {
   return r.json();
 }
 
-async function findGist(token) {
+export async function findGist(token) {
   for (let page = 1; page <= 10; page++) {
     const list = await gh(`/gists?per_page=100&page=${page}`, token);
     const g = list.find((x) => x.files?.[ALERTS_FILE]);
@@ -135,7 +135,7 @@ async function findGist(token) {
   return null;
 }
 
-async function fileJson(f, token) {
+export async function fileJson(f, token) {
   if (!f) return null;
   let text = f.content;
   if (f.truncated || typeof text !== 'string') {
@@ -149,7 +149,7 @@ async function fileJson(f, token) {
   }
 }
 
-async function tg(token, method, body) {
+export async function tg(token, method, body) {
   const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
