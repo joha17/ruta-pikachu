@@ -5,7 +5,7 @@ import { savePrices } from './db';
 import { findCard } from './model/catalog';
 import { today } from './model/keys';
 import type { Point } from './model/trend';
-import { idShardOf, matchProduct, numKey, type Groups, type IdShard } from './model/productMatch';
+import { idShardOf, matchProduct, nameKey, nameShardOf, numKey, type Groups, type IdShard } from './model/productMatch';
 import { mergeRemote, remoteSeries, shardOf, type RemoteShard } from './model/remoteHist';
 import { alias, collection, prices, sheets } from './store';
 import { cachedCard, fetchCard, type Lang, type TcgCard } from './tcgdex';
@@ -39,7 +39,7 @@ function getJson<T>(path: string): Promise<T | null> {
     .catch(() => null);
 }
 let groups: Promise<Groups | null> | null = null;
-const idShards = new Map<number, Promise<IdShard | null>>();
+const idShards = new Map<string, Promise<IdShard | null>>();
 const pids = new Map<string, Promise<number | undefined>>();
 
 /**
@@ -52,13 +52,19 @@ export function productIdOf(card: TcgCard | null | undefined, lang: Lang = 'en')
   if (lang !== 'en') return Promise.resolve(undefined);
   let p = pids.get(card.id);
   if (!p) {
-    const n = idShardOf(numKey(card.localId));
+    const file = (f: string) => {
+      let sh = idShards.get(f);
+      if (!sh) idShards.set(f, (sh = getJson<IdShard>(`historial/ids/${f}.json`)));
+      return sh;
+    };
     groups ??= getJson<Groups>('historial/ids/groups.json');
-    let sh = idShards.get(n);
-    if (!sh) idShards.set(n, (sh = getJson<IdShard>(`historial/ids/${n}.json`)));
-    p = Promise.all([sh, groups]).then(([s, g]) =>
-      matchProduct(s, g, { name: card.name, localId: card.localId, setName: card.set.name, official: card.set.official }),
-    );
+    const ref = { name: card.name, localId: card.localId, setName: card.set.name, official: card.set.official };
+    p = Promise.all([file(String(idShardOf(numKey(card.localId)))), groups]).then(async ([s, g]) => {
+      const byNum = matchProduct(s, g, ref);
+      if (byNum) return byNum;
+      // Reimpresiones con su número original (Classic Collection…): por nombre, si el set coincide bien.
+      return matchProduct(s, g, ref, await file(`n${nameShardOf(nameKey(card.name))}`));
+    });
     pids.set(card.id, p);
   }
   return p;

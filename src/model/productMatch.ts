@@ -12,6 +12,13 @@ export function numKey(s: string | undefined): string {
   return m ? `${m[1]}${m[2]}${m[3]}` : head;
 }
 
+/** Archivo del índice por nombre (para cartas reimpresas con su número original, como Classic Collection). */
+export function nameShardOf(name: string): number {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 1000003;
+  return h % ID_SHARDS;
+}
+
 /** Archivo del índice donde está ese número. */
 export function idShardOf(key: string): number {
   const d = /\d+/.exec(key);
@@ -42,10 +49,11 @@ const words = (s: string) =>
   new Set(
     s
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 1 && !STOP.has(w)),
+      .filter((w) => w.length > 1 && !STOP.has(w))
+      .map((w) => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w)),
   );
 
 export interface CardRef {
@@ -58,15 +66,21 @@ export interface CardRef {
 
 /**
  * El productId que corresponde a la carta: mismo número y nombre, y el set de TCGplayer que más se
- * parece al de TCGdex (palabras en común y el total impreso). Si dos sets empatan, no adivina.
+ * parece al de TCGdex (palabras en común y el total impreso). Si no hay ninguno con ese número,
+ * `byName` (el archivo por nombre) sirve para reimpresiones que llevan su número original, pero solo
+ * si el set coincide bien. Si dos productos empatan o el set no se parece, no adivina.
  */
-export function matchProduct(sh: IdShard | null, groups: Groups | null, c: CardRef): number | undefined {
-  if (!sh?.rows?.length) return undefined;
+export function matchProduct(sh: IdShard | null, groups: Groups | null, c: CardRef, byName?: IdShard | null): number | undefined {
   const nk = numKey(c.localId);
   const name = nameKey(c.name);
   if (!nk || !name) return undefined;
-  const cands = sh.rows.filter((r) => numKey(r[2]) === nk && nameKey(r[3]) === name);
-  if (!cands.length) return undefined;
+  const byNum = (sh?.rows ?? []).filter((r) => numKey(r[2]) === nk && nameKey(r[3]) === name);
+  if (byNum.length) return best(byNum, groups, c, 2);
+  const named = (byName?.rows ?? []).filter((r) => nameKey(r[3]) === name);
+  return named.length ? best(named, groups, c, 4) : undefined;
+}
+
+function best(cands: IdRow[], groups: Groups | null, c: CardRef, min: number): number | undefined {
   const sw = words(c.setName);
   const scored = cands.map((r) => {
     const gw = words(groups?.[String(r[1])] ?? '');
@@ -74,11 +88,13 @@ export function matchProduct(sh: IdShard | null, groups: Groups | null, c: CardR
     for (const w of sw) if (gw.has(w)) s += 2;
     const den = Number(/\/\s*(\d+)/.exec(r[2])?.[1]);
     if (c.official && den === c.official) s += 1;
+    // Entre dos iguales, la versión normal antes que «(Pokemon Center Exclusive)», «(Cosmos Holo)»…
+    if (!r[3].includes('(')) s += 0.5;
     return { pid: r[0], s };
   });
   scored.sort((a, b) => b.s - a.s);
-  const best = scored[0]!;
-  if (scored.length > 1 && scored[1]!.s === best.s && scored[1]!.pid !== best.pid) return undefined;
-  if (scored.length > 1 && best.s === 0) return undefined;
-  return best.pid;
+  const top = scored[0]!;
+  if (top.s < min) return undefined;
+  if (scored.length > 1 && scored[1]!.s === top.s && scored[1]!.pid !== top.pid) return undefined;
+  return top.pid;
 }

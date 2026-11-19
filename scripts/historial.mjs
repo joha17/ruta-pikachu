@@ -193,6 +193,21 @@ export function idShardOf(key) {
   const d = /\d+/.exec(key);
   return d ? Number(d[0]) % ID_SHARDS : 0;
 }
+/** Igual que nameKey y nameShardOf de src/model/productMatch.ts. */
+export function nameKey(s) {
+  return String(s ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/\s+-\s+[a-z]*\d+[a-z]*(\/[a-z]*\d+)?\s*$/, ' ')
+    .replace(/[^a-z0-9]/g, '');
+}
+export function nameShardOf(name) {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 1000003;
+  return h % ID_SHARDS;
+}
 /** Los productos de un set se vuelven a pedir cada semana si el set salió hace menos de 90 días. */
 const FRESH_SET = 90 * DAY;
 const REFRESH = 7 * DAY;
@@ -239,6 +254,7 @@ async function productIndex() {
   }
   const groups = {};
   const shards = new Map();
+  const names = new Map();
   let n = 0;
   for (const grp of g.results) {
     const f = join(dir, `${grp.groupId}.json`);
@@ -248,18 +264,22 @@ async function productIndex() {
       const s = idShardOf(numKey(r[2]));
       if (!shards.has(s)) shards.set(s, []);
       shards.get(s).push(r);
+      const k = nameShardOf(nameKey(r[3]));
+      if (!names.has(k)) names.set(k, []);
+      names.get(k).push(r);
       n++;
     }
   }
   console.log(`Índice de productos: ${Object.keys(groups).length} de ${g.results.length} sets, ${n} cartas, ${got} sets nuevos.`);
-  return { groups, shards };
+  return { groups, shards, names };
 }
 
-function writeIds({ groups, shards }) {
+function writeIds({ groups, shards, names }) {
   const d = join(OUT, 'ids');
   mkdirSync(d, { recursive: true });
   writeFileSync(join(d, 'groups.json'), JSON.stringify(groups));
   for (const [s, rows] of shards) writeFileSync(join(d, `${s}.json`), JSON.stringify({ rows }));
+  for (const [s, rows] of names) writeFileSync(join(d, `n${s}.json`), JSON.stringify({ rows }));
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) await main();
