@@ -8,6 +8,7 @@ import { fmtDate, money, usd as priceOf } from '../model/money';
 import { hashText, reportFresh } from '../model/report';
 import { cardTitle } from '../model/shop';
 import { today } from '../model/keys';
+import { priceText } from '../scan/browse';
 import { MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf } from '../scan/claude';
 import { searchName } from '../screens/Buscar';
@@ -38,8 +39,11 @@ export function Ideas() {
   const { prompt } = ideasInput(budget);
   const h = hashText(prompt);
   const day = today();
-  // Solo las cartas comprobadas en TCGdex; las ideas guardadas antes de esa comprobación no se muestran.
-  const nuevas = (r?.out.nueva.cartas ?? []).filter((c): c is typeof c & { tcg: string; setId: string } => !!c.tcg && !!c.setId);
+  // Solo cartas comprobadas en TCGdex y con su precio; las ideas guardadas antes de eso no se muestran.
+  const nuevas = (r?.out.nueva.cartas ?? []).filter(
+    (c): c is typeof c & { tcg: string; setId: string; price: { v: number; cur: 'USD' | 'EUR' } } => !!c.tcg && !!c.setId && !!c.price,
+  );
+  const nv = r?.out.nueva;
   const viejas = !!r && nuevas.length === 0 && (r.out.nueva.cartas.length ?? 0) > 0;
 
   function setB(v: number) {
@@ -116,22 +120,32 @@ export function Ideas() {
                       {' '}
                       · {c.set}
                       {c.num && ` ${c.num}`}
-                    </small>
+                    </small>{' '}
+                    <b>{priceText(c.price)}</b>
                     {c.why && <small class="why">{c.why}</small>}
                   </li>
                 ))}
               </ol>
+              <p>
+                Juntas cuestan <b>{money(nv?.total ?? null)}</b>, dentro de tus ${r.budget}.
+                {nuevas.length < 9 && ` Son ${nuevas.length} porque las demás no cabían en el presupuesto.`}
+              </p>
               <p class="hint">
-                Todas estas cartas están comprobadas en el catálogo de TCGdex.
-                {!!r.out.nueva.descartadas &&
-                  ` Quité ${r.out.nueva.descartadas} ${r.out.nueva.descartadas === 1 ? 'carta que Claude nombró y no existe' : 'cartas que Claude nombró y no existen'} en ese set.`}{' '}
-                Toca una para verla en Buscar con su precio. Si te gusta la idea, créala con «＋ Crear hoja».
+                Todas están comprobadas en el catálogo de TCGdex, con su precio de hoy.
+                {!!nv?.descartadas && ` Quité ${nv.descartadas} ${nv.descartadas === 1 ? 'carta que no existe' : 'cartas que no existen'}`}
+                {!!nv?.descartadas && !!nv?.caras && ' y'}
+                {!nv?.descartadas && !!nv?.caras && ' Quité'}
+                {!!nv?.caras && ` ${nv.caras} que se pasaban del presupuesto`}
+                {(!!nv?.descartadas || !!nv?.caras) && '.'} Toca una para verla en Buscar. Si te gusta la idea, créala con «＋ Crear hoja».
               </p>
             </>
           )}
-          {viejas && <p class="hint">Estas ideas son de antes de que la app comprobara las cartas. Pide ideas de nuevo para ver una hoja nueva con cartas reales.</p>}
-          {!viejas && nuevas.length === 0 && !!r.out.nueva.descartadas && (
-            <p class="hint">Claude sugirió cartas para una hoja nueva, pero ninguna existe en el catálogo, así que no te muestro ninguna. Prueba de nuevo o con Sonnet.</p>
+          {viejas && <p class="hint">Estas ideas son de antes de que la app comprobara las cartas y sus precios. Pide ideas de nuevo para ver una hoja nueva dentro de tu presupuesto.</p>}
+          {!viejas && nuevas.length === 0 && (!!nv?.descartadas || !!nv?.caras) && (
+            <p class="hint">
+              Ninguna de las cartas que sugirió Claude para una hoja nueva existe o cabe en tus ${r.budget}, así que no te muestro ninguna. Prueba de nuevo, sube el
+              presupuesto o usa Sonnet.
+            </p>
           )}
           <p class="hint">
             {MODELS[r.model as ClaudeModel]?.label ?? r.model}, {fmtDate(r.d)}, costó unos {usd(r.cost)}.

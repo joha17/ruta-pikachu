@@ -139,9 +139,10 @@ export function ideasPrompt(summary: string, profile: string, missing: string, b
     'You suggest what a Pokémon TCG collector could collect next. Answer in Spanish (Latin American), short and friendly.',
     `Monthly budget: $${budget} USD.`,
     '"completar": up to 5 missing cards from the table (use their exact ids) that best fit the budget and finish sheets that are close to complete; "why" = one short sentence.',
-    '"nueva": an idea for a NEW 9-card sheet that fits the collector\'s style (artists, Pokémon, rarities they like) and is different from their current sheets: a name, one sentence about the idea, and a list of 14 candidate cards, best first.',
+    '"nueva": an idea for a NEW 9-card sheet that fits the collector\'s style (artists, Pokémon, rarities they like) and is different from their current sheets: a name, one sentence about the idea, and a list of 20 candidate cards, best first.',
+    `Budget for the new sheet: the 9 cards together must cost at most $${budget} USD in total (about $${Math.max(1, Math.floor(budget / 9))} each on average), so pick affordable prints (regular rares, holos, reverse holos, cheaper promos) and avoid chase cards, vintage first editions or famous expensive promos unless the budget clearly allows it. The app checks real prices and drops cards that do not fit.`,
     'Each candidate must be a real printed English card: "n" = the exact card name as printed (e.g. "Pikachu ex", "Umbreon VMAX"), "set" = the exact English set name, "num" = the collector number in that set. The app checks every card against the official card database and silently drops any that does not exist in that set, so only list cards you are sure about; never guess a name, set or number, and do not combine a Pokémon with a mechanic (ex, V, GX…) unless that exact card exists. Prefer well-known prints over obscure ones.',
-    'Do not state prices for these new cards; say in "idea" if it is a cheap or expensive sheet only in general terms. In "idea" and "resumen" do not name specific new cards (they may be dropped); talk about the theme.',
+    'Do not state prices for these new cards; say in "idea" if it is a cheap or expensive sheet only in general terms. In "idea" and "resumen" do not name specific new cards (they may be dropped); talk about the theme. In each card\'s "why" talk about its art or appeal; do not mention its set, era or year (the app shows the real set).',
     '"resumen": 1–2 sentences.',
     REF_RULE,
     '',
@@ -195,9 +196,13 @@ export interface IdeasOut {
     nombre: string;
     idea: string;
     /** Cartas comprobadas en TCGdex (las guardadas antes de comprobarlas no traen tcg). */
-    cartas: Array<{ n: string; set: string; why: string; num?: string; tcg?: string; setId?: string }>;
+    cartas: Array<{ n: string; set: string; why: string; num?: string; tcg?: string; setId?: string; price?: { v: number; cur: 'USD' | 'EUR' } }>;
     /** Cartas que nombró Claude y no existen en el catálogo (se descartaron). */
     descartadas?: number;
+    /** Cartas reales que se quitaron porque no cabían en el presupuesto (o no tenían precio). */
+    caras?: number;
+    /** Lo que cuestan juntas las cartas que quedaron. */
+    total?: number;
   };
 }
 
@@ -212,7 +217,7 @@ export interface SavedIdeas {
 }
 
 /** Candidatas para la hoja nueva que se piden (luego se comprueban y quedan hasta 9). */
-export const NEW_CANDIDATES = 14;
+export const NEW_CANDIDATES = 20;
 
 /**
  * Limpia la respuesta; solo deja faltantes que existen (por su id) y hasta 14 candidatas nuevas,
