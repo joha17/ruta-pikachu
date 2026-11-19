@@ -38,6 +38,9 @@ export function Ideas() {
   const { prompt } = ideasInput(budget);
   const h = hashText(prompt);
   const day = today();
+  // Solo las cartas comprobadas en TCGdex; las ideas guardadas antes de esa comprobación no se muestran.
+  const nuevas = (r?.out.nueva.cartas ?? []).filter((c): c is typeof c & { tcg: string; setId: string } => !!c.tcg && !!c.setId);
+  const viejas = !!r && nuevas.length === 0 && (r.out.nueva.cartas.length ?? 0) > 0;
 
   function setB(v: number) {
     setBudget(v);
@@ -95,7 +98,7 @@ export function Ideas() {
               </ul>
             </>
           )}
-          {r.out.nueva.cartas.length > 0 && (
+          {nuevas.length > 0 && (
             <>
               <h4>Hoja nueva: {r.out.nueva.nombre}</h4>
               {r.out.nueva.idea && (
@@ -104,18 +107,31 @@ export function Ideas() {
                 </p>
               )}
               <ol class="ideas-list">
-                {r.out.nueva.cartas.map((c, i) => (
-                  <li key={i}>
-                    <button class="cardref" title={`Buscar ${c.n} en Buscar`} onClick={() => searchName(c.n)}>
+                {nuevas.map((c) => (
+                  <li key={c.tcg}>
+                    <button class="cardref" title={`Ver ${c.n} en Buscar`} onClick={() => searchName(c.n, c.setId)}>
                       {c.n}
                     </button>
-                    {c.set && <small> · {c.set}</small>}
+                    <small>
+                      {' '}
+                      · {c.set}
+                      {c.num && ` ${c.num}`}
+                    </small>
                     {c.why && <small class="why">{c.why}</small>}
                   </li>
                 ))}
               </ol>
-              <p class="hint">Toca una carta de la hoja nueva para buscarla y ver su precio. Si te gusta, créala con «＋ Crear hoja».</p>
+              <p class="hint">
+                Todas estas cartas están comprobadas en el catálogo de TCGdex.
+                {!!r.out.nueva.descartadas &&
+                  ` Quité ${r.out.nueva.descartadas} ${r.out.nueva.descartadas === 1 ? 'carta que Claude nombró y no existe' : 'cartas que Claude nombró y no existen'} en ese set.`}{' '}
+                Toca una para verla en Buscar con su precio. Si te gusta la idea, créala con «＋ Crear hoja».
+              </p>
             </>
+          )}
+          {viejas && <p class="hint">Estas ideas son de antes de que la app comprobara las cartas. Pide ideas de nuevo para ver una hoja nueva con cartas reales.</p>}
+          {!viejas && nuevas.length === 0 && !!r.out.nueva.descartadas && (
+            <p class="hint">Claude sugirió cartas para una hoja nueva, pero ninguna existe en el catálogo, así que no te muestro ninguna. Prueba de nuevo o con Sonnet.</p>
           )}
           <p class="hint">
             {MODELS[r.model as ClaudeModel]?.label ?? r.model}, {fmtDate(r.d)}, costó unos {usd(r.cost)}.

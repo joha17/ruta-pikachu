@@ -157,8 +157,8 @@ function change(p: Partial<BrowseFilters>, wait = 0) {
 }
 
 /** Abre Buscar con una búsqueda por nombre (desde las ideas de Claude). */
-export function searchName(name: string): void {
-  change({ ...NO_FILTERS, name });
+export function searchName(name: string, setId?: string): void {
+  change({ ...NO_FILTERS, name, set: setId ? [setId] : [] });
   go('buscar');
 }
 
