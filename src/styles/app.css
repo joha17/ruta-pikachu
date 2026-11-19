@@ -372,3 +372,12 @@ body.camfs-open{overflow:hidden}
 .inf-sent summary{cursor:pointer;font-size:13px;color:var(--muted)}
 .inf-sent pre{white-space:pre-wrap;word-break:break-word;font-size:12px;max-height:240px;overflow:auto;margin:6px 0 0}
 .claude-cap input{max-width:120px}
+
+/* Pregúntale a tu colección */
+.preguntar{margin-top:12px}
+.chat-log{list-style:none;margin:4px 0;padding:0;display:grid;gap:12px}
+.chat-q{margin:0 0 4px;font-weight:600}
+.chat-a{margin:0;white-space:pre-wrap}
+.chat-ideas{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
+.chat-form{display:flex;gap:8px;margin:6px 0}
+.chat-form input{flex:1;min-width:0}
