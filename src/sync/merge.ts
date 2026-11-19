@@ -1,6 +1,6 @@
 // Sincronización entre aparatos: la parte pura (sin red ni IndexedDB).
 //
-// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, alerta de precio, alerta disparada, compra, carta en frío, presupuesto, variante,
+// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, alerta de precio, alerta disparada, compra, carta en frío, condición, presupuesto, variante,
 // orden de hoja, hoja propia, carta de hoja propia, carta agregada a una hoja fija, carta de la Caja y foto. Cada átomo
 // lleva la hora de su último cambio. Al combinar dos copias gana, átomo por átomo, el cambio
 // más reciente. Un borrado deja una marca (átomo sin valor) para que un aparato
@@ -65,6 +65,7 @@ const KINDS = new Set<string>([
   'sheetorder',
   'spend',
   'later',
+  'cond',
   'sheet',
   'card',
   'xsheet',
@@ -102,6 +103,7 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   if (col.sheetOrder?.length) out['sheetorder:menu'] = col.sheetOrder;
   for (const [k, v] of Object.entries(col.spend ?? {})) out[`spend:${k}`] = v;
   for (const [k, v] of Object.entries(col.later ?? {})) out[`later:${k}`] = v;
+  for (const [k, v] of Object.entries(col.cond ?? {})) if (v) out[`cond:${k}`] = v;
   for (const sh of col.custom ?? []) {
     const head: Record<string, unknown> = { name: sh.name, cards: sh.cards.map((c) => c.k) };
     if (sh.desc) head.desc = sh.desc;
@@ -244,7 +246,9 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
       if (typeof v === 'number') col.budget = v;
     } else if (kind === 'spend') col.spend[k] = v as Spend;
     else if (kind === 'later') col.later[k] = v as LaterCard;
-    else if (kind === 'sheet') sheets.set(k, v as { name: string; desc?: string; cards: string[] });
+    else if (kind === 'cond') {
+      if (typeof v === 'string' && v) col.cond = { ...(col.cond ?? {}), [k]: v };
+    } else if (kind === 'sheet') sheets.set(k, v as { name: string; desc?: string; cards: string[] });
     else if (kind === 'card') {
       const dot = k.indexOf('.');
       const sid = k.slice(0, dot);

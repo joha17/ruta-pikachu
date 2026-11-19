@@ -21,6 +21,7 @@ import { openAsistente } from './Asistente';
 import { Zoomable } from './Zoom';
 import { buyFlow, refundKey } from './Presupuesto';
 import { gainText, paidOf } from '../model/gain';
+import { condLabel, condOf, COND_HELP, COND_MAX, isGraded, RAW_CONDS } from '../model/condition';
 
 const LANG: Record<string, string> = { en: 'Inglés', ja: 'Japonés' };
 
@@ -78,7 +79,8 @@ function CardSheet({ k }: { k: string }) {
   }
   if (sh && !sh.fixed) meta.push(['Hoja', sh.name]);
   if (c.lang) meta.push(['Idioma', LANG[c.lang] ?? c.lang]);
-  if (c.graded) meta.push(['Gradeada', c.graded]);
+  // La condición de lo que tengo va en su propia línea (se puede cambiar); aquí solo si no la tengo.
+  if (c.graded && !own && !isBox) meta.push(['Gradeada', c.graded]);
   if (isBox) meta.push(['Dónde está', 'En la caja, esperando bolsillo']);
   if (c.tcg) meta.push(['ID de TCGdex', c.tcg, true]);
   meta.push([
@@ -211,6 +213,7 @@ function CardSheet({ k }: { k: string }) {
             </>
           ))}
         </dl>
+        {(own || isBox) && <CondPick k={isBox ? k : ck} graded={c.graded} />}
         {!isBox && (
           <div class="actions ficha-main">
             <button
@@ -447,6 +450,88 @@ function CardSheet({ k }: { k: string }) {
 }
 
 /** Caja: ¿me la quedo, la cambio o la vendo? Y si es repetida, lo dice. */
+/** Condición de mi copia: una línea que se abre para elegir NM, LP… o escribir el gradeo. */
+function CondPick({ k, graded }: { k: string; graded?: string }) {
+  const [open, setOpen] = useState(false);
+  const [typing, setTyping] = useState(false);
+  const [text, setText] = useState('');
+  const cur = condOf(collection.value, k, graded);
+  useEffect(() => {
+    setOpen(false);
+    setTyping(false);
+  }, [k]);
+  function pick(v: string) {
+    act((cc) => ops.setCondition(cc, k, v));
+    setOpen(false);
+    setTyping(false);
+  }
+  if (!open)
+    return (
+      <p class="cond-line">
+        Condición: {cur ? <strong>{condLabel(cur)}</strong> : <span class="muted">sin anotar</span>}{' '}
+        <button class="linkish" onClick={() => setOpen(true)}>
+          {cur ? 'Cambiar' : 'Anotar'}
+        </button>
+      </p>
+    );
+  return (
+    <div class="cond-pick">
+      <div class="eyebrow">Condición de tu copia</div>
+      <div class="chips" role="group" aria-label="Condición de tu copia">
+        {RAW_CONDS.map((v) => (
+          <button key={v} class="chipf" aria-pressed={cur === v} title={COND_HELP[v]} onClick={() => pick(v)}>
+            {v}
+          </button>
+        ))}
+        <button
+          class="chipf"
+          aria-pressed={isGraded(cur) || typing}
+          onClick={() => {
+            setText(isGraded(cur) ? cur : '');
+            setTyping(true);
+          }}
+        >
+          Gradeada…
+        </button>
+      </div>
+      {typing && (
+        <form
+          class="cond-graded"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (text.trim()) pick(text);
+          }}
+        >
+          <input
+            type="text"
+            value={text}
+            maxLength={COND_MAX}
+            placeholder="PSA 10, CGC 9.5…"
+            aria-label="Empresa y nota"
+            autoFocus
+            onInput={(e) => setText((e.currentTarget as HTMLInputElement).value)}
+          />
+          <button class="btn" type="submit" disabled={!text.trim()}>
+            Guardar
+          </button>
+        </form>
+      )}
+      <p class="hint">
+        NM casi perfecta · LP poco jugada · MP jugada · HP muy jugada · DMG dañada. Solo queda anotada: los precios gratis no
+        cambian según la condición.{' '}
+        {cur && (
+          <button class="linkish" onClick={() => pick('')}>
+            Quitar
+          </button>
+        )}{' '}
+        <button class="linkish" onClick={() => setOpen(false)}>
+          Cerrar
+        </button>
+      </p>
+    </div>
+  );
+}
+
 function DealPick({ b }: { b: BoxCard }) {
   const dupes = boxDupes(sheets.value, collection.value, alias.value);
   const d = dupes[b.id];

@@ -4,6 +4,7 @@
 import { aliases, canon, findCard, isExtra, MAX_BOX, MAX_CARDS, MAX_SHEETS, slots } from './catalog';
 import { keyOf, localOfKey, newId, sheetOfKey, today } from './keys';
 import { eventId, normAlert } from './alerts';
+import { moveCond, setCond } from './condition';
 import type { AlertEvent, BoxCard, CardDef, Collection, CustomSheet, MyGoal, PriceAlert, PriceBook, SheetDef } from './types';
 
 /** Qué hacer con las fotos después de un cambio. */
@@ -137,6 +138,10 @@ export function editBox(col: Collection, id: string, c: CardInput): void {
 export function removeBox(col: Collection, id: string): PhotoChanges {
   col.box = col.box.filter((b) => b.id !== id);
   delete col.manual[`b:${id}`];
+  if (col.cond?.[`b:${id}`]) {
+    col.cond = { ...col.cond };
+    delete col.cond[`b:${id}`];
+  }
   return { remove: [`b:${id}`] };
 }
 
@@ -151,9 +156,13 @@ export function placeBox(
   const k = canon(alias, key);
   col.owned[k] = true;
   delete col.wish[k];
-  col.box = col.box.filter((b) => b.id !== id);
+  const b = col.box.find((x) => x.id === id);
+  col.box = col.box.filter((x) => x.id !== id);
   delete col.manual[`b:${id}`];
   const from = `b:${id}`;
+  // La condición pasa al bolsillo (lo anotado, o el gradeo que traía del escáner).
+  moveCond(col, from, k);
+  if (!col.cond?.[k] && b?.graded) col.cond = { ...(col.cond ?? {}), [k]: b.graded };
   if (!hasPhoto(from)) return {};
   return hasPhoto(k) ? { remove: [from] } : { move: [[from, k]] };
 }
@@ -201,6 +210,7 @@ function boxInto(col: Collection, prices: PriceBook, id: string, sid: string, al
     col.manual[to] = col.manual[from];
     delete col.manual[from];
   }
+  moveCond(col, from, to);
   if (prices.usd[from] != null) prices.usd[to] = prices.usd[from];
   // El historial viaja con la carta, para no perder su tendencia.
   for (const day of Object.values(prices.hist))
@@ -263,6 +273,10 @@ function forget(col: Collection, key: string): void {
   delete col.manual[key];
   delete col.wish[key];
   delete col.variant[key];
+  if (col.cond?.[key]) {
+    col.cond = { ...col.cond };
+    delete col.cond[key];
+  }
 }
 
 export function deleteSheet(col: Collection, sid: string): PhotoChanges {
@@ -432,6 +446,7 @@ function ownedToBox(
       col.manual[to] = col.manual[k];
       delete col.manual[k];
     }
+    moveCond(col, k, to);
     if (prices.usd[k] != null) {
       prices.usd[to] = prices.usd[k];
       delete prices.usd[k];
@@ -544,6 +559,30 @@ export function removeCard(
   const ch = deleteCard(col, sheets, key);
   const remove = (ch.remove ?? []).filter((k) => !r.moved.includes(canon(aliases(sheets), k)));
   return { moved: r.moved.length, photos: { ...r.photos, ...(remove.length ? { remove } : {}) } };
+}
+
+// ---- Condición de la copia ----
+
+/**
+ * Anota la condición de una carta que tengo ('' la quita). Desde ahí manda lo anotado: el gradeo
+ * que traía la carta (del escáner, en la Caja o en una hoja propia) se quita para no contradecirse.
+ */
+export function setCondition(col: Collection, key: string, cond: string): void {
+  setCond(col, key, cond);
+  const strip = (o?: { graded?: string }) => {
+    if (o?.graded) delete o.graded;
+  };
+  if (key.startsWith('b:')) {
+    const i = col.box.findIndex((b) => b.id === key.slice(2));
+    if (i >= 0 && col.box[i]!.graded) {
+      col.box[i] = { ...col.box[i]! };
+      strip(col.box[i]);
+    }
+    return;
+  }
+  const sh = editableOf(col, sheetOfKey(key))?.cs;
+  const local = localOfKey(key);
+  for (const slot of sh?.cards ?? []) for (const o of [slot, ...(slot.alts ?? [])]) if (o.k === local) strip(o);
 }
 
 // ---- Objetivos propios ----

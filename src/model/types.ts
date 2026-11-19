@@ -159,6 +159,8 @@ export interface Collection {
   spend: Record<string, Spend>;
   /** «Lo pienso en frío»: cartas que quise comprar y dejé para pensarlo. */
   later: Record<string, LaterCard>;
+  /** Condición de cada copia: clave → «NM», «LP»… o gradeo («PSA 10»). Ver model/condition.ts. */
+  cond?: Record<string, string>;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
 }
