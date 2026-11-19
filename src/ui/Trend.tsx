@@ -1,7 +1,7 @@
 // Flecha ▲▼ junto al precio y gráfica con tabla en la ficha.
 
 import { useEffect, useState } from 'preact/hooks';
-import { backfill, remoteHistory } from '../history';
+import { backfill, productIdOf, remoteHistory } from '../history';
 import { fmtDate, manualOf, money } from '../model/money';
 import { changeOf, daysText, histSeries, rangeSeries, RANGES, spanDays, trendOf, trendText, type Point, type Range } from '../model/trend';
 import { alias, collection, prices } from '../store';
@@ -60,37 +60,37 @@ export function PriceTrend({ k }: { k: string }) {
  */
 export function SearchTrend({ tcg }: { tcg: string }) {
   const card = cachedCard(tcg);
-  const pid = card?.tcgpId;
-  const variant = card?.usdVariant;
-  const [st, setSt] = useState<{ pid?: number; pts: Point[] | null }>({ pts: null });
+  // undefined: buscando; 0: sin producto de TCGplayer; si no, los puntos.
+  const [st, setSt] = useState<{ id?: string; pid?: number; pts?: Point[] }>({});
   useEffect(() => {
-    if (!pid) return;
+    if (!card) return;
     let live = true;
-    setSt({ pid, pts: null });
-    void remoteHistory(pid, variant).then((pts) => live && setSt({ pid, pts }));
+    setSt({});
+    void (async () => {
+      const pid = await productIdOf(card);
+      const pts = pid ? await remoteHistory(pid, card.tcgpId ? card.usdVariant : undefined) : [];
+      if (live) setSt({ id: card.id, pid: pid ?? 0, pts });
+    })();
     return () => {
       live = false;
     };
-  }, [pid, variant]);
+  }, [card?.id, card?.tcgpId]);
   if (!card) return null;
-  if (!pid)
-    return (
-      <div class="trendbox">
-        <div class="eyebrow">Tendencia del precio</div>
-        <p class="hint">
-          No hay historial: TCGdex no enlaza esta carta con TCGplayer, y el historial de precios sale de TCGplayer.
-        </p>
-      </div>
-    );
-  const pts = st.pid === pid ? st.pts : null;
-  if (!pts)
+  if (st.id !== card.id)
     return (
       <div class="trendbox">
         <div class="eyebrow">Tendencia del precio</div>
         <p class="hint">Buscando historial…</p>
       </div>
     );
-  return <TrendChart full={pts} empty="TCGplayer no tiene precios de los últimos meses para esta carta." />;
+  if (!st.pid)
+    return (
+      <div class="trendbox">
+        <div class="eyebrow">Tendencia del precio</div>
+        <p class="hint">No encontramos esta carta en TCGplayer, y el historial de precios sale de ahí.</p>
+      </div>
+    );
+  return <TrendChart full={st.pts ?? []} empty="TCGplayer no tiene precios de los últimos meses para esta carta." />;
 }
 
 /** Gráfica con rangos, lectura al tocar y tabla por día. `grows`: el historial se llena con el uso. */
