@@ -4,14 +4,16 @@
 //   no haya conexión. Luego, agrupando cambios seguidos, se sincroniza.
 // - Se sincroniza también al abrir la app, al volver a ella, al recuperar la conexión y cada
 //   pocos minutos mientras está abierta.
-// - La clave de Claude, los ajustes y los precios automáticos no viajan: cada aparato tiene los suyos.
+// - La clave de Claude y los ajustes no viajan: cada aparato tiene los suyos.
+// - Los precios automáticos viajan aparte (precios.json): por carta, el del día más reciente.
 
 import { computed, signal } from '@preact/signals';
 import * as store from '../db';
 import type { SyncState } from '../db';
 import { buildCopy, copyDay, copyName, COPY_PREFIX, parseCopy, planCopies, type DailyCopy } from '../model/copies';
 import { setIdTag, today } from '../model/keys';
-import { afterChange, collection, flush, reloadPhotos, update } from '../store';
+import { afterChange, collection, flush, prices, reloadPhotos, update } from '../store';
+import { applySnap, mergeSnaps, parseSnap, PRICES_NAME, snapOf, snapText, type PriceSnap } from './prices';
 import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, PHOTO_PREFIX, signIn, type DriveFile } from './drive';
 import {
   baseline,
@@ -306,6 +308,7 @@ async function runSync(): Promise<void> {
       if (now - Date.parse(f.createdTime ?? '') > ORPHAN_MS) await drive.remove(f.id);
     }
 
+    await syncPrices(drive, files);
     await dailyCopy(drive, files);
 
     state.last = new Date().toISOString();
@@ -320,6 +323,41 @@ async function runSync(): Promise<void> {
       setStatus('login', 'La sesión de Google caducó. Toca «Sincronizar» para seguir.');
     } else if (e instanceof DriveError && e.offline) setStatus('offline');
     else setStatus('error', msgOf(e));
+  }
+}
+
+// ---- Precios compartidos ----
+
+/**
+ * Junta los últimos precios de este aparato con los de Drive, para que los totales den igual en
+ * todos. Si falla, no detiene la sincronización (se intenta la próxima vez).
+ */
+async function syncPrices(drive: Drive, files: DriveFile[]): Promise<void> {
+  try {
+    const mine = files.filter((f) => f.name === PRICES_NAME);
+    let remote: PriceSnap = {};
+    let readOk = true;
+    for (const f of mine) {
+      const s = parseSnap(await (await drive.read(f.id)).text());
+      if (s) remote = mergeSnaps(remote, s);
+      else readOk = false;
+    }
+    const merged = mergeSnaps(remote, snapOf(prices.value));
+    const p = structuredClone(prices.value);
+    if (applySnap(p, merged, today())) {
+      prices.value = p;
+      await store.savePrices(p);
+    }
+    if (!readOk && mine.length === 1) return; // archivo raro: no se pisa a ciegas
+    if (snapText(merged) !== snapText(remote) || mine.length !== 1) {
+      const body = new Blob([snapText(merged)], { type: 'application/json' });
+      if (mine[0]) await drive.write(mine[0].id, body);
+      else await drive.create(PRICES_NAME, body);
+      for (const f of mine.slice(1)) await drive.remove(f.id);
+    }
+  } catch (e) {
+    if (e instanceof DriveError && e.auth) throw e;
+    console.warn('No se pudieron sincronizar los precios', e);
   }
 }
 
