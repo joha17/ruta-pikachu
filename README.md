@@ -60,7 +60,8 @@ Lo que se agrega en un aparato aparece en los demás (pestaña **Respaldo** → 
 - Google da un permiso de una hora. Después, el indicador de arriba dice «☁ Sincronizar»: un toque
   lo renueva (Google no deja renovarlo sin un toque en una app sin servidor). Los cambios se guardan
   mientras tanto.
-- No viajan: la clave de Claude, el tema, los precios automáticos ni el historial.
+- Viajan también los últimos precios automáticos (`precios.json`): por carta gana el del día más reciente, así los totales dan igual en todos los aparatos.
+- No viajan: la clave de Claude, el tema ni el historial completo de precios.
 
 ### Crear el ID de cliente (una sola vez)
 
