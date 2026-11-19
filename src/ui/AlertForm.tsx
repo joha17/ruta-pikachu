@@ -9,6 +9,7 @@ import {
   DIAS_MAX,
   DIAS_MIN,
   defaultAlert,
+  goodPrice,
   isActive,
   logList,
   normAlert,
@@ -55,6 +56,7 @@ function AlertFormIn({ k, saved }: { k: string; saved: PriceAlert | null }) {
     ambasOn,
   })!;
   const st = statusWith(prices.value, al, ck, draft);
+  const good = goodPrice(prices.value, al, ck);
   const log = logList(collection.value, ck).slice(0, 5);
   const active = isActive(saved);
   const perm = canNotify() ? Notification.permission : 'unsupported';
@@ -120,9 +122,35 @@ function AlertFormIn({ k, saved }: { k: string; saved: PriceAlert | null }) {
               autoComplete="off"
               value={meta}
               onInput={(e) => setMeta((e.currentTarget as HTMLInputElement).value)}
-              placeholder={st.now != null ? (Math.floor(st.now * 0.9 * 100) / 100).toFixed(2) : '0.00'}
+              placeholder={good ? good.v.toFixed(2) : st.now != null ? (Math.floor(st.now * 0.9 * 100) / 100).toFixed(2) : '0.00'}
             />
           </div>
+          {good && (
+            <p class="alert-good">
+              <span>
+                💡 Buen precio: <b>{money(good.v)}</b>
+                <small>
+                  {' '}
+                  {good.today
+                    ? `hoy está en lo más bajo ${good.full ? 'de los últimos 6 meses' : `desde el ${fmtDate(good.since)}`}`
+                    : `lo más bajo ${good.full ? 'de los últimos 6 meses' : `desde el ${fmtDate(good.since)}`} (${fmtDate(good.d)})`}
+                </small>
+              </span>
+              {num(meta) !== good.v && (
+                <button
+                  class="linkish"
+                  type="button"
+                  onClick={() => {
+                    setMeta(good.v.toFixed(2));
+                    setMetaOn(true);
+                    setMsg('');
+                  }}
+                >
+                  Usar
+                </button>
+              )}
+            </p>
+          )}
         </fieldset>
 
         <fieldset>

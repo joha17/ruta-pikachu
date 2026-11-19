@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { say } from '../actions';
 import { fmtDate } from '../model/money';
+import { healthProblems } from './Health';
 import { clearNube, loadNubeCfg, nube, setNubeToken, syncNube } from '../nube';
 
 const REPO_SECRETS = 'https://github.com/joha17/ruta-pikachu/settings/secrets/actions';
@@ -25,7 +26,9 @@ export function NubeCard() {
   const on = !!cfg?.token;
   const bad = !!draft.trim() && !/^(github_pat_|ghp_)\w{20,}$/.test(draft.trim());
 
-  const status = !on ? 'apagado' : cfg?.error ? 'revisar' : cfg?.chat ? 'activo' : 'falta Telegram';
+  // Token por vencer o revisión nocturna parada (el error de la copia ya se muestra abajo).
+  const extra = healthProblems.value.filter((p) => p.where === 'alertas' && p.id !== 'token-vencido');
+  const status = !on ? 'apagado' : cfg?.error || extra.length ? 'revisar' : cfg?.chat ? 'activo' : 'falta Telegram';
 
   async function save(e: Event) {
     e.preventDefault();
@@ -38,17 +41,23 @@ export function NubeCard() {
   }
 
   return (
-    <details class="claude-set nube-set" open={!on || !!cfg?.error}>
+    <details class="claude-set nube-set" open={!on || !!cfg?.error || extra.length > 0}>
       <summary>
         📲 Avisos con la app cerrada <small>· {status}</small>
       </summary>
       <p>
         Cada noche, después de bajar los precios del día, GitHub revisa tus alertas y te escribe por Telegram si alguna se cumple, aunque no
-        abras la app. Usa las mismas reglas de aquí y no repite lo que ya te avisó.
+        abras la app. Usa las mismas reglas de aquí y no repite lo que ya te avisó. El día 1 también te manda el resumen del mes: lo que
+        gastaste frente a tu presupuesto, las cartas que conseguiste y cuánto subió o bajó tu colección.
       </p>
 
       {on ? (
         <>
+          {extra.map((p) => (
+            <p key={p.id} class="msg warn">
+              {p.text}
+            </p>
+          ))}
           {cfg?.error ? (
             <p class="msg warn">{cfg.error}</p>
           ) : cfg?.last ? (

@@ -62,6 +62,15 @@ jobs:
           # Opcional: una línea de Claude que explica cada alerta (tope mensual compartido con la app).
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node --experimental-strip-types --no-warnings scripts/alertas.mjs --hist public/historial
+      # El día 1: resumen del mes por Telegram (gasto frente al presupuesto, cartas nuevas y valor de la
+      # colección). Mismos secretos y mismo gist que las alertas; los demás días no hace nada.
+      - name: Resumen del mes
+        continue-on-error: true
+        env:
+          GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node --experimental-strip-types --no-warnings scripts/resumen.mjs
       - uses: actions/cache/save@v4
         if: always() && steps.hist.outputs.changed == 'true'
         with:

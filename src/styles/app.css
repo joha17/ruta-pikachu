@@ -498,3 +498,9 @@ body.camfs-open{overflow:hidden}
 .gain-line.up .gain-diff{color:var(--ok)}
 .gain-line.down .gain-diff{color:var(--warn)}
 .ficha-gain{margin:0 0 10px}
+
+/* Algo dejó de funcionar (arriba en Ajustes) */
+.health{border:1px solid var(--warn);border-radius:12px;padding:10px 12px;margin:0 0 14px;font-size:14px}
+.health b{color:var(--warn)}
+.health ul{margin:6px 0 0;padding-left:18px;display:grid;gap:8px}
+.health li .btn{margin-top:4px}

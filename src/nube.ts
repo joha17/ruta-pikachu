@@ -1,6 +1,7 @@
 // Alertas con la app cerrada: copia las alertas a un gist secreto de GitHub para que el aviso
 // nocturno (scripts/alertas.mjs en GitHub Actions) las revise y avise por Telegram, y trae a
-// Alertas lo que ese aviso mandó. Se hace después de cada revisión de alertas.
+// Alertas lo que ese aviso mandó. Se hace después de cada revisión de alertas. En el mismo gist
+// va lo del resumen del mes por Telegram (model/monthly.ts, scripts/resumen.mjs).
 
 import { productIdOf } from './history';
 import { signal } from '@preact/signals';
@@ -9,7 +10,12 @@ import { loadNube, saveNube, type NubeCfg } from './db';
 import { ALERTS_FILE, buildCloud, newFromCloud, SENT_FILE, type CloudSent } from './model/cloudAlerts';
 import { budgetLeft, claudeCfg, claudeReady, loadClaudeCfg, setClaudeCfg } from './scan/claude';
 import { findCard } from './model/catalog';
-import { alias, collection, sheets } from './store';
+import { MONTH_FILE } from './model/monthly';
+import { buildMonth } from './model/monthlyData';
+import { today } from './model/keys';
+import { currentSeries } from './value';
+import { parseTokenExpiry } from './model/health';
+import { alias, collection, prices, sheets } from './store';
 import { cachedCard, fetchCard, type Lang } from './tcgdex';
 
 export const nube = signal<NubeCfg | null>(null);
@@ -37,6 +43,9 @@ class GhError extends Error {
   }
 }
 
+/** Vencimiento del token que dijo GitHub en la última respuesta (si el navegador deja leerlo). */
+let seenExpiry: string | undefined;
+
 async function gh<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const r = await fetch(`https://api.github.com${path}`, {
     ...init,
@@ -47,6 +56,7 @@ async function gh<T>(path: string, token: string, init: RequestInit = {}): Promi
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
     },
   });
+  seenExpiry = parseTokenExpiry(r.headers.get('github-authentication-token-expiration')) ?? seenExpiry;
   if (r.status === 401) throw new GhError('GitHub no aceptó el token: revisa que esté bien copiado y que no haya vencido.', 401);
   if (r.status === 403 || r.status === 404)
     throw new GhError('El token no tiene permiso para gists. Al crearlo, en «Account permissions» pon «Gists: Read and write».', r.status);
@@ -120,6 +130,7 @@ export function syncNube(): Promise<void> {
 async function run(): Promise<void> {
   const cfg = await loadNubeCfg();
   if (!cfg?.token || !navigator.onLine) return;
+  seenExpiry = undefined;
   try {
     let gist = await findGist(cfg.token, cfg.gistId);
     // Lo que avisó la noche entra al historial de Alertas (y así la app no lo repite).
@@ -137,18 +148,22 @@ async function run(): Promise<void> {
     const { data, skipped } = buildCloud(sheets.value, collection.value, alias.value, (k) => pids.get(k) ?? null);
     if (claudeReady(ccfg)) data.iaLeft = Math.max(0, Math.floor(budgetLeft(claudeCfg.value)));
     const content = JSON.stringify(data, null, 1);
-    const hash = `${content.length}:${[...content].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
+    // Para el resumen del mes por Telegram (scripts/resumen.mjs): compras, cartas y valor.
+    const month = JSON.stringify(buildMonth(sheets.value, collection.value, alias.value, prices.value, currentSeries(), today()));
+    const all = content + month;
+    const hash = `${all.length}:${[...all].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)}`;
+    const files = { [ALERTS_FILE]: { content }, [MONTH_FILE]: { content: month } };
     if (!gist) {
       gist = await gh<Gist>('/gists', cfg.token, {
         method: 'POST',
         body: JSON.stringify({
           description: 'Ruta Pikachu: alertas de precio para el aviso nocturno (lo escribe la app)',
           public: false,
-          files: { [ALERTS_FILE]: { content } },
+          files,
         }),
       });
     } else if (hash !== cfg.hash || gist.id !== cfg.gistId) {
-      await gh<Gist>(`/gists/${gist.id}`, cfg.token, { method: 'PATCH', body: JSON.stringify({ files: { [ALERTS_FILE]: { content } } }) });
+      await gh<Gist>(`/gists/${gist.id}`, cfg.token, { method: 'PATCH', body: JSON.stringify({ files }) });
     }
     await put({
       ...cfg,
@@ -159,11 +174,19 @@ async function run(): Promise<void> {
       skipped,
       remoteLast: sent?.last,
       chat: !!sent?.chat,
+      // El aviso nocturno anota cuándo vence el secreto (suele ser el mismo token que el de aquí).
+      expires: earliest(seenExpiry, sent?.tokenExpires),
       error: undefined,
+      status: undefined,
     });
   } catch (e) {
-    await put({ ...cfg, error: e instanceof Error ? e.message : String(e) });
+    await put({ ...cfg, error: e instanceof Error ? e.message : String(e), status: e instanceof GhError ? e.status : undefined });
   }
+}
+
+function earliest(...dates: Array<string | undefined>): string | undefined {
+  const ok = dates.filter((d): d is string => !!d && Number.isFinite(Date.parse(d)));
+  return ok.sort((a, b) => Date.parse(a) - Date.parse(b))[0];
 }
 
 /** Guarda el token y copia las alertas enseguida. */

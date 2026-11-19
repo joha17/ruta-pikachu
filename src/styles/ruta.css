@@ -347,6 +347,10 @@ dialog.sheet:has(.sheet-wide){width:min(720px,calc(100vw - 32px))}
 .alert-form .prow label{font-size:13px;color:var(--muted)}
 .alert-form .prow input.short{width:5em}
 .alert-now{margin:0;font-size:14px}
+.alert-good{margin:0;display:flex;gap:10px;align-items:baseline;justify-content:space-between;font-size:13.5px}
+.alert-good b{font-family:var(--f-mono)}
+.alert-good small{color:var(--muted)}
+.alert-good .linkish{flex:none;font-size:13.5px}
 .alert-now .ok{color:var(--ok);font-weight:600}
 .alert-now small{color:var(--muted)}
 .alert-log h4{margin:4px 0;font-size:13px}

@@ -36,6 +36,8 @@ export interface CloudSent {
   chat?: string;
   /** Gasto del mes en las explicaciones de Claude del aviso nocturno. */
   ia?: { month: string; spent: number };
+  /** Cuándo vence el secreto GIST_TOKEN (ISO), según GitHub; lo anota el aviso nocturno. */
+  tokenExpires?: string;
 }
 
 /**

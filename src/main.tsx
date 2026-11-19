@@ -11,6 +11,7 @@ import { App } from './App';
 import { wirePriceUpdates } from './prices';
 import { boot } from './store';
 import { initSync } from './sync/engine';
+import { loadNubeCfg } from './nube';
 import { wireValueSnapshots } from './value';
 
 render(<App />, document.getElementById('app')!);
@@ -19,4 +20,6 @@ void boot().then(() => {
   wirePriceUpdates();
   wireValueSnapshots();
   void initSync();
+  // Para el puntito en ⚙ si el aviso de Telegram se cortó (token vencido, noche sin correr).
+  void loadNubeCfg();
 });
