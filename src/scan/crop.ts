@@ -7,7 +7,7 @@
 // lectura del número si la foto se toma de frente.
 
 export const CARD_RATIO = 63 / 88;
-const MAX_W = 1400;
+const MAX_W = 1600;
 
 function canvas(w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
@@ -16,7 +16,7 @@ function canvas(w: number, h: number): HTMLCanvasElement {
   return c;
 }
 
-/** Recorta un rectángulo de la fuente a un lienzo de máx. 1400 px de ancho. */
+/** Recorta un rectángulo de la fuente a un lienzo de máx. 1600 px de ancho. */
 export function cropTo(src: CanvasImageSource, sx: number, sy: number, sw: number, sh: number): HTMLCanvasElement {
   const s = Math.min(1, MAX_W / sw);
   const c = canvas(sw * s, sh * s);
@@ -264,7 +264,7 @@ export function findCards(gray: ArrayLike<number>, w: number, h: number, minFrac
   return out;
 }
 
-/** Recorta (y endereza) una carta: centro, tamaño y giro en píxeles de la fuente. Máx. 1400 px de ancho. */
+/** Recorta (y endereza) una carta: centro, tamaño y giro en píxeles de la fuente. Máx. 1600 px de ancho. */
 export function cropRotated(src: CanvasImageSource, b: CardBox): HTMLCanvasElement {
   let { w, h } = b;
   if (w / h > CARD_RATIO) h = w / CARD_RATIO;
@@ -435,6 +435,13 @@ export function downscale(src: CanvasImageSource & { width: number; height: numb
   return c;
 }
 
-export function toBlob(c: HTMLCanvasElement, q = 0.88): Promise<Blob> {
+export function toBlob(c: HTMLCanvasElement, q = 0.92): Promise<Blob> {
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('No se pudo crear la imagen'))), 'image/jpeg', q));
+}
+
+/** Tamaño de foto a pedir a la cámara: el mayor que permita, con el lado largo hasta `cap` px (~12 MP). */
+export function pickPhotoSize(maxW: number | undefined, maxH: number | undefined, cap = 4032): { imageWidth: number; imageHeight: number } {
+  if (!maxW || !maxH) return { imageWidth: cap, imageHeight: Math.round((cap * 3) / 4) };
+  const k = Math.min(1, cap / Math.max(maxW, maxH));
+  return { imageWidth: Math.round(maxW * k), imageHeight: Math.round(maxH * k) };
 }

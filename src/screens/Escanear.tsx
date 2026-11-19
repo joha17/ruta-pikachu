@@ -9,7 +9,7 @@ import { findCard, isOwned, MAX_BOX, roomSheets } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
-import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, toBlob } from '../scan/crop';
+import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, pickPhotoSize, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, askClaude, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf, nightSpentOf, setClaudeCfg, type AiResult } from '../scan/claude';
 import type { Identified, Reading } from '../scan/identify';
@@ -141,8 +141,14 @@ function cameraError(e: unknown): string {
   return 'No se pudo abrir la cámara. Elige una foto de la galería.';
 }
 
+interface PhotoSettingsLike {
+  fillLightMode?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+}
 interface ImageCaptureLike {
-  takePhoto(settings?: { fillLightMode?: string }): Promise<Blob>;
+  takePhoto(settings?: PhotoSettingsLike): Promise<Blob>;
+  getPhotoCapabilities?(): Promise<{ imageWidth?: { max?: number }; imageHeight?: { max?: number } }>;
 }
 type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
 
@@ -158,6 +164,16 @@ async function keepFocus(stream: MediaStream): Promise<void> {
     await t.applyConstraints({ advanced: [{ zoom: Math.min(2, caps.zoom.max) } as MediaTrackConstraintSet] }).catch(() => undefined);
 }
 
+/** Tamaño de foto a pedir: el mayor que permita la cámara, con el lado largo hasta 4032 px (12 MP). */
+async function photoSize(cap: ImageCaptureLike): Promise<PhotoSettingsLike> {
+  try {
+    const pc = await Promise.race([cap.getPhotoCapabilities?.(), new Promise<undefined>((r) => setTimeout(() => r(undefined), 1500))]);
+    return pickPhotoSize(pc?.imageWidth?.max, pc?.imageHeight?.max);
+  } catch {
+    return pickPhotoSize(undefined, undefined);
+  }
+}
+
 /**
  * Foto a resolución completa con ImageCapture (Chrome en Android). Sin flash: el flash hace
  * brillos sobre la carta. Si el navegador no lo permite o tarda demasiado, null (se usa el video).
@@ -167,7 +183,14 @@ async function takePhoto(stream: MediaStream): Promise<ImageBitmap | null> {
   const track = stream.getVideoTracks()[0];
   if (!IC || !track || track.readyState !== 'live') return null;
   const cap = new IC(track);
-  const shot = cap.takePhoto({ fillLightMode: 'off' }).catch(() => cap.takePhoto());
+  // Sin pedir tamaño, Chrome en Android toma la foto del mismo tamaño que el video (~1080 px):
+  // por eso la carta salía pixelada. Se pide la foto grande del sensor (hasta ~12 MP; las de
+  // 50 o 200 MP del S23 Ultra no caben en la memoria del navegador).
+  const size = await photoSize(cap);
+  const shot = cap
+    .takePhoto({ fillLightMode: 'off', ...size })
+    .catch(() => cap.takePhoto(size))
+    .catch(() => cap.takePhoto());
   const timeout = new Promise<null>((res) => setTimeout(() => res(null), 4000));
   try {
     const blob = await Promise.race([shot, timeout]);
@@ -216,7 +239,7 @@ function Camera({ onClose }: { onClose: () => void }) {
         if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NotFoundError' });
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 } },
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
         });
         if (!alive) return stream.getTracks().forEach((t) => t.stop());
         streamRef.current = stream;
@@ -358,7 +381,7 @@ function Camera({ onClose }: { onClose: () => void }) {
           ) : top && !showAll ? (
             <>
               <div class="camfs-hit">
-                {candImg(top) ? <img src={candImg(top)!} alt="" referrerpolicy="no-referrer" /> : <img src={shot!.url} alt="" />}
+                {candImg(top) ? <img src={candImg(top, 'high')!} alt="" referrerpolicy="no-referrer" /> : <img src={shot!.url} alt="" />}
                 <span>
                   <b>{top.brief.name}</b>
                   <small>
@@ -428,8 +451,8 @@ function Camera({ onClose }: { onClose: () => void }) {
 
 // ---------------- Resultado ----------------
 
-function candImg(c: Cand): string | null {
-  return imageUrl(c.brief.image ?? cachedCard(c.brief.id)?.image, 'low');
+function candImg(c: Cand, q: 'low' | 'high' = 'low'): string | null {
+  return imageUrl(c.brief.image ?? cachedCard(c.brief.id)?.image, q);
 }
 
 function Picker({ shot }: { shot: Shot }) {
@@ -591,7 +614,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
     void fetchCard(c.brief.id);
   }, [c.brief.id]);
   const full = cachedCard(c.brief.id);
-  const src = imageUrl(c.brief.image ?? full?.image, 'low');
+  const src = imageUrl(c.brief.image ?? full?.image, 'high');
   const keys = keysFor(c.brief.id);
   const key = keys[0];
   const col = collection.value;
