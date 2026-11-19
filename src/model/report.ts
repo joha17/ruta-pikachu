@@ -6,6 +6,7 @@ import { canon, findCard, haveAndMissing, isOwned, slots } from './catalog';
 import { sumKeys, usd as priceOf } from './money';
 import { trendOf } from './trend';
 import type { ValuePoint } from './value';
+import { REF_RULE } from './refs';
 import type { BoxCard, CardDef, Collection, PriceBook, SheetDef } from './types';
 
 const DAY = 864e5;
@@ -18,6 +19,8 @@ export interface ReportInput {
   day: string;
   /** Serie del valor de la colección (la misma de la gráfica de Colección). */
   series: ValuePoint[];
+  /** Ids cortos de las cartas (para que Claude pueda enlazarlas). */
+  ids?: Map<string, string>;
 }
 
 function m(v: number): string {
@@ -40,7 +43,8 @@ function nameOf(inp: ReportInput, key: string): string {
   const f = findCard(inp.sheets, inp.col, key);
   if (!f) return key;
   const pre = 'prefix' in f.card && f.card.prefix ? f.card.prefix : '';
-  return pre + cardName(f.card);
+  const id = inp.ids?.get(canon(inp.alias, key));
+  return `${pre}${cardName(f.card)}${id ? ` [${id}]` : ''}`;
 }
 
 /** Valor de la colección hace `days` días (el último punto de ese día o antes). */
@@ -152,6 +156,8 @@ export interface SavedReport {
   model: string;
   cost: number;
   out: ReportOut;
+  /** Ids de cartas que nombra el informe → clave canónica. */
+  refs?: Record<string, string>;
 }
 
 const STR = { type: 'string' } as const;
@@ -176,6 +182,7 @@ export function reportPrompt(summary: string): string {
     'Use only the numbers and cards in the summary. Never invent prices, cards or trends. Do not do new math beyond simple comparisons.',
     'Prices are TCGplayer market prices in USD: a reference, not what a shop would pay.',
     'Suggestions should be practical: which sheet is close to complete and cheap to finish, a card worth watching, something to sell or trade from the box.',
+    REF_RULE.replace('like c12', 'shown in brackets like [c12]'),
     '',
     summary,
   ].join('\n');
@@ -222,7 +229,7 @@ export function reportFresh(r: { d: string; h: string; model: string } | undefin
 export function cardTable(inp: ReportInput): string {
   const { sheets, col, pr, alias } = inp;
   const seen = new Set<string>();
-  const rows: string[] = ['nombre | set número | hoja | estado | precio USD | cambio | marcas'];
+  const rows: string[] = ['id | nombre | set número | hoja | estado | precio USD | cambio | marcas'];
   const row = (key: string, c: CardDef | BoxCard, where: string, owned: boolean) => {
     const k = canon(alias, key);
     if (seen.has(k)) return;
@@ -235,6 +242,7 @@ export function cardTable(inp: ReportInput): string {
     const pre = 'prefix' in c && c.prefix ? c.prefix : '';
     rows.push(
       [
+        inp.ids?.get(k) ?? '-',
         pre + c.n,
         [c.set, c.num].filter(Boolean).join(' ') || '-',
         where,
@@ -258,6 +266,7 @@ export function chatSystem(summary: string, table: string): string {
     'Use only these numbers and cards. If the data does not answer the question, say so honestly. Never invent prices or cards.',
     'You may add up or compare prices from the table. Prices are TCGplayer market prices in USD, a reference only.',
     'Do not use Markdown headings or tables; plain text, and "- " for list items.',
+    REF_RULE,
     '',
     'RESUMEN',
     summary,
@@ -270,6 +279,8 @@ export function chatSystem(summary: string, table: string): string {
 export interface ChatTurn {
   q: string;
   a: string;
+  /** Ids de cartas que nombra la respuesta → clave canónica. */
+  refs?: Record<string, string>;
 }
 
 /** Solo las últimas preguntas viajan con la nueva (para seguir el hilo sin gastar de más). */

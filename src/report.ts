@@ -5,6 +5,7 @@ import { signal } from '@preact/signals';
 import { loadReport, saveReport } from './db';
 import { today } from './model/keys';
 import { cleanReport, hashText, reportFresh, reportPrompt, reportSummary, REPORT_SCHEMA, type SavedReport } from './model/report';
+import { refMap, usedRefs } from './model/refs';
 import { costOf, MODELS, type ClaudeModel } from './scan/claude-core';
 import { addSpend, AiError, checkBudget, claudeCfg, claudeReady, errorText, type MiniMessage } from './scan/claude';
 import { alias, collection, prices, sheets } from './store';
@@ -22,7 +23,12 @@ export async function loadLastReport(): Promise<SavedReport | undefined> {
 }
 
 /** El resumen que se mandaría ahora mismo (también se muestra en la app). */
-export function currentSummary(): string {
+/** Ids cortos de las cartas de ahora. */
+export function currentRefs() {
+  return refMap(sheets.value, collection.value, alias.value);
+}
+
+export function currentSummary(ids = currentRefs().byKey): string {
   return reportSummary({
     sheets: sheets.value,
     col: collection.value,
@@ -30,6 +36,7 @@ export function currentSummary(): string {
     alias: alias.value,
     day: today(),
     series: currentSeries(),
+    ids,
   });
 }
 
@@ -64,7 +71,8 @@ export function estimateReport(model: ClaudeModel, summary: string): number {
  * el mismo modelo, lo devuelve sin llamar (gratis).
  */
 export async function makeReport(model: ClaudeModel, send?: TextSend): Promise<SavedReport> {
-  const summary = currentSummary();
+  const map = currentRefs();
+  const summary = currentSummary(map.byKey);
   const h = hashText(summary);
   const day = today();
   const prev = await loadLastReport();
@@ -87,7 +95,9 @@ export async function makeReport(model: ClaudeModel, send?: TextSend): Promise<S
   } catch {
     throw new AiError('Claude respondió algo que no se pudo leer. Prueba otra vez.');
   }
-  const r: SavedReport = { d: day, h, model, cost, out: cleanReport(raw) };
+  const out = cleanReport(raw);
+  const refs = usedRefs([out.resumen, ...out.destacados, ...out.sugerencias], map.byId);
+  const r: SavedReport = { d: day, h, model, cost, out, refs };
   lastReport.value = r;
   await saveReport(r);
   return r;

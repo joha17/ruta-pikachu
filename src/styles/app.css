@@ -392,3 +392,7 @@ body.camfs-open{overflow:hidden}
 .adv-comprar{color:var(--ok)}
 .adv-esperar{color:var(--warn)}
 .adv-vigilar{color:var(--muted)}
+
+/* Nombres de cartas enlazados en las respuestas de Claude */
+.cardref{all:unset;cursor:pointer;color:var(--accent-text,inherit);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.cardref:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:3px}

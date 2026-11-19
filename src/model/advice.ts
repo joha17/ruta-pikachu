@@ -81,7 +81,7 @@ export function adviceTable(rows: AdviceRow[]): string {
   return [
     'id | carta | ★ | hoy | mín 90d | máx 90d | prom 90d | hoy vs prom | 7d | 30d | días con dato',
     ...rows.map((r) =>
-      [r.id, r.n, r.star ? '★' : '-', f(r.sig.now), f(r.sig.min), f(r.sig.max), f(r.sig.avg), sg(r.sig.vsAvg), sg(r.sig.ch7), sg(r.sig.ch30), r.sig.days].join(' | '),
+      [`c${r.id}`, r.n, r.star ? '★' : '-', f(r.sig.now), f(r.sig.min), f(r.sig.max), f(r.sig.avg), sg(r.sig.vsAvg), sg(r.sig.ch7), sg(r.sig.ch30), r.sig.days].join(' | '),
     ),
   ].join('\n');
 }
@@ -96,6 +96,7 @@ export function advicePrompt(table: string, day: string): string {
     'Cards with few days of data (under 10) should usually be "vigilar". Prices are TCGplayer market prices in USD.',
     'Use only these numbers. Write "why" in Spanish, plain, at most 90 characters, citing the key number.',
     'Also write "resumen": 1 or 2 sentences in Spanish with the best buys right now, especially among ★ priorities.',
+    'In "resumen", whenever you mention a card write it as [card name](c12) with its exact id from the table. In "cartas", "id" is the same id, like "c12".',
     '',
     table,
   ].join('\n');
@@ -116,7 +117,7 @@ export const ADVICE_SCHEMA = {
         additionalProperties: false,
         required: ['id', 'v', 'why'],
         properties: {
-          id: { type: 'integer' },
+          id: { type: 'string' },
           v: { type: 'string', enum: ['comprar', 'vigilar', 'esperar'] },
           why: { type: 'string' },
         },
@@ -142,6 +143,8 @@ export interface SavedAdvice {
   model: string;
   cost: number;
   out: AdviceOut;
+  /** Ids de cartas que nombra el resumen → clave canónica. */
+  refs?: Record<string, string>;
 }
 
 /** Limpia la respuesta y pasa de ids cortos a claves de carta (ignora ids que no existen). */
@@ -151,12 +154,17 @@ export function cleanAdvice(raw: unknown, rows: AdviceRow[]): AdviceOut {
   const cards: Record<string, CardAdvice> = {};
   if (Array.isArray(o.cartas))
     for (const c of o.cartas as Array<Record<string, unknown>>) {
-      const key = byId.get(Number(c?.id));
+      const key = byId.get(Number(String(c?.id ?? '').replace(/^c/, '')));
       const v = c?.v;
       if (!key || (v !== 'comprar' && v !== 'vigilar' && v !== 'esperar')) continue;
       cards[key] = { v, why: typeof c.why === 'string' ? c.why.trim().slice(0, 140) : '' };
     }
   return { resumen: typeof o.resumen === 'string' ? o.resumen.trim().slice(0, 500) : '', cards };
+}
+
+/** Ids del resumen («c3») → clave de carta, según las filas enviadas. */
+export function adviceRefs(rows: AdviceRow[]): Record<string, string> {
+  return Object.fromEntries(rows.map((r) => [`c${r.id}`, r.key]));
 }
 
 export const VERDICT_TEXT: Record<Verdict, string> = { comprar: 'Comprar ya', vigilar: 'Vigilar', esperar: 'Esperar' };
