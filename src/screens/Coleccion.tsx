@@ -8,6 +8,7 @@ import { FIXED_SHEETS } from '../data';
 import { boxDupes, dealText, type Deal } from '../model/box';
 import { haveAndMissing, isOwned, MAX_BOX, MAX_CARDS, MAX_SHEETS, POCKETS, sheetCount, slots, type Slot } from '../model/catalog';
 import { fmtDate, money, sumKeys } from '../model/money';
+import { gainOf, gainText } from '../model/gain';
 import { today } from '../model/keys';
 import { priceRun } from '../prices';
 import type { SheetDef } from '../model/types';
@@ -557,6 +558,8 @@ export function Coleccion() {
   const { have, missing } = haveAndMissing(all, col);
   const vh = sumKeys(col, prices.value, alias.value, have);
   const vm = sumKeys(col, prices.value, alias.value, missing);
+  const gain = gainOf(col, prices.value, alias.value, have);
+  const gt = gainText(gain.paid, gain.now);
   const nav: Array<[string, string, string]> = all.map((s) => [
     s.id,
     s.short ?? s.name,
@@ -596,6 +599,12 @@ export function Coleccion() {
             ⓘ
           </button>
         </p>
+        {gain.n > 0 && (
+          <p class={`gain-line ${gt.dir}`}>
+            Pagaste <strong>{money(gain.paid)}</strong> por {gain.n === 1 ? '1 carta' : `${gain.n} cartas`}; hoy{' '}
+            {gain.n === 1 ? 'vale' : 'valen'} <strong>{money(gain.now)}</strong> · <span class="gain-diff">{gt.text}</span>
+          </p>
+        )}
         {valueOpen.value && <ValueChart />}
         {infoOpen.value ? (
           <div class="sum-info">
@@ -609,6 +618,14 @@ export function Coleccion() {
                 : ''}
               Es una referencia, no lo que te pagarían.
             </p>
+            {gain.n > 0 && (
+              <p>
+                «Pagaste» suma lo que anotaste al marcar cada carta como comprada y lo compara con su precio de hoy.
+                {gain.noPaid > 0 &&
+                  ` ${gain.noPaid === 1 ? '1 carta no entra' : `${gain.noPaid} cartas no entran`} porque no tiene${gain.noPaid === 1 ? '' : 'n'} precio de compra (regalos, cambios o de antes del presupuesto).`}
+                {gain.noPrice > 0 && ` ${gain.noPrice === 1 ? '1 carta comprada aún no tiene' : `${gain.noPrice} cartas compradas aún no tienen`} precio de hoy.`}
+              </p>
+            )}
             <PriceStatus />
           </div>
         ) : (

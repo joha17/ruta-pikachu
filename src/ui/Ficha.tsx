@@ -20,6 +20,7 @@ import { TcgInfo } from './TcgInfo';
 import { openAsistente } from './Asistente';
 import { Zoomable } from './Zoom';
 import { buyFlow, refundKey } from './Presupuesto';
+import { gainText, paidOf } from '../model/gain';
 
 const LANG: Record<string, string> = { en: 'Inglés', ja: 'Japonés' };
 
@@ -52,6 +53,8 @@ function CardSheet({ k }: { k: string }) {
   const auto = autoUsd(prices.value, al, k);
   const pdate = lastPriceDate(prices.value, al, k);
   const ck = canon(al, k);
+  const paid = own || isBox ? paidOf(col, al, k) : null;
+  const nowUsd = usd(col, prices.value, al, k);
   const theme = isBox ? 'bx' : (sh?.theme ?? '');
   const pk = photoKeyOf(k);
   const myPhoto = hasPhoto(pk);
@@ -234,6 +237,19 @@ function CardSheet({ k }: { k: string }) {
       </div>
       {/* De la tendencia en adelante ocupa todo el ancho: en escritorio usa el hueco bajo la imagen. */}
       <div class="sheet-body sheet-wide">
+        {paid && (
+          <p class={`gain-line ficha-gain ${nowUsd != null ? gainText(paid.v, nowUsd).dir : 'same'}`}>
+            Pagaste <strong>{money(paid.v)}</strong> el {fmtDate(paid.d)}
+            {nowUsd != null ? (
+              <>
+                {' '}
+                · hoy vale <strong>{money(nowUsd)}</strong> · <span class="gain-diff">{gainText(paid.v, nowUsd).text}</span>
+              </>
+            ) : (
+              ' · aún sin precio de hoy'
+            )}
+          </p>
+        )}
         <PriceTrend k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}
         {c.note && <p class="msg">{c.note}</p>}
