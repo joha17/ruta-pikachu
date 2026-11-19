@@ -124,6 +124,13 @@ export interface Collection {
   order: Record<string, string[]>;
   custom: CustomSheet[];
   customSeq: number;
+  /**
+   * Cartas que agregué a hojas fijas, por hoja ("p" → cartas nuevas al final de Pikachu 30C).
+   * Usa la forma de una hoja propia (sin nombre); sus ids son "n" + seq: claves "p:n1".
+   */
+  extra?: CustomSheet[];
+  /** Orden de las hojas elegido por mí (ids "p", "u:s1"…). Sin valor = el orden de siempre. */
+  sheetOrder?: string[];
   box: BoxCard[];
   boxSeq: number;
   manual: Record<string, ManualPrice>;
@@ -266,6 +273,7 @@ export function emptyCollection(): Collection {
     order: {},
     custom: [],
     customSeq: 0,
+    extra: [],
     box: [],
     boxSeq: 0,
     manual: {},

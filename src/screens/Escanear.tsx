@@ -5,7 +5,7 @@
 import { signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, savePhoto, say } from '../actions';
-import { findCard, isOwned, MAX_BOX, MAX_CARDS } from '../model/catalog';
+import { findCard, isOwned, MAX_BOX, roomSheets } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
@@ -595,7 +595,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
   const keys = keysFor(c.brief.id);
   const key = keys[0];
   const col = collection.value;
-  const room = col.custom.filter((s) => s.cards.length < MAX_CARDS);
+  const room = roomSheets(sheets.value, col);
   const [sid, setSid] = useState(room[0]?.id ?? '');
   const own = key ? isOwned(alias.value, col, key) : false;
   const found = key ? findCard(sheets.value, col, key) : null;
@@ -681,7 +681,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
               </div>
               {room.length > 0 && (
                 <div class="scan-add">
-                  <label for={`ss-${shot.id}`}>O darle bolsillo en una hoja tuya</label>
+                  <label for={`ss-${shot.id}`}>O darle bolsillo en una hoja</label>
                   <select id={`ss-${shot.id}`} value={sid} onChange={(e) => setSid(e.currentTarget.value)}>
                     {room.map((s) => (
                       <option key={s.id} value={s.id}>

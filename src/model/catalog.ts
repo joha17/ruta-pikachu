@@ -23,8 +23,14 @@ export function allSheets(fixed: SheetDef[], col: Collection): SheetDef[] {
   const rename = col.rename ?? {};
   const hc = col.hiddenCards ?? {};
   const anyHc = Object.keys(hc).length > 0;
+  const extra = col.extra ?? [];
   return [...fixed]
     .filter((s) => !hidden[s.id])
+    .map((s) => {
+      // Las cartas que agregué van al final de la hoja fija.
+      const ex = extra.find((e) => e.id === s.id);
+      return ex?.cards.length ? { ...s, cards: [...s.cards, ...ex.cards] } : s;
+    })
     .map((s) => (anyHc ? withoutHidden(s, hc) : s))
     .map((s) => {
       const r = rename[s.id];
@@ -36,7 +42,45 @@ export function allSheets(fixed: SheetDef[], col: Collection): SheetDef[] {
       return out;
     })
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .concat(own);
+    .concat(own)
+    .map((s, i) => [s, posOf(col.sheetOrder, s.id, i)] as const)
+    .sort((a, b) => a[1] - b[1])
+    .map(([s]) => s);
+}
+
+/**
+ * Lugar de una hoja: las que están en el orden elegido van primero, en ese orden; las demás
+ * (hojas nuevas o que volvieron a mostrarse) después, en el orden de siempre.
+ */
+function posOf(order: string[] | undefined, id: string, i: number): number {
+  const j = order ? order.indexOf(id) : -1;
+  return j >= 0 ? j : (order?.length ?? 0) + i;
+}
+
+/** Hoja donde se pueden añadir cartas. `id` es el que reciben addCard y moveBoxToSheet. */
+export interface RoomSheet {
+  id: string;
+  name: string;
+  cards: CardDef[];
+}
+
+/** Hojas con lugar para cartas nuevas: primero las propias, después las fijas a la vista. */
+export function roomSheets(sheets: SheetDef[], col: Collection): RoomSheet[] {
+  const own: RoomSheet[] = [];
+  const fix: RoomSheet[] = [];
+  for (const sh of sheets) {
+    if (!sh.fixed) {
+      if (sh.cards.length < MAX_CARDS) own.push({ id: sh.id.slice(2), name: sh.name, cards: sh.cards });
+    } else if (((col.extra ?? []).find((e) => e.id === sh.id)?.cards.length ?? 0) < MAX_CARDS)
+      fix.push({ id: sh.id, name: sh.name, cards: sh.cards });
+  }
+  return own.concat(fix);
+}
+
+/** ¿Es una carta que agregué yo a una hoja fija? (id local del bolsillo o de su variante). */
+export function isExtra(col: Collection, sheetId: string, k: string): boolean {
+  const ex = (col.extra ?? []).find((e) => e.id === sheetId);
+  return !!ex?.cards.some((c) => c.k === k || c.alts?.some((a) => a.k === k));
 }
 
 /** Hoja fija sin las cartas quitadas (un bolsillo quitado se lleva sus variantes). */

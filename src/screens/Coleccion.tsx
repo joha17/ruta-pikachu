@@ -203,12 +203,14 @@ function SheetSection({ sh }: { sh: SheetDef }) {
   const isPrev = previewing.value.has(sh.id);
   const alts = sl.filter((s) => s.isAlt);
   const custom = !sh.fixed;
-  const canAdd = custom && sh.cards.length < MAX_CARDS;
-  const sid = sh.id.slice(2);
+  // En las hojas fijas también se agregan cartas (van al final); el tope cuenta solo las agregadas.
+  const added = custom ? sh.cards.length : ((col.extra ?? []).find((e) => e.id === sh.id)?.cards.length ?? 0);
+  const canAdd = added < MAX_CARDS;
+  const sid = custom ? sh.id.slice(2) : sh.id;
 
   type Cell = { kind: 'slot'; s: Slot } | { kind: 'add' } | { kind: 'blank' };
   const cells: Cell[] = sl.map((s) => ({ kind: 'slot', s }));
-  if (custom && (sh.cards.length % POCKETS !== 0 || !sh.cards.length)) cells.push({ kind: 'add' });
+  if (!isArr && !isPrev && (sl.length % POCKETS !== 0 || !sl.length)) cells.push({ kind: 'add' });
   const pages: Cell[][] = [];
   for (let i = 0; i < cells.length; i += POCKETS) {
     const pg = cells.slice(i, i + POCKETS);
@@ -220,7 +222,7 @@ function SheetSection({ sh }: { sh: SheetDef }) {
     if (sh.id === 'p') {
       const a = sl[i * POCKETS]?.card.label?.split('/')[0];
       const b = sl[Math.min(sl.length, (i + 1) * POCKETS) - 1]?.card.label?.split('/')[0];
-      return `Hoja ${i + 1} · ${a}–${b}`;
+      return a && b ? `Hoja ${i + 1} · ${a}–${b}` : a ? `Hoja ${i + 1} · desde ${a}` : `Hoja ${i + 1}`;
     }
     return (sh.pageLabel ?? sh.name) + (big ? ` · hoja ${i + 1}` : '');
   };
@@ -244,12 +246,12 @@ function SheetSection({ sh }: { sh: SheetDef }) {
     }
   };
   const menu: MenuItem[] = [];
+  menu.push({
+    label: canAdd ? 'Añadir carta' : 'Añadir carta (hoja llena)',
+    run: () => (formView.value = { kind: 'card', sid }),
+    disabled: !canAdd,
+  });
   if (custom) {
-    menu.push({
-      label: sh.cards.length < MAX_CARDS ? 'Añadir carta' : 'Añadir carta (hoja llena)',
-      run: () => (formView.value = { kind: 'card', sid }),
-      disabled: !canAdd,
-    });
     menu.push({
       label: 'Editar o quitar hoja',
       run: () => (formView.value = { kind: 'sheet', sid }),
@@ -279,6 +281,17 @@ function SheetSection({ sh }: { sh: SheetDef }) {
         run: () => act((c) => ops.resetOrder(c, sh.id)),
       });
   }
+  // Orden de las hojas en el menú.
+  const all = sheets.value;
+  const at = all.findIndex((s) => s.id === sh.id);
+  if (at > 0) menu.push({ label: '◀ Mover hoja antes', run: () => act((c) => void ops.moveSheet(c, all, sh.id, -1)) });
+  if (at >= 0 && at < all.length - 1)
+    menu.push({ label: 'Mover hoja después ▶', run: () => act((c) => void ops.moveSheet(c, all, sh.id, 1)) });
+  if (col.sheetOrder?.length)
+    menu.push({
+      label: 'Volver al orden de hojas de siempre',
+      run: () => act((c) => ops.resetSheetOrder(c)),
+    });
 
   return (
     <section id={secId(sh.id)} class={`sheet-view${isArr ? ' arranging' : ''}`}>
@@ -365,7 +378,7 @@ function SheetSection({ sh }: { sh: SheetDef }) {
                     onClick={() => (formView.value = { kind: 'card', sid })}
                   >
                     <b aria-hidden="true">+</b>
-                    {sh.cards.length < MAX_CARDS ? 'Añadir carta' : 'Hoja llena'}
+                    {canAdd ? 'Añadir carta' : 'Hoja llena'}
                   </button>
                 ) : (
                   <div key={`b${j}`} class="pocket blank" aria-hidden="true" />

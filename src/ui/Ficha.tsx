@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, actAll, actWithPrices, applyPhotos, hasPhoto, ops, removePhoto, savePhoto, say } from '../actions';
-import { canon, findCard, isOwned, MAX_CARDS, slots } from '../model/catalog';
+import { canon, findCard, isExtra, isOwned, roomSheets, slots } from '../model/catalog';
 import { keyOf, sheetOfKey } from '../model/keys';
 import { autoUsd, fmtDate, manualOf, money, usd } from '../model/money';
 import { boxDupes, boxMatchIn, DEAL_LABEL, nm0, setDeal, type Deal } from '../model/box';
@@ -107,8 +107,12 @@ function CardSheet({ k }: { k: string }) {
   }
 
   const primary = `btn primary ${theme}`;
-  const custom = sh && !sh.fixed ? collection.value.custom.find((x) => `u:${x.id}` === sh.id) : undefined;
-  const ci = custom && base ? custom.cards.findIndex((x) => x.k === base.k) : -1;
+  const ownSh = sh && !sh.fixed ? collection.value.custom.find((x) => `u:${x.id}` === sh.id) : undefined;
+  // Las cartas que agregué a una hoja fija se editan como las de una hoja propia (sin «Mover»:
+  // en las fijas se ordena con «Ordenar bolsillos»).
+  const added = !!sh?.fixed && !!base && isExtra(collection.value, sh.id, base.k);
+  const custom = ownSh ?? (added ? { id: sh!.id } : undefined);
+  const ci = ownSh && base ? ownSh.cards.findIndex((x) => x.k === base.k) : -1;
 
   const delConfirm = () => (
     <>
@@ -116,7 +120,7 @@ function CardSheet({ k }: { k: string }) {
         {f.isAlt
           ? `¿Quitar la variante «${title}»? El bolsillo vuelve a la carta original.`
           : `¿Quitar «${title}» de la hoja, con sus variantes?`}{' '}
-        {sh?.fixed
+        {sh?.fixed && !added
           ? 'Si la tienes marcada, pasa a la caja con su foto y su precio. Puedes volver a mostrarla desde «Editar o quitar hoja».'
           : 'Si la tienes marcada, pasa a la caja con su foto y su precio; si no, se borra.'}
       </p>
@@ -362,30 +366,34 @@ function CardSheet({ k }: { k: string }) {
                     <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, cid: c.k })}>
                       Editar datos
                     </button>
-                    <button
-                      class="btn quiet"
-                      disabled={ci <= 0}
-                      aria-label="Mover un bolsillo antes"
-                      onClick={() => {
-                        let j = -1;
-                        act((cc) => void (j = ops.moveCard(cc, k, -1)));
-                        done(`Movida al bolsillo ${j + 1}.`);
-                      }}
-                    >
-                      ◀ Mover
-                    </button>
-                    <button
-                      class="btn quiet"
-                      disabled={ci < 0 || ci >= custom.cards.length - 1}
-                      aria-label="Mover un bolsillo después"
-                      onClick={() => {
-                        let j = -1;
-                        act((cc) => void (j = ops.moveCard(cc, k, 1)));
-                        done(`Movida al bolsillo ${j + 1}.`);
-                      }}
-                    >
-                      Mover ▶
-                    </button>
+                    {ownSh && (
+                      <>
+                        <button
+                          class="btn quiet"
+                          disabled={ci <= 0}
+                          aria-label="Mover un bolsillo antes"
+                          onClick={() => {
+                            let j = -1;
+                            act((cc) => void (j = ops.moveCard(cc, k, -1)));
+                            done(`Movida al bolsillo ${j + 1}.`);
+                          }}
+                        >
+                          ◀ Mover
+                        </button>
+                        <button
+                          class="btn quiet"
+                          disabled={ci < 0 || ci >= ownSh.cards.length - 1}
+                          aria-label="Mover un bolsillo después"
+                          onClick={() => {
+                            let j = -1;
+                            act((cc) => void (j = ops.moveCard(cc, k, 1)));
+                            done(`Movida al bolsillo ${j + 1}.`);
+                          }}
+                        >
+                          Mover ▶
+                        </button>
+                      </>
+                    )}
                     <button class="btn quiet" onClick={() => (formView.value = { kind: 'card', sid: custom.id, altOf: base.k })}>
                       ＋ Añadir variante
                     </button>
@@ -397,7 +405,7 @@ function CardSheet({ k }: { k: string }) {
               </div>
             )}
 
-            {sh?.fixed && base && (
+            {sh?.fixed && base && !added && (
               <div class="cedit">
                 {pending === 'del' ? (
                   delConfirm()
@@ -457,7 +465,7 @@ function BoxPlace({ b, pending, setPending }: { b: BoxCard; pending: string; set
   const m = boxMatch(b);
   const mf = m ? findCard(sheets.value, collection.value, m) : null;
   const mOwn = m ? isOwned(alias.value, collection.value, m) : false;
-  const room = collection.value.custom.filter((s) => s.cards.length < MAX_CARDS);
+  const room = roomSheets(sheets.value, collection.value);
   const sheetName = (k: string) => sheets.value.find((s) => s.id === sheetOfKey(k))?.name ?? '';
   if (pending === 'boxdel')
     return (

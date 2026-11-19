@@ -442,12 +442,14 @@ export function Forms() {
     );
   }
 
-  // Carta de hoja propia.
-  const sh = col.custom.find((s) => s.id === fv.sid);
+  // Carta de hoja propia, o carta agregada a una hoja fija.
+  const own = col.custom.find((s) => s.id === fv.sid);
+  const fixedSh = own ? undefined : sheets.value.find((s) => s.fixed && s.id === fv.sid);
+  const sh = own ? { id: own.id, name: own.name } : fixedSh ? { id: fixedSh.id, name: fixedSh.name } : undefined;
   if (!sh) return null;
-  const sid = `u:${sh.id}`;
+  const sid = own ? `u:${own.id}` : sh.id;
   const editing = fv.cid ? findCard(sheets.value, col, keyOf(sid, fv.cid)) : null;
-  const altBase = fv.altOf ? sh.cards.find((c) => c.k === fv.altOf) : undefined;
+  const altBase = fv.altOf ? sheets.value.find((s) => s.id === sid)?.cards.find((c) => c.k === fv.altOf) : undefined;
   const c: Partial<CardDef> = (editing?.card as CardDef | undefined) ?? fv.pre ?? {};
   return (
     <div class="sheet-in solo">
@@ -460,6 +462,7 @@ export function Forms() {
           {editing ? `Editar ${c.n}` : altBase ? `Variante para el bolsillo de ${altBase.n}` : 'Añadir carta'}
         </h3>
         {fv.pre && !editing && <p class="hint">Datos leídos por el escáner: revísalos antes de guardar.</p>}
+        {fixedSh && !editing && !altBase && <p class="hint">Va al final de la hoja, después de las cartas que trae.</p>}
         {altBase && (
           <p class="hint">La variante se guarda en el mismo bolsillo: puedes cambiar entre las dos desde la ficha, como en las otras hojas.</p>
         )}
