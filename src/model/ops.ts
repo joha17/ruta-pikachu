@@ -91,6 +91,22 @@ export function resetOrder(col: Collection, sheetId: string): void {
   delete col.order[sheetId];
 }
 
+/** Mueve una hoja un lugar antes (-1) o después (+1) en el menú. `sheets` es el orden de ahora. */
+export function moveSheet(col: Collection, sheets: SheetDef[], sheetId: string, dir: -1 | 1): boolean {
+  const ids = sheets.map((s) => s.id);
+  const i = ids.indexOf(sheetId);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= ids.length) return false;
+  [ids[i], ids[j]] = [ids[j], ids[i]];
+  col.sheetOrder = ids;
+  return true;
+}
+
+/** Vuelve al orden de hojas de siempre. */
+export function resetSheetOrder(col: Collection): void {
+  delete col.sheetOrder;
+}
+
 // ---- Caja ----
 
 const BOX_FIELDS = ['n', 'num', 'set', 'rar', 'tcg', 'url', 'lang', 'graded'] as const;

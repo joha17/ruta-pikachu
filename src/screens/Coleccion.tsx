@@ -281,6 +281,17 @@ function SheetSection({ sh }: { sh: SheetDef }) {
         run: () => act((c) => ops.resetOrder(c, sh.id)),
       });
   }
+  // Orden de las hojas en el menú.
+  const all = sheets.value;
+  const at = all.findIndex((s) => s.id === sh.id);
+  if (at > 0) menu.push({ label: '◀ Mover hoja antes', run: () => act((c) => void ops.moveSheet(c, all, sh.id, -1)) });
+  if (at >= 0 && at < all.length - 1)
+    menu.push({ label: 'Mover hoja después ▶', run: () => act((c) => void ops.moveSheet(c, all, sh.id, 1)) });
+  if (col.sheetOrder?.length)
+    menu.push({
+      label: 'Volver al orden de hojas de siempre',
+      run: () => act((c) => ops.resetSheetOrder(c)),
+    });
 
   return (
     <section id={secId(sh.id)} class={`sheet-view${isArr ? ' arranging' : ''}`}>

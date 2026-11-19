@@ -103,3 +103,24 @@ describe('cartas agregadas a hojas fijas y la sincronización', () => {
     expect(pika(both).cards.length).toBe(base + 2);
   });
 });
+
+describe('orden de las hojas', () => {
+  it('mover una hoja, sincronizar y volver al orden de siempre', () => {
+    const col = emptyCollection();
+    ops.createSheet(col, 'Mías');
+    const ids = () => allSheets(FIXED_SHEETS, col).map((s) => s.id);
+    const before = ids();
+    expect(ops.moveSheet(col, allSheets(FIXED_SHEETS, col), 'u:s1', -1)).toBe(true);
+    expect(ids().at(-2)).toBe('u:s1');
+    expect(ops.moveSheet(col, allSheets(FIXED_SHEETS, col), 'p', -1)).toBe(false);
+    ops.moveSheet(col, allSheets(FIXED_SHEETS, col), 'p', 1);
+    expect(ids().slice(0, 2)).toEqual([before[1], 'p']);
+    // Una hoja nueva entra al final aunque haya un orden elegido.
+    ops.createSheet(col, 'Otra');
+    expect(ids().at(-1)).toBe('u:s2');
+    const back = implode(baseline(explode(col), seqsOf(col)));
+    expect(back.sheetOrder).toEqual(col.sheetOrder);
+    ops.resetSheetOrder(col);
+    expect(ids()).toEqual([...before, 'u:s2']);
+  });
+});

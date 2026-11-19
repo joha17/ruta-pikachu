@@ -42,7 +42,19 @@ export function allSheets(fixed: SheetDef[], col: Collection): SheetDef[] {
       return out;
     })
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .concat(own);
+    .concat(own)
+    .map((s, i) => [s, posOf(col.sheetOrder, s.id, i)] as const)
+    .sort((a, b) => a[1] - b[1])
+    .map(([s]) => s);
+}
+
+/**
+ * Lugar de una hoja: las que están en el orden elegido van primero, en ese orden; las demás
+ * (hojas nuevas o que volvieron a mostrarse) después, en el orden de siempre.
+ */
+function posOf(order: string[] | undefined, id: string, i: number): number {
+  const j = order ? order.indexOf(id) : -1;
+  return j >= 0 ? j : (order?.length ?? 0) + i;
 }
 
 /** Hoja donde se pueden añadir cartas. `id` es el que reciben addCard y moveBoxToSheet. */

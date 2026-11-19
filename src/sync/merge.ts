@@ -68,6 +68,7 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   for (const [k, v] of Object.entries(col.alerts ?? {})) out[`alert:${k}`] = v;
   for (const [k, v] of Object.entries(col.alertLog ?? {})) out[`alertlog:${k}`] = v;
   if (typeof col.budget === 'number') out['budget:mensual'] = col.budget;
+  if (col.sheetOrder?.length) out['sheetorder:menu'] = col.sheetOrder;
   for (const [k, v] of Object.entries(col.spend ?? {})) out[`spend:${k}`] = v;
   for (const [k, v] of Object.entries(col.later ?? {})) out[`later:${k}`] = v;
   for (const sh of col.custom ?? []) {
@@ -206,7 +207,9 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
       const a = normAlert(v);
       if (a) col.alerts[k] = a;
     } else if (kind === 'alertlog') col.alertLog[k] = v as AlertEvent;
-    else if (kind === 'budget') {
+    else if (kind === 'sheetorder') {
+      if (Array.isArray(v)) col.sheetOrder = v as string[];
+    } else if (kind === 'budget') {
       if (typeof v === 'number') col.budget = v;
     } else if (kind === 'spend') col.spend[k] = v as Spend;
     else if (kind === 'later') col.later[k] = v as LaterCard;
