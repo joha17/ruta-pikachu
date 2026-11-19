@@ -1,6 +1,6 @@
 // Sincronización entre aparatos: la parte pura (sin red ni IndexedDB).
 //
-// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, alerta de precio, alerta disparada, variante,
+// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, alerta de precio, alerta disparada, compra, carta en frío, presupuesto, variante,
 // orden de hoja, hoja propia, carta de hoja propia, carta de la Caja y foto. Cada átomo
 // lleva la hora de su último cambio. Al combinar dos copias gana, átomo por átomo, el cambio
 // más reciente. Un borrado deja una marca (átomo sin valor) para que un aparato
@@ -11,7 +11,7 @@
 // operación de la colección tiene que saber que existe la sincronización.
 
 import { normAlert } from '../model/alerts';
-import type { AlertEvent, BoxCard, CardDef, Collection, CustomSheet, ManualPrice, MyGoal, SheetRename } from '../model/types';
+import type { AlertEvent, BoxCard, LaterCard, Spend, CardDef, Collection, CustomSheet, ManualPrice, MyGoal, SheetRename } from '../model/types';
 import { emptyCollection } from '../model/types';
 
 export const SYNC_KIND = 'ruta-pikachu-sync';
@@ -67,6 +67,9 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   for (const [k, v] of Object.entries(col.manual ?? {})) out[`manual:${k}`] = v;
   for (const [k, v] of Object.entries(col.alerts ?? {})) out[`alert:${k}`] = v;
   for (const [k, v] of Object.entries(col.alertLog ?? {})) out[`alertlog:${k}`] = v;
+  if (typeof col.budget === 'number') out['budget:mensual'] = col.budget;
+  for (const [k, v] of Object.entries(col.spend ?? {})) out[`spend:${k}`] = v;
+  for (const [k, v] of Object.entries(col.later ?? {})) out[`later:${k}`] = v;
   for (const sh of col.custom ?? []) {
     const head: Record<string, unknown> = { name: sh.name, cards: sh.cards.map((c) => c.k) };
     if (sh.desc) head.desc = sh.desc;
@@ -195,6 +198,10 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
       const a = normAlert(v);
       if (a) col.alerts[k] = a;
     } else if (kind === 'alertlog') col.alertLog[k] = v as AlertEvent;
+    else if (kind === 'budget') {
+      if (typeof v === 'number') col.budget = v;
+    } else if (kind === 'spend') col.spend[k] = v as Spend;
+    else if (kind === 'later') col.later[k] = v as LaterCard;
     else if (kind === 'sheet') sheets.set(k, v as { name: string; desc?: string; cards: string[] });
     else if (kind === 'card') {
       const dot = k.indexOf('.');

@@ -12,6 +12,7 @@ import { loadSets } from '../scan/search';
 import { cachedCard, fetchCard, imageUrl, tcgCache } from '../tcgdex';
 import { priceText, shownPrice } from '../scan/browse';
 import { showSheet } from './sheetView';
+import { buyFlow, preOf, priceOf } from './Presupuesto';
 
 function Fld(p: { id: string; label: string; val?: string; opt?: boolean; hint?: string; [k: string]: unknown }) {
   const { id, label, val, opt, hint, ...attrs } = p;
@@ -264,17 +265,23 @@ export function Forms() {
                 formView.value = null;
                 return;
               }
-              let id = '';
-              act((c) => {
-                const nb = ops.addBox(c, { ...r.c, lang: fv.pre?.lang, graded: fv.pre?.graded });
-                if (nb) {
-                  id = nb.id;
-                  if (r.price != null) ops.setManual(c, alias.value, `b:${nb.id}`, r.price);
-                }
+              const tcg = r.c.tcg;
+              void buyFlow([{ name: r.c.n, price: r.price ?? priceOf(undefined, tcg), pre: preOf(fv.pre, { ...r.c }) }], () => {
+                let id = '';
+                act((c) => {
+                  const nb = ops.addBox(c, { ...r.c, lang: fv.pre?.lang, graded: fv.pre?.graded });
+                  if (nb) {
+                    id = nb.id;
+                    if (r.price != null) ops.setManual(c, alias.value, `b:${nb.id}`, r.price);
+                  }
+                });
+                formView.value = null;
+                openKey.value = id ? `b:${id}` : '';
+                say('Guardada en la caja.');
+                return [id ? `b:${id}` : ''];
+              }).then((a) => {
+                if (a === 'later') formView.value = null;
               });
-              formView.value = null;
-              openKey.value = id ? `b:${id}` : '';
-              say('Guardada en la caja.');
             }}
           >
             <CardFields c={bc} withPrice={!eb} tcgHint="Con esto se traen su imagen oficial y su precio de TCGplayer." />
@@ -467,14 +474,22 @@ export function Forms() {
               formView.value = null;
               return;
             }
-            let key: string | null = null;
-            act((cc) => {
-              key = ops.addCard(cc, sh.id, { ...r.c, lang: fv.pre?.lang }, fv.altOf);
-              if (key && r.price != null) ops.setManual(cc, alias.value, key, r.price);
-              if (key && fv.pre?.own) cc.owned[key] = true;
+            const add = (own: boolean): string => {
+              let key: string | null = null;
+              act((cc) => {
+                key = ops.addCard(cc, sh.id, { ...r.c, lang: fv.pre?.lang }, fv.altOf);
+                if (key && r.price != null) ops.setManual(cc, alias.value, key, r.price);
+                if (key && own) cc.owned[key] = true;
+              });
+              formView.value = null;
+              if (key) openKey.value = key;
+              return key ?? '';
+            };
+            // Agregarla como conseguida es una compra: pasa por el presupuesto.
+            if (!fv.pre?.own) return void add(false);
+            void buyFlow([{ name: r.c.n, price: r.price ?? priceOf(undefined, r.c.tcg), pre: preOf(fv.pre, { ...r.c }) }], () => [add(true)]).then((a) => {
+              if (a === 'later') formView.value = null;
             });
-            formView.value = null;
-            if (key) openKey.value = key;
           }}
         >
           <CardFields

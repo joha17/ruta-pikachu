@@ -21,6 +21,7 @@ import { seedPrice } from '../collect';
 import { cachedCard, fetchCard, imageUrl } from '../tcgdex';
 import { TcgInfo } from '../ui/TcgInfo';
 import { Zoomable } from '../ui/Zoom';
+import { buyFlow, priceOf, type BuyItem } from '../ui/Presupuesto';
 
 interface Shot {
   id: number;
@@ -540,10 +541,37 @@ function markOwned(shot: Shot, key: string) {
   patch(shot.id, { done: 'Marcada como conseguida' });
 }
 
-function saveToBox(shot: Shot, c: Cand): boolean {
+/** Para la pregunta del presupuesto: una carta de tus hojas que vas a marcar. */
+function itemOwned(key: string): BuyItem {
+  const f = findCard(sheets.value, collection.value, key);
+  return { name: f ? cardTitle(f.card) : key, price: priceOf(key), key };
+}
+
+/** Para la pregunta del presupuesto: una carta nueva que irá a la caja. */
+function itemNew(shot: Shot, c: Cand): BuyItem {
+  const pre = preFrom(c, shot);
+  return { name: pre.n, price: priceOf(undefined, c.brief.id), pre };
+}
+
+/** Pregunta cuánto pagaste y marca la carta como conseguida. */
+function buyOwned(shot: Shot, key: string) {
+  void buyFlow([itemOwned(key)], () => {
+    markOwned(shot, key);
+    return [key];
+  });
+}
+
+/** Pregunta cuánto pagaste y guarda la carta en la caja. */
+function buyToBox(shot: Shot, c: Cand) {
+  if (collection.value.box.length >= MAX_BOX) return void say('La caja está llena (300 cartas).', false);
+  void buyFlow([itemNew(shot, c)], () => [saveToBox(shot, c)]);
+}
+
+/** Guarda en la caja. Devuelve la clave nueva o ''. */
+function saveToBox(shot: Shot, c: Cand): string {
   if (collection.value.box.length >= MAX_BOX) {
     say('La caja está llena (300 cartas).', false);
-    return false;
+    return '';
   }
   let key = '';
   act((col) => {
@@ -555,7 +583,7 @@ function saveToBox(shot: Shot, c: Cand): boolean {
     void keepPhoto(shot, key);
   }
   patch(shot.id, { done: 'Guardada en la caja' });
-  return !!key;
+  return key;
 }
 
 function Picked({ shot, c }: { shot: Shot; c: Cand }) {
@@ -626,7 +654,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
               </p>
               <div class="scan-acts">
                 {!own && (
-                  <button class="btn primary" onClick={() => markOwned(shot, key)}>
+                  <button class="btn primary" onClick={() => buyOwned(shot, key)}>
                     Marcar como conseguida
                   </button>
                 )}
@@ -644,7 +672,7 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
             <>
               <p class="msg">No está en ninguna de tus hojas.</p>
               <div class="scan-acts">
-                <button class="btn primary bx" onClick={() => saveToBox(shot, c)}>
+                <button class="btn primary bx" onClick={() => buyToBox(shot, c)}>
                   📦 Guardar en la caja
                 </button>
                 <button class="btn quiet" onClick={() => (formView.value = { kind: 'box', pre: preFrom(c, shot) })}>
@@ -664,18 +692,21 @@ function Picked({ shot, c }: { shot: Shot; c: Cand }) {
                   <div class="scan-acts">
                     <button
                       class="btn"
-                      onClick={() => {
-                        let k: string | null = null;
-                        act((cc) => {
-                          k = ops.addCard(cc, sid, preFrom(c, shot));
-                          if (k) cc.owned[k] = true;
-                        });
-                        if (k) {
-                          seedPrice(k, c.brief.id);
-                          void keepPhoto(shot, k);
-                        }
-                        patch(shot.id, { done: `Añadida a «${room.find((s) => s.id === sid)?.name}»` });
-                      }}
+                      onClick={() =>
+                        void buyFlow([itemNew(shot, c)], () => {
+                          let k: string | null = null;
+                          act((cc) => {
+                            k = ops.addCard(cc, sid, preFrom(c, shot));
+                            if (k) cc.owned[k] = true;
+                          });
+                          if (k) {
+                            seedPrice(k, c.brief.id);
+                            void keepPhoto(shot, k);
+                          }
+                          patch(shot.id, { done: `Añadida a «${room.find((s) => s.id === sid)?.name}»` });
+                          return [k ?? ''];
+                        })
+                      }
                     >
                       Añadir a la hoja
                     </button>
@@ -1070,11 +1101,22 @@ function BurstList() {
             <div class="scan-acts">
               <button
                 class="btn primary"
-                onClick={() => {
-                  for (const s of toMark) markOwned(s, keysFor(s.pick!.brief.id)[0]!);
-                  for (const s of toBox) saveToBox(s, s.pick!);
+                onClick={async () => {
+                  // Las que ya tenías no son compra: solo se guarda la foto.
+                  const had = toMark.filter((s) => isOwned(alias.value, collection.value, keysFor(s.pick!.brief.id)[0]!));
+                  const mark = toMark.filter((s) => !had.includes(s));
+                  for (const s of had) markOwned(s, keysFor(s.pick!.brief.id)[0]!);
+                  const items = [...mark.map((s) => itemOwned(keysFor(s.pick!.brief.id)[0]!)), ...toBox.map((s) => itemNew(s, s.pick!))];
                   setConfirm(false);
-                  say('Listo: ráfaga guardada.');
+                  if (!items.length) return say('Listo: ráfaga guardada.');
+                  await buyFlow(items, () => [
+                    ...mark.map((s) => {
+                      const k = keysFor(s.pick!.brief.id)[0]!;
+                      markOwned(s, k);
+                      return k;
+                    }),
+                    ...toBox.map((s) => saveToBox(s, s.pick!)),
+                  ]);
                 }}
               >
                 Sí, guardar

@@ -1,4 +1,4 @@
-// Consejero de compras (Compras → «🤖 Consejero»): Claude dice qué comprar ya y qué esperar.
+// Consejero de compras (Compras → «🤖 Asistente» → Consejero): Claude dice qué comprar ya y qué esperar.
 
 import { useEffect, useState } from 'preact/hooks';
 import { currentRows, estimateAdvice, lastAdvice, loadLastAdvice, makeAdvice } from '../advice';
@@ -31,8 +31,8 @@ export function AdviceTag({ k }: { k: string }) {
   );
 }
 
-export function Consejero() {
-  const [open, setOpen] = useState(false);
+export function Consejero({ open: inline = false }: { open?: boolean }) {
+  const [open, setOpen] = useState(inline);
   const [busy, setBusy] = useState<ClaudeModel | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -79,9 +79,11 @@ export function Consejero() {
     <div class="valuebox consejero">
       <div class="eyebrow">
         🤖 Consejero de compras{' '}
-        <button class="linkish" onClick={() => setOpen(false)}>
-          Cerrar
-        </button>
+        {!inline && (
+          <button class="linkish" onClick={() => setOpen(false)}>
+            Cerrar
+          </button>
+        )}
       </div>
       {a ? (
         <>

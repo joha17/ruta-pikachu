@@ -146,8 +146,39 @@ export interface Collection {
   alerts: Record<string, PriceAlert>;
   /** Alertas disparadas: id (fecha|carta|motivo) → qué pasó. No se borra al cambiar o quitar la alerta. */
   alertLog: Record<string, AlertEvent>;
+  /** Presupuesto mensual de compras en USD (sin valor = 70, ver model/budget.ts). */
+  budget?: number;
+  /** Compras registradas: id → qué compré, cuándo y cuánto pagué. */
+  spend: Record<string, Spend>;
+  /** «Lo pienso en frío»: cartas que quise comprar y dejé para pensarlo. */
+  later: Record<string, LaterCard>;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
+}
+
+/** Una compra registrada (resta del presupuesto de su mes). */
+export interface Spend {
+  /** Día de la compra, AAAA-MM-DD. */
+  d: string;
+  /** Qué compré (nombre de la carta o lo que escribí). */
+  n: string;
+  /** Cuánto pagué, USD. */
+  v: number;
+  /** Clave de la carta, si es una carta de la colección. */
+  k?: string;
+}
+
+/** Carta que dejé para pensarla en frío en vez de comprarla. */
+export interface LaterCard {
+  /** Día en que la dejé, AAAA-MM-DD. */
+  d: string;
+  n: string;
+  /** Precio que tenía ese día (USD), si había. */
+  p?: number;
+  /** Clave de la carta si ya está en mis hojas. */
+  k?: string;
+  /** Datos para guardarla en la Caja si no está en mis hojas (de TCGdex o del escáner). */
+  pre?: Record<string, string>;
 }
 
 /** Por qué se disparó una alerta. */
@@ -250,6 +281,8 @@ export function emptyCollection(): Collection {
     goalSeq: 0,
     alerts: {},
     alertLog: {},
+    spend: {},
+    later: {},
     saved: '',
   };
 }

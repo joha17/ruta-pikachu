@@ -9,6 +9,7 @@ import { Fragment, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
+import { buyFlow, priceOf } from '../ui/Presupuesto';
 import { findCard, isOwned, MAX_CARDS } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
@@ -108,6 +109,7 @@ const selected = signal<BrowseResult | null>(null);
 const failed = signal<Set<string>>(new Set());
 const retry = signal(0);
 const setList = signal<SetBrief[]>([]);
+const moreOpen = signal(false);
 const rarList = signal<string[]>([]);
 /** Rarezas de cada set elegido (undefined = cargando, null = no se pudo saber). */
 const setRars = signal<Record<string, string[] | null | undefined>>({});
@@ -310,9 +312,15 @@ function Filtros() {
         none="Todas"
         opts={rarOpts}
       />
-      <Chips k="type" label="Tipo" opts={TYPES.map(([value, label]) => ({ value, label }))} />
-      <Chips k="category" label="Categoría" opts={CATEGORIES.map(([value, label]) => ({ value, label }))} />
-      <p class="hint bf-tip">Puedes elegir varios en cada filtro: salen las cartas que tengan cualquiera de ellos.</p>
+      <details class="bf-more" open={moreOpen.value || f.type.length + f.category.length > 0} onToggle={(e) => (moreOpen.value = e.currentTarget.open)}>
+        <summary>
+          Más filtros: tipo y categoría
+          {f.type.length + f.category.length > 0 && ` (${f.type.length + f.category.length})`}
+        </summary>
+        <Chips k="type" label="Tipo" opts={TYPES.map(([value, label]) => ({ value, label }))} />
+        <Chips k="category" label="Categoría" opts={CATEGORIES.map(([value, label]) => ({ value, label }))} />
+        <p class="hint bf-tip">Puedes elegir varios en cada filtro: salen las cartas que tengan cualquiera de ellos.</p>
+      </details>
       <div class="bf-acts">
         <button class="btn primary" type="submit" disabled={!canSearch(f) || status.value === 'loading'}>
           Buscar
@@ -522,7 +530,13 @@ function Detalle({ c }: { c: BrowseResult }) {
     setBusy(true);
     await fetchCard(c.id);
     setBusy(false);
-    if (fn()) {
+    const pre = preFromTcg(c);
+    let got = '';
+    await buyFlow([{ name: pre.n, price: priceOf(undefined, c.id), pre }], () => {
+      got = fn();
+      return [got];
+    });
+    if (got) {
       setDone(msg);
       say(msg);
     }
@@ -605,9 +619,15 @@ function Detalle({ c }: { c: BrowseResult }) {
               {!own && (
                 <button
                   class="btn primary"
-                  onClick={() => {
-                    act((cc) => void ops.toggle(cc, alias.value, key));
-                    setDone('Marcada como conseguida.');
+                  onClick={async () => {
+                    const name = found ? cardTitle(found.card) : full?.name || c.name;
+                    const ok = await buyFlow([{ name, price: priceOf(key, c.id), key }], () => {
+                      act((cc) => {
+                        if (!isOwned(alias.value, cc, key)) ops.toggle(cc, alias.value, key);
+                      });
+                      return [key];
+                    });
+                    if (ok === 'added') setDone('Marcada como conseguida.');
                   }}
                 >
                   Marcar como conseguida
