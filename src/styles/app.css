@@ -396,3 +396,17 @@ body.camfs-open{overflow:hidden}
 /* Nombres de cartas enlazados en las respuestas de Claude */
 .cardref{all:unset;cursor:pointer;color:var(--accent-text,inherit);font-weight:600;text-decoration:underline;text-underline-offset:3px}
 .cardref:focus-visible{outline:3px solid var(--yellow);outline-offset:2px;border-radius:3px}
+
+/* Contexto de la carta e ideas para la próxima hoja */
+.ctx-bar{margin:10px 0}
+.contexto p{margin:0 0 6px}
+.ctx-lvl{font-weight:700;font-size:13px}
+.ctx-facil{color:var(--ok)}
+.ctx-dificil{color:var(--warn)}
+.ctx-media{color:var(--muted)}
+.ideas{margin-top:14px;text-align:left}
+.ideas h4{margin:10px 0 4px;font-size:14px}
+.ideas p{margin:0 0 6px}
+.ideas-list{margin:0 0 6px;padding-left:20px;display:grid;gap:6px}
+.ideas-list .why{display:block;color:var(--muted)}
+.ideas-budget input{max-width:120px}
