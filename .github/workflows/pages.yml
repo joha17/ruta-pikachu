@@ -59,6 +59,8 @@ jobs:
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Opcional: una línea de Claude que explica cada alerta (tope mensual compartido con la app).
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: node --experimental-strip-types --no-warnings scripts/alertas.mjs --hist public/historial
       - uses: actions/cache/save@v4
         if: always() && steps.hist.outputs.changed == 'true'

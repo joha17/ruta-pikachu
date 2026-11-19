@@ -125,6 +125,10 @@ Para activarlo (una sola vez):
 3. En Settings → Secrets and variables → Actions, crear `GIST_TOKEN` (ese token) y `TELEGRAM_TOKEN`
    (el del bot). `TELEGRAM_CHAT_ID` es opcional: sin él se usa el primer chat que le escribió al bot.
 4. En la app, Alertas → «Avisos con la app cerrada», pegar el mismo token de GitHub.
+5. Opcional: crear también `ANTHROPIC_API_KEY` (tu clave de Claude, la misma del escáner) para que cada
+   alerta llegue con una línea de Claude (Haiku) que explica el movimiento del precio
+   (`scripts/explicar.mjs`). El gasto del mes queda en el gist y la app lo suma a su tope mensual; de noche
+   se corta en $1 al mes o en lo que le quede al tope de la app.
 
 ## Escáner
 

@@ -25,6 +25,8 @@ export interface CloudAlerts {
   cards: CloudCard[];
   /** Última vez que se disparó cada regla, para que el aviso no repita lo que ya avisó la app. */
   log: Record<string, AlertEvent>;
+  /** Lo que le queda del tope mensual de Claude a la app (USD, redondeado hacia abajo). */
+  iaLeft?: number;
 }
 
 /** Lo que guarda el aviso nocturno en el gist. */
@@ -32,6 +34,8 @@ export interface CloudSent {
   events?: Record<string, AlertEvent>;
   last?: string;
   chat?: string;
+  /** Gasto del mes en las explicaciones de Claude del aviso nocturno. */
+  ia?: { month: string; spent: number };
 }
 
 /**
