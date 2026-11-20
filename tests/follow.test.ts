@@ -1,6 +1,6 @@
 // Seguir binders: enlaces, qué se acepta de un archivo público y que viaja por la sincronización.
 import { describe, expect, it } from 'vitest';
-import { addFollow, agoText, buildPub, cleanFollows, cleanPub, followIdFrom, followLink, pubSignature, type Follow } from '../src/model/follow';
+import { addFollow, agoText, buildPub, cleanFollows, cleanPub, followIdFrom, followLink, pubProfile, pubSignature, type Follow } from '../src/model/follow';
 import { emptyCollection } from '../src/model/types';
 import { explode, implode, baseline, seqsOf } from '../src/sync/merge';
 import type { BinderPayload } from '../src/model/share';
@@ -23,6 +23,9 @@ describe('seguir binders', () => {
     expect(cleanPub(JSON.parse(JSON.stringify(p)))).toEqual({ b: binder, upd: '2026-11-20T10:00:00.000Z' });
     expect(cleanPub({ ...p, upd: 'nunca' })).toEqual({ b: binder });
     expect(cleanPub({ hola: 1 })).toBeNull();
+    // El perfil: solo frase corta, mes válido y números.
+    const got = cleanPub({ ...p, prof: { ab: 'hola', s: '2024-13', c: 5, f: 9, h: 3, w: -2, usd: 999 } });
+    expect(got?.prof).toEqual({ ab: 'hola', c: 5, f: 3, h: 3, w: 0 });
     expect(cleanPub(null)).toBeNull();
     // La firma no cambia con la fecha: solo si cambia el binder.
     expect(pubSignature(binder)).toBe(pubSignature({ ...binder }));
@@ -49,6 +52,15 @@ describe('seguir binders', () => {
     const raw = { pub: 'x', follows: { corto: { added: 'x' }, [ID]: { added: '2026-11-20T10:00:00.000Z', n: 'Ana', a: 99999, evil: '<b>' } } };
     cleanFollows(raw);
     expect(raw).toEqual({ follows: { [ID]: { added: '2026-11-20T10:00:00.000Z', n: 'Ana' } } });
+  });
+
+  it('el perfil público respeta «ocultar» y nunca lleva dinero', () => {
+    const c = emptyCollection();
+    c.profile = { name: 'Ana', about: 'Hola', since: '2025-01' };
+    const p = pubProfile([], c, {}, '2020-01');
+    expect(p).toEqual({ ab: 'Hola', s: '2025-01', c: 0, f: 0, h: 0, w: 0 });
+    c.profile.hide = true;
+    expect(pubProfile([], c, {})).toEqual({ c: 0, f: 0, h: 0, w: 0 });
   });
 
   it('dice hace cuánto se puso al día', () => {

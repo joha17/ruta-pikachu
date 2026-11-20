@@ -3,7 +3,7 @@
 
 import { signal } from '@preact/signals';
 import { say } from './actions';
-import { addFollow, cleanPub, MAX_FOLLOWS } from './model/follow';
+import { addFollow, cleanPub, MAX_FOLLOWS, type PubProfile } from './model/follow';
 import type { BinderPayload } from './model/share';
 import type { ShareWho } from './model/profile';
 import { collection, update } from './store';
@@ -11,7 +11,7 @@ import { DriveError, readPublic } from './sync/drive';
 
 export type FollowView =
   | { st: 'loading' }
-  | { st: 'ok'; b: BinderPayload; upd?: string; at: number; refreshing?: boolean }
+  | { st: 'ok'; b: BinderPayload; upd?: string; prof?: PubProfile; at: number; refreshing?: boolean }
   | { st: 'err'; msg: string };
 
 export const followViews = signal<Record<string, FollowView>>({});
@@ -46,7 +46,7 @@ export function loadFollow(id: string, force = false): Promise<void> {
       }
       const got = cleanPub(raw);
       if (!got) throw new DriveError('Ese enlace no es un binder de Ruta Pikachu.');
-      setView(id, { st: 'ok', b: got.b, upd: got.upd, at: Date.now() });
+      setView(id, { st: 'ok', b: got.b, upd: got.upd, prof: got.prof, at: Date.now() });
       // Si cambió su nombre o avatar, se pone al día en mi lista.
       const f = collection.value.follows?.[id];
       const w = got.b.who ?? {};

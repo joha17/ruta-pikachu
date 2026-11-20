@@ -6,31 +6,75 @@
 // Quien sigue guarda solo el id de ese archivo y lo vuelve a leer cuando abre «Siguiendo».
 
 import { cleanBinder, type BinderPayload } from './share';
-import { cleanWho, type ShareWho } from './profile';
+import { ABOUT_MAX, cleanWho, profileStats, type ShareWho } from './profile';
+import type { Collection, SheetDef } from './types';
 
 /** Nombre del archivo público en «Mi unidad» de quien publica. */
 export const PUB_NAME = 'ruta-pikachu-binder-publico.json';
 export const MAX_FOLLOWS = 50;
 
-/** Lo que va en el archivo público: el binder compartido más la fecha en que se actualizó. */
-export type PubPayload = BinderPayload & { upd: string };
+/** Perfil que ven quienes me siguen (además del nombre y avatar del binder). Nunca el valor en dinero ni la foto. */
+export interface PubProfile {
+  /** Frase. */
+  ab?: string;
+  /** Colecciona desde, AAAA-MM. */
+  s?: string;
+  /** Cartas distintas que tiene (Caja incluida). */
+  c: number;
+  /** Hojas completas (f) de cuántas (h). */
+  f: number;
+  h: number;
+  /** Cartas en su lista de deseos. */
+  w: number;
+}
 
-export function buildPub(b: BinderPayload, now: Date): PubPayload {
-  return { ...b, upd: now.toISOString() };
+/** Lo que va en el archivo público: el binder compartido, su perfil y la fecha en que se actualizó. */
+export type PubPayload = BinderPayload & { upd: string; prof?: PubProfile };
+
+/** Perfil para el archivo público. Si ocultó su nombre y avatar, tampoco va la frase ni desde cuándo. */
+export function pubProfile(sheets: SheetDef[], col: Collection, alias: Record<string, string>, since?: string): PubProfile {
+  const st = profileStats(sheets, col, alias);
+  const p = col.profile;
+  const out: PubProfile = { c: st.cards, f: st.full, h: st.sheets, w: st.wish };
+  if (p && !p.hide) {
+    if (p.about) out.ab = p.about;
+    const s = p.since ?? since;
+    if (s) out.s = s;
+  }
+  return out;
+}
+
+export function buildPub(b: BinderPayload, now: Date, prof?: PubProfile): PubPayload {
+  return { ...b, upd: now.toISOString(), ...(prof ? { prof } : {}) };
+}
+
+const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(100000, Math.round(v))) : 0);
+
+function cleanProf(raw: unknown): PubProfile | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const r = raw as Record<string, unknown>;
+  const out: PubProfile = { c: num(r.c), f: num(r.f), h: num(r.h), w: num(r.w) };
+  out.f = Math.min(out.f, out.h);
+  const ab = typeof r.ab === 'string' ? r.ab.replace(/[\u0000-\u001f]/g, '').trim().slice(0, ABOUT_MAX) : '';
+  if (ab) out.ab = ab;
+  if (typeof r.s === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(r.s)) out.s = r.s;
+  return out;
 }
 
 /** Texto para saber si el binder cambió (sin la fecha, que cambia siempre). */
-export function pubSignature(b: BinderPayload): string {
-  return JSON.stringify(b);
+export function pubSignature(b: BinderPayload, prof?: PubProfile): string {
+  return JSON.stringify([b, prof ?? null]);
 }
 
 /** Revisa lo que se leyó de un archivo público (lo puede escribir cualquiera). */
-export function cleanPub(raw: unknown): { b: BinderPayload; upd?: string } | null {
+export function cleanPub(raw: unknown): { b: BinderPayload; upd?: string; prof?: PubProfile } | null {
   const b = cleanBinder(raw);
   if (!b) return null;
-  const u = (raw as Record<string, unknown>).upd;
+  const r = raw as Record<string, unknown>;
+  const u = r.upd;
   const upd = typeof u === 'string' && !Number.isNaN(Date.parse(u)) ? new Date(u).toISOString() : undefined;
-  return upd ? { b, upd } : { b };
+  const prof = cleanProf(r.prof);
+  return { b, ...(upd ? { upd } : {}), ...(prof ? { prof } : {}) };
 }
 
 /** Un perfil que sigo: el id del archivo público y lo último que supe de su nombre y avatar. */

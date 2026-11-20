@@ -16,10 +16,11 @@ import * as store from '../db';
 import type { SyncState } from '../db';
 import { buildCopy, copyDay, copyName, COPY_PREFIX, parseCopy, planCopies, type DailyCopy } from '../model/copies';
 import { setIdTag, today } from '../model/keys';
-import { afterChange, collection, flush, prices, reloadPhotos, update } from '../store';
+import { afterChange, alias, collection, flush, prices, reloadPhotos, settings, sheets, update } from '../store';
 import { applySnap, mergeSnaps, parseSnap, PRICES_NAME, snapOf, snapText, type PriceSnap } from './prices';
 import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, hasScope, loadGis, PHOTO_PREFIX, SCOPE_FILE, signIn, type DriveFile, type Token } from './drive';
-import { buildPub, pubSignature, PUB_NAME } from '../model/follow';
+import { buildPub, pubProfile, pubSignature, PUB_NAME } from '../model/follow';
+import { firstMonth } from '../model/profile';
 import { binderPayload } from '../publish';
 import {
   baseline,
@@ -453,7 +454,8 @@ export const pubMsg = signal('');
 
 const pubBody = async (): Promise<{ body: Blob; sig: string }> => {
   const b = await binderPayload();
-  return { body: new Blob([JSON.stringify(buildPub(b, new Date()))], { type: 'application/json' }), sig: pubSignature(b) };
+  const prof = pubProfile(sheets.value, collection.value, alias.value, firstMonth(collection.value, prices.value, settings.value.migratedAt));
+  return { body: new Blob([JSON.stringify(buildPub(b, new Date(), prof))], { type: 'application/json' }), sig: pubSignature(b, prof) };
 };
 
 async function publishStep(drive: Drive): Promise<void> {

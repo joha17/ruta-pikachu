@@ -4,7 +4,8 @@
 import { useEffect, useState } from 'preact/hooks';
 import { say } from '../actions';
 import { followParam, followViews, follow, isFollowing, loadFollow, unfollow } from '../follow';
-import { agoText, followIdFrom, followLink } from '../model/follow';
+import { agoText, followIdFrom, followLink, type PubProfile } from '../model/follow';
+import { monthText } from '../model/profile';
 import { collection } from '../store';
 import { pubMsg, pubPerm, startPublishing, stopPublishing, syncConfigured, syncOn } from '../sync/engine';
 import { Avatar } from '../ui/Avatar';
@@ -130,6 +131,7 @@ function FollowRow({ id }: { id: string }) {
         <Avatar p={{ avatar: b?.who?.a ?? f?.a }} size={40} />
         <span class="fr-txt">
           <b>{name ? `Binder de ${name}` : 'Binder sin nombre'}</b>
+          {v?.st === 'ok' && v.prof?.ab && <small class="fr-about">«{v.prof.ab}»</small>}
           <small class={v?.st === 'err' ? 'warn-text' : ''}>{sub}</small>
         </span>
         <span class="fr-go" aria-hidden="true">
@@ -186,6 +188,36 @@ export function SiguiendoPanel() {
   );
 }
 
+/** Su perfil en la portada del binder: frase, desde cuándo y números. Nunca el valor en dinero. */
+function PubProfileBlock({ p, upd }: { p?: PubProfile; upd?: string }) {
+  return (
+    <div class="pub-prof">
+      {p?.ab && <p class="pub-about">«{p.ab}»</p>}
+      {p?.s && <p class="pub-since">Colecciona desde {monthText(p.s)}</p>}
+      {p && (
+        <dl class="pub-stats">
+          <div>
+            <dt>Cartas</dt>
+            <dd>{p.c}</dd>
+          </div>
+          <div>
+            <dt>Hojas completas</dt>
+            <dd>
+              {p.f}
+              <small> de {p.h}</small>
+            </dd>
+          </div>
+          <div>
+            <dt>Deseos</dt>
+            <dd>{p.w}</dd>
+          </div>
+        </dl>
+      )}
+      {upd && <p class="pub-upd">🔄 Puesto al día {agoText(upd, new Date())}</p>}
+    </div>
+  );
+}
+
 // ---- Un binder que sigo (o que me pasaron para seguir) ----
 
 export function Seguir() {
@@ -233,7 +265,7 @@ export function Seguir() {
       b={b}
       title={mine ? 'Mi binder público' : 'Binder que sigues'}
       eyebrow={mine ? 'Ruta Pikachu · así lo ven quienes te siguen' : 'Ruta Pikachu · binder público'}
-      extra={v.upd ? <p class="pub-upd">🔄 Puesto al día {agoText(v.upd, new Date())}</p> : null}
+      extra={<PubProfileBlock p={v.prof} upd={v.upd} />}
       tools={tools}
       onClose={back}
       closeLabel="Salir del binder"

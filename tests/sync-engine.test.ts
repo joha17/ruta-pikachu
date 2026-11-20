@@ -322,7 +322,7 @@ describe('motor de sincronización con Drive', () => {
     try {
       const cel = await device('pb1');
       await cel.edit((c) => {
-        c.profile = { name: 'Johannes', avatar: 25, photo: 'data:image/png;base64,AAAA' };
+        c.profile = { name: 'Johannes', avatar: 25, photo: 'data:image/png;base64,AAAA', about: 'Pikachu ante todo', since: '2024-03' };
       });
       // El Drive de mentira ya trae cartas de las pruebas anteriores: se cuenta desde lo que haya.
       await cel.edit((c) => {
@@ -342,6 +342,8 @@ describe('motor de sincronización con Drive', () => {
       expect(pub.own).toBeGreaterThan(0);
       const own1 = pub.own as number;
       expect(typeof pub.upd).toBe('string');
+      expect(pub.prof).toMatchObject({ ab: 'Pikachu ante todo', s: '2024-03' });
+      expect(pub.prof.c).toBeGreaterThan(0);
       // Nada de precios, compras ni la foto del perfil.
       expect(JSON.stringify(pub)).not.toMatch(/data:image|spend|usd|paid/);
       // La carpeta oculta no ve el archivo público (no se mezcla con la sincronización).
@@ -360,6 +362,7 @@ describe('motor de sincronización con Drive', () => {
       const v = amigo.follow.followViews.value[id]!;
       expect(v.st).toBe('ok');
       if (v.st === 'ok') expect(v.b.own).toBe(own1);
+      if (v.st === 'ok') expect(v.prof).toMatchObject({ ab: 'Pikachu ante todo', s: '2024-03' });
       amigo.follow.follow(id, v.st === 'ok' ? v.b.who : undefined);
       await amigo.store.flush();
       expect(amigo.store.collection.value.follows?.[id]).toMatchObject({ n: 'Johannes', a: 25 });
