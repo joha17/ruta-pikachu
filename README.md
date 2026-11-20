@@ -81,6 +81,18 @@ Lo que se agrega en un aparato aparece en los demás (pestaña **Respaldo** → 
 
 La primera vez, Google avisa que «no verificó esta app»: es tu propia app; «Continuar».
 
+### Abrirla a cualquier persona (sin usuarios de prueba)
+
+`drive.appdata` es un permiso **no sensible**, así que Google deja publicar la app sin revisión de seguridad.
+
+1. **Google Auth Platform** → **Desarrollo de la marca**: página principal
+   `https://joha17.github.io/ruta-pikachu/` y política de privacidad
+   `https://joha17.github.io/ruta-pikachu/privacidad.html` (`public/privacidad.html`) → **Guardar**.
+2. **Público** → **Publicar app** → **Confirmar**. El estado pasa a «En producción».
+
+Desde ahí cualquier cuenta de Google puede conectar Drive. Si Google pide verificar la marca (logo o
+nombre visibles en la pantalla de permiso), es opcional: sin eso la app funciona igual.
+
 ## Publicar en GitHub Pages
 
 El workflow `.github/workflows/pages.yml` prueba, construye y publica en cada push a `main`.
