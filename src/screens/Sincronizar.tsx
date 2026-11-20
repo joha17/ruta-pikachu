@@ -23,10 +23,10 @@ import {
 const LABEL: Record<SyncStatus, string> = {
   off: 'Apagada',
   ok: 'Sincronizado',
-  pending: 'Cambios por subir',
+  pending: 'Subiendo en unos segundos',
   syncing: 'Sincronizando…',
   offline: 'Sin conexión',
-  login: 'En pausa',
+  login: 'En pausa: falta reconectar con Google',
   error: 'No se pudo sincronizar',
 };
 
@@ -48,11 +48,12 @@ export function SyncChip() {
   if (s === 'off') return null;
   const cls = s === 'ok' ? ' ok' : s === 'syncing' ? '' : ' warn';
   // Todo al día: solo la nube, sin texto. Los demás estados sí se explican.
-  const short = s === 'ok' ? '' : s === 'syncing' ? 'Sincronizando…' : s === 'pending' ? 'Por subir' : s === 'offline' ? 'Sin conexión' : s === 'login' ? 'Sincronizar' : 'Error al sincronizar';
+  const short = s === 'ok' ? '' : s === 'syncing' ? 'Sincronizando…' : s === 'pending' ? 'Por subir' : s === 'offline' ? 'Sin conexión' : s === 'login' ? 'Reconectar' : 'Error, se reintenta';
   const title = `Google Drive: ${LABEL[s]}${syncLast.value ? ` · última vez ${cuando(syncLast.value)}` : ''}`;
   return (
     <button
       class={`chip sync-chip${cls}`}
+      data-sync-tap
       title={title}
       aria-label={title}
       onClick={() => (s === 'login' ? void syncNowFromTap() : go('respaldo'))}
@@ -224,7 +225,7 @@ export function Sincronizar() {
                 Conecta con la misma cuenta de Google en cada aparato. Si los dos ya tenían cartas, se juntan; si una misma cosa es distinta, gana lo que ya estaba en Drive.
               </p>
               <div class="row">
-                <button class="btn primary" disabled={busy} onClick={() => void run(connect, 'Sincronización activada.')}>
+                <button class="btn primary" data-sync-tap disabled={busy} onClick={() => void run(connect, 'Sincronización activada.')}>
                   {busy ? 'Conectando…' : 'Conectar con Google Drive'}
                 </button>
               </div>
@@ -242,11 +243,15 @@ export function Sincronizar() {
           </p>
           {syncMsg.value && <p class={`msg${s === 'ok' ? '' : ' warn'}`}>{syncMsg.value}</p>}
           {s === 'login' && (
-            <p class="hint">Por seguridad, Google pide confirmar cada cierto tiempo. Tus cambios se guardan aquí mientras tanto.</p>
+            <p class="hint">Por seguridad, Google da una sesión de una hora. Tus cambios se guardan aquí mientras tanto y suben solos apenas se renueva.</p>
           )}
+          <p class="hint">
+            Es automática: cada cambio se sube solo a los pocos segundos, y al abrir o volver a la app se baja lo de tus otros aparatos. La nube ☁ de arriba dice
+            cómo va: sola = todo al día. El botón queda por si quieres forzarla.
+          </p>
           <div class="row">
-            <button class="btn primary" disabled={busy || s === 'syncing'} onClick={() => void run(syncNowFromTap)}>
-              {s === 'syncing' ? 'Sincronizando…' : 'Sincronizar ahora'}
+            <button class="btn primary" data-sync-tap disabled={busy || s === 'syncing'} onClick={() => void run(syncNowFromTap)}>
+              {s === 'syncing' ? 'Sincronizando…' : s === 'login' ? 'Reconectar con Google' : 'Sincronizar ahora'}
             </button>
             <button class="btn quiet" disabled={busy} onClick={() => void off()}>
               Desconectar

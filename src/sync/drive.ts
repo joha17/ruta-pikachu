@@ -65,7 +65,7 @@ interface Gis {
 let gisLoad: Promise<Gis> | null = null;
 
 /** Carga el script de Google solo cuando hace falta (no en cada visita). */
-function loadGis(): Promise<Gis> {
+export function loadGis(): Promise<Gis> {
   const w = window as unknown as { google?: Gis };
   if (w.google?.accounts?.oauth2) return Promise.resolve(w.google);
   gisLoad ??= new Promise<Gis>((ok, fail) => {
@@ -85,9 +85,11 @@ function loadGis(): Promise<Gis> {
 /**
  * Pide permiso a Google y devuelve un token de una hora. Abre una ventanita de Google, así
  * que hay que llamarla justo después de un toque (si no, el navegador la bloquea).
- * `firstTime` muestra la pantalla para elegir cuenta.
+ * `firstTime` muestra la pantalla para elegir cuenta. `silent` no muestra ninguna pantalla:
+ * si ya diste permiso, la ventanita se cierra sola al instante; si Google necesita preguntar
+ * algo, falla y no molesta (se usa para renovar la sesión sin que toques nada de Drive).
  */
-export async function signIn(firstTime: boolean): Promise<Token> {
+export async function signIn(firstTime: boolean, silent = false): Promise<Token> {
   if (!GOOGLE_CLIENT_ID) throw new DriveError('Falta el ID de cliente de Google (ver «Cómo activarla» abajo).');
   const gis = await loadGis();
   return new Promise<Token>((ok, fail) => {
@@ -112,7 +114,7 @@ export async function signIn(firstTime: boolean): Promise<Token> {
           ),
         ),
     });
-    client.requestAccessToken({ prompt: firstTime ? 'select_account' : '' });
+    client.requestAccessToken({ prompt: firstTime ? 'select_account' : silent ? 'none' : '' });
   });
 }
 
