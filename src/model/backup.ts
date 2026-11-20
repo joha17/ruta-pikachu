@@ -84,8 +84,6 @@ export function parseBackup(text: string): Backup {
     throw new Error('Ese archivo no es un respaldo: no se pudo leer como .json.');
   }
   if (!isObj(raw) || raw.kind !== BACKUP_KIND) {
-    if (isObj(raw) && ('state' in raw || 'prices' in raw) && !('kind' in raw))
-      throw new Error('Ese archivo parece del Artifact. Usa «Importar desde el Artifact», más abajo.');
     throw new Error('Ese archivo no es un respaldo de Ruta Pikachu.');
   }
   if (typeof raw.version !== 'number' || raw.version > BACKUP_VERSION)

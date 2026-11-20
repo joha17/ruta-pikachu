@@ -1,4 +1,4 @@
-// Navegación por hash (#/importar). En la URL nunca va nada personal.
+// Navegación por hash (#/respaldo). En la URL nunca va nada personal.
 import { signal } from '@preact/signals';
 
 const read = () => location.hash.replace(/^#\/?/, '').split('?')[0] || 'inicio';

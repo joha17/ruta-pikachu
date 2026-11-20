@@ -2,7 +2,6 @@
 
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Collection, Photo, PriceBook } from './model/types';
-import type { MigrationReport } from './model/migrate';
 import type { PhotoMeta, SyncDoc } from './sync/merge';
 import type { Token } from './sync/drive';
 
@@ -10,7 +9,6 @@ export interface Settings {
   theme?: 'light' | 'dark' | 'auto';
   lastBackup?: string;
   migratedAt?: string;
-  migration?: MigrationReport;
   /** Alertas disparadas ya vistas en este aparato (id del historial). */
   alertsRead?: Record<string, true>;
   /** Eligió empezar de cero en este aparato (con o sin las hojas de ejemplo). */

@@ -78,7 +78,7 @@ function AlertBell({ r }: { r: string }) {
 /** Hace cuántos días no hay respaldo (o null si no hace falta avisar). Se ve como un puntito en ⚙️. */
 function backupNag(r: string): string | null {
   // Con Google Drive conectado ya hay una copia de todo: no hace falta avisar.
-  if (r === 'respaldo' || r === 'importar' || syncStatus.value !== 'off') return null;
+  if (r === 'respaldo' || syncStatus.value !== 'off') return null;
   const due = backupDue(settings.value.lastBackup, new Date(), !isEmpty.value);
   if (due == null) return null;
   return due === 'never' ? 'Todavía no has hecho un respaldo de tu colección' : `Hace ${due} días que no haces un respaldo`;
@@ -122,7 +122,7 @@ function Sprites() {
 export function App() {
   if (!ready.value) return <p class="loading">Abriendo tu colección…</p>;
   const r = route.value;
-  const inAjustes = r === 'respaldo' || r === 'importar';
+  const inAjustes = r === 'respaldo';
   // Primero lo que dejó de funcionar (avisos de Telegram, Drive); después el respaldo pendiente.
   const broken = healthProblems.value;
   const nag = broken.length ? (broken.length === 1 ? broken[0].text : `${broken.length} cosas dejaron de funcionar`) : backupNag(r);
@@ -153,7 +153,7 @@ export function App() {
         </div>
       </header>
       <main class="wrap">
-        {r === 'respaldo' || r === 'importar' ? (
+        {r === 'respaldo' ? (
           <Respaldo />
         ) : r === 'buscar' ? (
           <Buscar />

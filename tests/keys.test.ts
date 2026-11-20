@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keyFromImgKey, keyOf, localOfKey, sheetOfKey } from '../src/model/keys';
+import { keyOf, localOfKey, sheetOfKey } from '../src/model/keys';
 
 describe('claves', () => {
   it('arma claves de hojas fijas y propias', () => {
@@ -18,12 +18,5 @@ describe('claves', () => {
       expect(sheetOfKey(k)).toBe(sh);
       expect(localOfKey(k)).toBe(loc);
     }
-  });
-  it('traduce las claves de foto del Artifact', () => {
-    expect(keyFromImgKey('5')).toBe('p:5');
-    expect(keyFromImgKey('r-moltres')).toBe('r:moltres');
-    expect(keyFromImgKey('u-s1.c1')).toBe('u:s1.c1');
-    expect(keyFromImgKey('b-b1')).toBe('b:b1');
-    expect(keyFromImgKey('raro')).toBeNull();
   });
 });

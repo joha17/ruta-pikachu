@@ -49,7 +49,7 @@ describe('respaldo', () => {
 
   it('rechaza archivos que no son respaldos, con mensajes claros', () => {
     expect(() => parseBackup('hola')).toThrow(/no es un respaldo/);
-    expect(() => parseBackup('{"state":{},"prices":{}}')).toThrow(/Artifact/);
+    expect(() => parseBackup('{"state":{},"prices":{}}')).toThrow(/no es un respaldo de Ruta Pikachu/);
     expect(() => parseBackup('{"kind":"ruta-pikachu-respaldo","version":99}')).toThrow(/más nueva/);
     expect(() => parseBackup('{"kind":"ruta-pikachu-respaldo","version":1}')).toThrow(/incompleto/);
   });

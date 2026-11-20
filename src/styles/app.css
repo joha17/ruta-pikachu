@@ -19,18 +19,6 @@ body{min-height:100dvh;-webkit-tap-highlight-color:transparent}
 .empty-start .btn{justify-self:start}
 .start-fresh{display:grid;gap:10px;margin-top:8px;padding-top:16px;border-top:1px solid var(--line)}
 .start-fresh h2{margin:0;font-size:20px}
-.import{display:grid;gap:16px;max-width:760px}
-.import .section-head{margin-bottom:0}
-.import .panel h3{margin:0}
-.import .file{justify-self:start}
-.import .panel>.btn{justify-self:start}
-.import .row{display:flex;gap:8px;flex-wrap:wrap}
-.report{display:grid;gap:10px}
-.report .meta{grid-template-columns:minmax(0,1fr) auto}
-.report .meta dd{text-align:right;font-variant-numeric:tabular-nums}
-.report details summary{cursor:pointer;font-size:14px;color:var(--muted);margin-bottom:6px}
-.problems h3{font-size:15px}
-.problems ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--warn);display:grid;gap:3px}
 .banner{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:8px 16px;background:var(--yellow);color:var(--yellow-ink);font-weight:600;font-size:14px}
 .sheet-block .page{max-width:420px}
 .sheet-block .binder{grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),420px))}

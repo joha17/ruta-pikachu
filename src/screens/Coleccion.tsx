@@ -568,8 +568,7 @@ export function Coleccion() {
         <h1>Tu colección</h1>
         <p>
           Todavía no hay datos en este aparato. Si ya la usas en otro aparato, conecta Google Drive y se trae sola. También puedes
-          restaurar un respaldo, o traer tu colección desde el Artifact de claude.ai: tus cartas marcadas, hojas, Caja, precios y
-          fotos.
+          restaurar un respaldo (.json) con tus cartas marcadas, hojas, Caja, precios y fotos.
         </p>
         <div class="row">
           {syncConfigured && syncStatus.value === 'off' && (
@@ -579,9 +578,6 @@ export function Coleccion() {
           )}
           <button class={`btn${syncConfigured && syncStatus.value === 'off' ? '' : ' primary'}`} onClick={() => go('respaldo')}>
             Restaurar un respaldo
-          </button>
-          <button class="btn" onClick={() => go('importar')}>
-            Importar desde el Artifact
           </button>
         </div>
         <StartFresh />
