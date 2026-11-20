@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fitCard, CARD_RATIO, pickPhotoSize } from '../src/scan/crop';
+import { fitCard, CARD_RATIO } from '../src/scan/crop';
 import { identify } from '../src/scan/identify';
 import { clearWinner, filterByHit, localByNum, rankCands, sameLocal, setIdOf, type Brief, type SetBrief } from '../src/scan/match';
 import { fixDigits, nameScore, normNum, parseNumbers, similarity } from '../src/scan/parse';
@@ -153,15 +153,5 @@ describe('recorte', () => {
     const [, , w2, h2] = fitCard(0, 0, 1000, 500, 1000, 500);
     expect(h2).toBeLessThanOrEqual(500);
     expect(w2 / h2).toBeCloseTo(CARD_RATIO, 5);
-  });
-});
-
-describe('pickPhotoSize', () => {
-  it('pide la foto grande del sensor, sin pasar de ~12 MP', () => {
-    expect(pickPhotoSize(4000, 3000)).toEqual({ imageWidth: 4000, imageHeight: 3000 });
-    expect(pickPhotoSize(16320, 12240)).toEqual({ imageWidth: 4032, imageHeight: 3024 });
-  });
-  it('sin datos de la cámara pide 4032×3024', () => {
-    expect(pickPhotoSize(undefined, undefined)).toEqual({ imageWidth: 4032, imageHeight: 3024 });
   });
 });

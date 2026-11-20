@@ -1,15 +1,15 @@
-// Escáner: cámara en vivo con marco de carta (o foto de la galería) → lector de texto en el
+// Escáner: foto con la cámara del celular (o de la galería) → lector de texto en el
 // aparato → búsqueda en TCGdex → marcar, abrir ficha, guardar en la Caja o en una hoja propia.
 // Modo ráfaga: varias seguidas y se revisan al final.
 
 import { signal } from '@preact/signals';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { act, ops, savePhoto, say } from '../actions';
 import { findCard, isOwned, MAX_BOX, roomSheets } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';
 import { cardTitle } from '../model/shop';
-import { cardsFromImage, cardsFromPhoto, cardsFromVideo, downscale, frameInVideo, pickPhotoSize, toBlob } from '../scan/crop';
+import { cardsFromImage, downscale, toBlob } from '../scan/crop';
 import { estimate, MODELS, usd, type ClaudeModel } from '../scan/claude-core';
 import { AiError, askClaude, budgetLeft, capOf, claudeCfg, claudeOpen, claudeReady, loadClaudeCfg, monthSpentOf, nightSpentOf, setClaudeCfg, type AiResult } from '../scan/claude';
 import type { Identified, Reading } from '../scan/identify';
@@ -128,368 +128,6 @@ async function enqueue(cards: HTMLCanvasElement[], whole?: HTMLCanvasElement, no
 function clearShots() {
   for (const s of shots.value) URL.revokeObjectURL(s.url);
   shots.value = [];
-}
-
-// ---------------- Cámara ----------------
-
-function cameraError(e: unknown): string {
-  const n = (e as { name?: string }).name;
-  if (n === 'NotAllowedError' || n === 'SecurityError')
-    return 'No diste permiso para usar la cámara. Puedes darlo en los ajustes del navegador, o elegir una foto de la galería.';
-  if (n === 'NotFoundError' || n === 'OverconstrainedError') return 'Este aparato no tiene una cámara disponible. Elige una foto de la galería.';
-  if (n === 'NotReadableError') return 'Otra app está usando la cámara. Ciérrala y vuelve a intentar.';
-  return 'No se pudo abrir la cámara. Elige una foto de la galería.';
-}
-
-interface PhotoSettingsLike {
-  fillLightMode?: string;
-  imageWidth?: number;
-  imageHeight?: number;
-}
-interface ImageCaptureLike {
-  takePhoto(settings?: PhotoSettingsLike): Promise<Blob>;
-  getPhotoCapabilities?(): Promise<{ imageWidth?: { max?: number }; imageHeight?: { max?: number } }>;
-}
-type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
-
-/** Zoom 2x de la cámara (apagado salvo que lo actives): agranda también el grano. */
-const zoom2 = signal(readFlag('ruta-zoom2'));
-
-function readFlag(k: string): boolean {
-  try {
-    return localStorage.getItem(k) === '1';
-  } catch {
-    return false;
-  }
-}
-
-type ZoomCaps = { zoom?: { min: number; max: number } };
-
-/** ¿Deja la cámara poner zoom 2x? */
-function canZoom(stream: MediaStream | null): boolean {
-  const caps = (stream?.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as ZoomCaps;
-  return !!caps.zoom && caps.zoom.max >= 1.8;
-}
-
-/** Zoom 1x o 2x. Es zoom digital: con poca luz el grano se ve el doble de grande. */
-async function applyZoom(stream: MediaStream, on: boolean): Promise<void> {
-  const t = stream.getVideoTracks()[0];
-  const caps = (t?.getCapabilities?.() ?? {}) as ZoomCaps;
-  if (!t || !caps.zoom) return;
-  const z = on ? Math.min(2, caps.zoom.max) : Math.max(1, caps.zoom.min);
-  await t.applyConstraints({ advanced: [{ zoom: z } as MediaTrackConstraintSet] }).catch(() => undefined);
-}
-
-/** Enfoque continuo si la cámara lo permite (de cerca, el autoenfoque a veces se queda fijo). */
-async function keepFocus(stream: MediaStream): Promise<void> {
-  const t = stream.getVideoTracks()[0];
-  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[] };
-  if (t && caps.focusMode?.includes('continuous'))
-    await t.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => undefined);
-  if (zoom2.value) await applyZoom(stream, true);
-}
-
-/** Tamaño de foto a pedir: el mayor que permita la cámara, con el lado largo hasta 4032 px (12 MP). */
-async function photoSize(cap: ImageCaptureLike): Promise<PhotoSettingsLike> {
-  try {
-    const pc = await Promise.race([cap.getPhotoCapabilities?.(), new Promise<undefined>((r) => setTimeout(() => r(undefined), 1500))]);
-    return pickPhotoSize(pc?.imageWidth?.max, pc?.imageHeight?.max);
-  } catch {
-    return pickPhotoSize(undefined, undefined);
-  }
-}
-
-/**
- * Foto a resolución completa con ImageCapture (Chrome en Android). Sin flash: el flash hace
- * brillos sobre la carta. Si el navegador no lo permite o tarda demasiado, null (se usa el video).
- */
-async function takePhoto(stream: MediaStream): Promise<ImageBitmap | null> {
-  const IC = (window as unknown as { ImageCapture?: ImageCaptureCtor }).ImageCapture;
-  const track = stream.getVideoTracks()[0];
-  if (!IC || !track || track.readyState !== 'live') return null;
-  const cap = new IC(track);
-  // Sin pedir tamaño, Chrome en Android toma la foto del mismo tamaño que el video (~1080 px):
-  // por eso la carta salía pixelada. Se pide la foto grande del sensor (hasta ~12 MP; las de
-  // 50 o 200 MP del S23 Ultra no caben en la memoria del navegador).
-  const size = await photoSize(cap);
-  const shot = cap
-    .takePhoto({ fillLightMode: 'off', ...size })
-    .catch(() => cap.takePhoto(size))
-    .catch(() => cap.takePhoto());
-  const timeout = new Promise<null>((res) => setTimeout(() => res(null), 4000));
-  try {
-    const blob = await Promise.race([shot, timeout]);
-    return blob ? await createImageBitmap(blob, { imageOrientation: 'from-image' }) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Quita una foto de la lista (al repetirla). */
-function dropShot(id: number) {
-  const s = shots.value.find((x) => x.id === id);
-  if (s) URL.revokeObjectURL(s.url);
-  shots.value = shots.value.filter((x) => x.id !== id);
-}
-
-/**
- * Cámara a pantalla completa. Cada foto se lee en el momento y no deja tomar la siguiente hasta
- * que decides: correcta (sigue), elegir otra de las opciones, repetir la foto o saltarla para
- * revisarla después. Se dispara con el botón grande o tocando la pantalla.
- */
-function Camera({ onClose }: { onClose: () => void }) {
-  const video = useRef<HTMLVideoElement>(null);
-  const frame = useRef<HTMLDivElement>(null);
-  const [err, setErr] = useState('');
-  const [ready, setReady] = useState(false);
-  const [flash, setFlash] = useState(false);
-  /** Tomando la foto (no mover la carta). */
-  const [busy, setBusy] = useState(false);
-  /** Foto que se está leyendo o esperando tu respuesta. */
-  const [current, setCurrent] = useState<number | null>(null);
-  const [showAll, setShowAll] = useState(false);
-  const [count, setCount] = useState(0);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [zoomable, setZoomable] = useState(false);
-
-  function toggleZoom() {
-    const on = !zoom2.value;
-    zoom2.value = on;
-    try {
-      localStorage.setItem('ruta-zoom2', on ? '1' : '0');
-    } catch {
-      /* sin almacenamiento: solo dura esta sesión */
-    }
-    if (streamRef.current) void applyZoom(streamRef.current, on);
-  }
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let alive = true;
-    warmUp();
-    void loadIndex();
-    document.body.classList.add('camfs-open');
-    // Pantalla completa de verdad si el navegador deja (en Android oculta las barras).
-    void document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => undefined);
-    (async () => {
-      try {
-        if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error(), { name: 'NotFoundError' });
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } },
-        });
-        if (!alive) return stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = stream;
-        await keepFocus(stream);
-        setZoomable(canZoom(stream));
-        const v = video.current!;
-        v.srcObject = stream;
-        await v.play();
-        setReady(true);
-      } catch (e) {
-        if (alive) setErr(cameraError(e));
-      }
-    })();
-    return () => {
-      alive = false;
-      stream?.getTracks().forEach((t) => t.stop());
-      document.body.classList.remove('camfs-open');
-      if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
-    };
-  }, []);
-
-  const shot = current != null ? shots.value.find((s) => s.id === current) : undefined;
-  const waiting = busy || (!!shot && !shot.pick && shot.status !== 'error' && !shot.done) || shot?.status === 'reading';
-
-  // Un toque de vibración cuando llega el resultado.
-  useEffect(() => {
-    if (shot && shot.status !== 'reading') navigator.vibrate?.(shot.res?.sure ? 40 : [30, 60, 30]);
-  }, [shot?.status]);
-
-  async function shoot() {
-    const v = video.current;
-    if (!v || !frame.current || !v.videoWidth || busy || shot) return;
-    const vw = v.videoWidth;
-    const vh = v.videoHeight;
-    const rect = frameInVideo(v, frame.current);
-    // Respaldo: el cuadro del video, tomado al instante.
-    let cards = cardsFromVideo(v, frame.current);
-    const whole = downscale(v);
-    let note = `cuadro del video ${vw}×${vh}`;
-    setFlash(true);
-    setTimeout(() => setFlash(false), 180);
-    setBusy(true);
-    // La foto de verdad (todo el sensor, enfocada): el número se lee mucho mejor que en el video.
-    const photo = streamRef.current ? await takePhoto(streamRef.current) : null;
-    if (photo) {
-      const c = cardsFromPhoto(photo, rect, vw, vh);
-      if (c.length) {
-        cards = c;
-        note = `foto ${photo.width}×${photo.height}`;
-      }
-      photo.close();
-    }
-    setBusy(false);
-    setShowAll(false);
-    setCurrent(await enqueue(cards, whole, note));
-  }
-
-  /** Lista: esta foto queda resuelta (o para después) y se puede tomar la siguiente. */
-  function next() {
-    setCount((n) => n + 1);
-    setCurrent(null);
-    setShowAll(false);
-    if (!burst.value) onClose();
-  }
-
-  function choose(c: Cand) {
-    if (!shot) return;
-    void fetchCard(c.brief.id);
-    patch(shot.id, { pick: c });
-    next();
-  }
-
-  function retake() {
-    if (shot) dropShot(shot.id);
-    setCurrent(null);
-    setShowAll(false);
-  }
-
-  if (err)
-    return (
-      <div class="cam-err">
-        <p class="msg warn">{err}</p>
-        <button class="btn quiet" onClick={onClose}>
-          Cerrar
-        </button>
-      </div>
-    );
-
-  const cands = shot?.res?.cands ?? [];
-  const top = shot?.res?.sure ? cands[0] : undefined;
-  const reading = busy || shot?.status === 'reading';
-  const listed = shots.value.filter((s) => s.pick).length;
-
-  return (
-    <div class="camfs" role="dialog" aria-label="Cámara para escanear cartas">
-      <video ref={video} playsInline muted autoPlay aria-label="Vista de la cámara" onClick={() => void shoot()} />
-      <div class="camfs-frame" ref={frame} aria-hidden="true">
-        <span class="cam-num">número</span>
-      </div>
-      {flash && <div class="cam-flash" aria-hidden="true" />}
-      <div class="camfs-top">
-        <button class="camfs-close" onClick={onClose} aria-label="Cerrar la cámara">
-          ✕
-        </button>
-        <span class="camfs-count">
-          {burst.value ? `${count} escaneadas · ${listed} reconocidas` : 'Toca la pantalla o el botón para tomar la foto'}
-        </span>
-        {zoomable && (
-          <button class="camfs-zoom" onClick={toggleZoom} aria-pressed={zoom2.value} aria-label={zoom2.value ? 'Quitar el zoom' : 'Zoom 2x'}>
-            {zoom2.value ? '2x' : '1x'}
-          </button>
-        )}
-      </div>
-      {!ready && <p class="cam-wait">Abriendo la cámara…</p>}
-
-      {!shot && !busy && (
-        <div class="camfs-bottom">
-          <p class="camfs-hint">Carta entera dentro del marco, con el número de abajo visible, de frente, con buena luz y sin reflejos.</p>
-          <button class="camfs-shutter" onClick={() => void shoot()} disabled={!ready} aria-label="Tomar foto" />
-        </div>
-      )}
-
-      {(reading || shot) && (
-        <div class={`camfs-sheet${waiting ? '' : ' ok'}`} role="status" aria-live="polite">
-          {reading ? (
-            <div class="scan-wait">
-              <span class="spin" aria-hidden="true" />
-              <span>
-                {busy
-                  ? 'Tomando la foto… no muevas la carta'
-                  : ocrState.value === 'loading'
-                    ? `Preparando el lector (solo la primera vez)… ${Math.round(ocrProgress.value * 100)} %`
-                    : 'Leyendo la carta…'}
-              </span>
-            </div>
-          ) : shot?.status === 'error' ? (
-            <>
-              <p class="msg warn">{shot.err}</p>
-              <div class="camfs-acts">
-                <button class="btn primary" onClick={retake}>
-                  Repetir foto
-                </button>
-              </div>
-            </>
-          ) : top && !showAll ? (
-            <>
-              <div class="camfs-hit">
-                {candImg(top) ? <img src={candImg(top, 'high')!} alt="" referrerpolicy="no-referrer" /> : <img src={shot!.url} alt="" />}
-                <span>
-                  <b>{top.brief.name}</b>
-                  <small>
-                    {top.set?.name ?? top.brief.id} · {printedNum(top)}
-                  </small>
-                </span>
-              </div>
-              <div class="camfs-acts">
-                <button class="btn primary big" onClick={() => choose(top)}>
-                  ✓ Correcta{burst.value ? ', siguiente' : ''}
-                </button>
-                <button class="btn quiet" onClick={() => setShowAll(true)}>
-                  No es esta
-                </button>
-              </div>
-            </>
-          ) : cands.length ? (
-            <>
-              <p class="camfs-q">{showAll && top ? 'Elige la correcta:' : `¿Cuál es? Encontré ${cands.length === 1 ? '1 posible' : `${cands.length} posibles`}:`}</p>
-              <div class="camfs-cands">
-                {cands.slice(0, 12).map((c) => {
-                  const src = candImg(c);
-                  return (
-                    <button key={c.brief.id} class="cand" onClick={() => choose(c)} aria-label={`${c.brief.name}, ${c.set?.name ?? ''} ${c.brief.localId}`}>
-                      {src ? <img src={src} alt="" loading="lazy" referrerpolicy="no-referrer" /> : <span class="cand-noimg">{c.brief.name}</span>}
-                      <span class="cand-cap">
-                        <b>{c.brief.name}</b>
-                        <small>{printedNum(c)}</small>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div class="camfs-acts">
-                <button class="btn quiet" onClick={retake}>
-                  Repetir foto
-                </button>
-                <button class="btn quiet" onClick={next}>
-                  Saltar (revisar después)
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div class="camfs-hit">
-                <img src={shot!.url} alt="" />
-                <span>
-                  <b>No la reconocí</b>
-                  <small>Acércate un poco, de frente y sin reflejos.</small>
-                </span>
-              </div>
-              <div class="camfs-acts">
-                <button class="btn primary big" onClick={retake}>
-                  Repetir foto
-                </button>
-                <button class="btn quiet" onClick={next}>
-                  Saltar (revisar después)
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }
 
 // ---------------- Resultado ----------------
@@ -1214,7 +852,6 @@ function BurstList() {
 // ---------------- Pantalla ----------------
 
 export function Escanear() {
-  const [cam, setCam] = useState(false);
   useEffect(() => {
     void loadClaudeCfg();
   }, []);
@@ -1251,45 +888,39 @@ export function Escanear() {
       <div class="panel scan-panel">
         <label class="scan-chk">
           <input type="checkbox" checked={burst.value} onChange={(e) => setBurst(e.currentTarget.checked)} />
-          Modo ráfaga: varias seguidas; confirmas cada una al tomarla y las guardas todas al final
+          Modo ráfaga: varias seguidas; las revisas en la lista y las guardas todas al final
         </label>
-        {cam ? (
-          <Camera onClose={() => setCam(false)} />
-        ) : (
-          <div class="scan-pick">
-            <button class="btn primary us" onClick={() => setCam(true)}>
-              📷 {single ? 'Escanear otra' : 'Abrir la cámara'}
-            </button>
-            <label class="btn quiet file">
-              📸 Cámara del celular
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={onFiles}
-                onClick={() => {
-                  warmUp();
-                  void loadIndex();
-                }}
-                aria-label="Tomar la foto con la cámara del celular"
-              />
-            </label>
-            <label class="btn quiet file">
-              {loadingFile ? 'Abriendo…' : burst.value ? 'Elegir fotos' : 'Elegir una foto'}
-              <input
-                type="file"
-                accept="image/*"
-                multiple={burst.value}
-                onChange={onFiles}
-                onClick={() => {
-                  warmUp();
-                  void loadIndex();
-                }}
-                aria-label="Elegir una foto de la carta"
-              />
-            </label>
-          </div>
-        )}
+        <div class="scan-pick">
+          <label class="btn primary us file">
+            📸 {loadingFile ? 'Abriendo…' : single ? 'Escanear otra' : 'Tomar foto de la carta'}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={onFiles}
+              onClick={() => {
+                warmUp();
+                void loadIndex();
+              }}
+              aria-label="Tomar la foto con la cámara del celular"
+            />
+          </label>
+          <label class="btn quiet file">
+            {burst.value ? 'Elegir fotos' : 'Elegir una foto'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple={burst.value}
+              onChange={onFiles}
+              onClick={() => {
+                warmUp();
+                void loadIndex();
+              }}
+              aria-label="Elegir una foto de la carta"
+            />
+          </label>
+        </div>
+        <p class="hint">La carta entera, con el número de abajo visible, de frente, con buena luz y sin reflejos.</p>
       </div>
       {single && (
         <div class="panel scan-result">
