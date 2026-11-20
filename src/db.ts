@@ -13,6 +13,8 @@ export interface Settings {
   migration?: MigrationReport;
   /** Alertas disparadas ya vistas en este aparato (id del historial). */
   alertsRead?: Record<string, true>;
+  /** Eligió empezar de cero en este aparato (con o sin las hojas de ejemplo). */
+  started?: boolean;
 }
 
 /** Respaldo con Claude. Va aparte de los ajustes para que la clave nunca entre en un respaldo. */

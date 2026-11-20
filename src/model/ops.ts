@@ -608,3 +608,9 @@ export function removeGoal(col: Collection, id: string, fixedIds: string[]): voi
 export function restoreGoals(col: Collection): void {
   col.hiddenGoals = {};
 }
+
+/** Empezar en blanco: oculta las hojas fijas y los objetivos fijos (se pueden volver a mostrar). */
+export function startBlank(col: Collection, sheetIds: string[], goalIds: string[]): void {
+  for (const id of sheetIds) col.hidden[id] = true;
+  for (const id of goalIds) col.hiddenGoals[id] = true;
+}
