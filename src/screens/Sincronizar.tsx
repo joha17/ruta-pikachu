@@ -58,7 +58,7 @@ export function SyncChip() {
       aria-label={title}
       onClick={() => (s === 'login' ? void syncNowFromTap() : go('respaldo'))}
     >
-      ☁{short ? ` ${short}` : ''}
+      ☁{short && <span class="sync-txt"> {short}</span>}
     </button>
   );
 }
