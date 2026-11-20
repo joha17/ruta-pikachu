@@ -13,7 +13,8 @@ import { alias, collection, formView, openKey, sheets } from '../store';
 import { cleanQuery, MAX_SUGGESTIONS, searchByName, type Suggestion } from '../scan/names';
 import { loadSets } from '../scan/search';
 import { cachedCard, fetchCard, imageUrl, tcgCache } from '../tcgdex';
-import { priceText, shownPrice } from '../scan/browse';
+import { priceSource, priceText, shownPrice } from '../scan/browse';
+import { eurUsd } from '../fx';
 import { showSheet } from './sheetView';
 import { buyFlow, preOf, priceOf } from './Compra';
 
@@ -72,14 +73,15 @@ function values(form: HTMLFormElement): Record<string, string> {
 type CardVals = Record<'n' | 'num' | 'set' | 'rar' | 'tcg' | 'url' | 'price', string>;
 
 /** Nombre con sugerencias de TCGdex: escribes «mega absol» y eliges de la lista. */
-/** Precio de mercado: TCGplayer (USD) o, si no hay, Cardmarket (EUR). «…» mientras se pide. */
+/** Precio de mercado en USD: TCGplayer o, si no hay, Cardmarket pasado a dólares («≈»). «…» mientras se pide. */
 function SuggPrice({ id }: { id: string }) {
   const asked = tcgCache.value.has(`en/${id}`);
-  const p = shownPrice(cachedCard(id));
+  const full = cachedCard(id);
+  const p = shownPrice(full, eurUsd.value);
   return (
     <span
       class={`sugg-price${p ? '' : ' none'}`}
-      title={p ? (p.cur === 'EUR' ? 'Cardmarket (sin precio en TCGplayer)' : 'TCGplayer, precio de mercado') : undefined}
+      title={p ? priceSource(p, full?.usdFrom) : undefined}
     >
       {asked ? priceText(p) : '…'}
     </span>

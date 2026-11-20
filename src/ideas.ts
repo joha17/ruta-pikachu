@@ -23,6 +23,7 @@ import { manualOf, usd as priceOf } from './model/money';
 import { usedRefs } from './model/refs';
 import { firstCards, groundCards, normText, withPrices, type NameLookup, type PriceLookup } from './model/ground';
 import { shownPrice } from './scan/browse';
+import { eurUsd } from './fx';
 import type { Brief, CardIndex } from './scan/match';
 import { loadIndex, loadSets } from './scan/search';
 import { hashText, reportFresh } from './model/report';
@@ -135,8 +136,8 @@ export const catalogLookup: NameLookup = async (name) => {
   return Array.isArray(r) ? (r as Brief[]) : [];
 };
 
-/** Precio de TCGplayer (o Cardmarket) de la carta, como en Buscar. */
-export const catalogPrice: PriceLookup = async (tcg) => shownPrice(await fetchCard(tcg));
+/** Precio en USD de la carta, como en Buscar (Cardmarket solo pasado a dólares y marcado «≈»). */
+export const catalogPrice: PriceLookup = async (tcg) => shownPrice(await fetchCard(tcg), eurUsd.value);
 
 export async function makeIdeas(
   model: ClaudeModel,

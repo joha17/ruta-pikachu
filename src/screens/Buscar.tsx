@@ -34,6 +34,7 @@ import {
   arrange,
   parseView,
   priceText,
+  priceSource,
   shownPrice,
   PRICE_SORT_MAX,
   SORTS,
@@ -43,6 +44,7 @@ import {
 import type { SetBrief } from '../scan/match';
 import { loadSets, localEntries } from '../scan/search';
 import { alias, collection, formView, openKey, sheets } from '../store';
+import { eurUsd } from '../fx';
 import { cachedCard, fetchCard, imageCandidates, isPlaceholder, tcgCache } from '../tcgdex';
 
 /** ¿Ya se pidió esta carta a TCGdex (aunque no exista)? */
@@ -436,7 +438,7 @@ function Grid({ r, loading }: { r: BrowseResult[]; loading: boolean }) {
   const bySort = v.sort.startsWith('price') && !tooMany;
   const priceOf = (id: string) => {
     const full = cachedCard(id);
-    return full ? (shownPrice(full)?.v ?? null) : undefined;
+    return full ? (shownPrice(full, eurUsd.value)?.v ?? null) : undefined;
   };
   const list = arrange(r, bySort ? v : { ...v, sort: v.sort.startsWith('price') ? 'new' : v.sort }, priceOf, owned);
   const vis = list.slice(0, shown.value);
@@ -493,7 +495,7 @@ function Grid({ r, loading }: { r: BrowseResult[]; loading: boolean }) {
           {vis.map((c) => {
             const own = owned(c.id);
             const full = cachedCard(c.id);
-            const p = shownPrice(full);
+            const p = shownPrice(full, eurUsd.value);
             return (
               <div key={c.id} class="cand-cell">
                 <button
@@ -519,7 +521,7 @@ function Grid({ r, loading }: { r: BrowseResult[]; loading: boolean }) {
                     <small>
                       {c.setName} · {c.num}
                     </small>
-                    <span class={`cand-price${p ? '' : ' none'}`} title={p?.cur === 'EUR' ? 'Cardmarket (sin precio en TCGplayer)' : 'TCGplayer, precio de mercado'}>
+                    <span class={`cand-price${p ? '' : ' none'}`} title={priceSource(p, full?.usdFrom)}>
                       {asked(c.id) || failed.value.has(c.id) ? priceText(p) : '…'}
                     </span>
                   </span>
@@ -632,12 +634,12 @@ function Detalle({ c }: { c: BrowseResult }) {
           <dd>
             {full
               ? full.usd != null
-                ? `${money(full.usd)} · TCGplayer`
+                ? `${money(full.usd)} · TCGplayer${full.usdFrom === 'tcgcsv' ? ' (último precio de mercado)' : ''}`
                 : full.eur != null
-                  ? `€${full.eur.toFixed(2)} · Cardmarket (sin precio en TCGplayer)`
-                  : 'Sin dato en TCGdex'
+                  ? `${priceText(shownPrice(full, eurUsd.value))} · aproximado (Cardmarket €${full.eur.toFixed(2)} pasado a dólares; sin precio en TCGplayer)`
+                  : 'Sin precio en USD'
               : asked(c.id)
-                ? 'Sin dato en TCGdex'
+                ? 'Sin precio en USD'
                 : 'Buscando…'}
           </dd>
         </dl>

@@ -194,7 +194,7 @@ export interface IdeasOut {
     nombre: string;
     idea: string;
     /** Cartas comprobadas en TCGdex (las guardadas antes de comprobarlas no traen tcg). */
-    cartas: Array<{ n: string; set: string; why: string; num?: string; tcg?: string; setId?: string; price?: { v: number; cur: 'USD' | 'EUR' } | null }>;
+    cartas: Array<{ n: string; set: string; why: string; num?: string; tcg?: string; setId?: string; price?: { v: number; approx?: boolean; cur?: 'USD' | 'EUR' } | null }>;
     /** Cartas que nombró Claude y no existen en el catálogo (se descartaron). */
     descartadas?: number;
     /** Ya no se usa (eran las que no cabían en el presupuesto); viene en ideas guardadas antes. */

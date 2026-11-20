@@ -70,6 +70,16 @@ describe('comprobar cartas sugeridas', () => {
     expect(r.total).toBe(968.09);
   });
 
+  it('el total solo suma dólares de TCGplayer, no los aproximados de Cardmarket', () => {
+    const base = { n: 'x', set: 'S', setId: 's', num: '1', why: '' };
+    const r = firstCards([
+      { ...base, tcg: 'a', price: { v: 10 } },
+      { ...base, tcg: 'b', price: { v: 50, approx: true } },
+      { ...base, tcg: 'c', price: { v: 7, cur: 'EUR' } },
+    ]);
+    expect(r.total).toBe(10);
+  });
+
   it('busca el precio de cada carta y si falla queda sin precio', async () => {
     const g = { n: 'x', set: 'S', setId: 's', tcg: 'x', num: '1', why: '' };
     const r = await withPrices([g, { ...g, tcg: 'y' }], async (t) => {

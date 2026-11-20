@@ -12,7 +12,7 @@ export const API = 'https://api.tcgdex.net/v2';
 export type Lang = 'en' | 'ja';
 
 /** Versión del recorte: las cartas guardadas con una versión anterior se vuelven a pedir una vez. */
-export const CARD_V = 4;
+export const CARD_V = 5;
 
 /** Lo que guardamos de cada carta de TCGdex. */
 export interface TcgCard {
@@ -32,6 +32,8 @@ export interface TcgCard {
   /** Precio de mercado de TCGplayer en USD (o null si no hay). */
   usd: number | null;
   usdVariant?: string;
+  /** 'tcgcsv' = TCGdex no traía precio de TCGplayer y se tomó del historial nocturno (tcgcsv). */
+  usdFrom?: 'tcgcsv';
   priceUpdated?: string;
   /** Precio de Cardmarket en EUR (tendencia o media): para las cartas sin precio de TCGplayer. */
   eur?: number;
@@ -205,6 +207,17 @@ export async function getJson(path: string): Promise<unknown> {
   });
 }
 
+async function tcgcsvUsd(card: TcgCard, day: string): Promise<number | null> {
+  try {
+    // Import dinámico: history.ts importa este módulo.
+    const [{ productIdOf, remoteHistory }, { latestRemote }] = await Promise.all([import('./history'), import('./model/remoteHist')]);
+    const pid = await productIdOf(card);
+    return pid ? latestRemote(await remoteHistory(pid), day) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Caché en memoria + IndexedDB ----
 interface Entry {
   day: string;
@@ -247,6 +260,15 @@ export function fetchCard(tcg: string, lang: Lang = 'en', force = false): Promis
     try {
       const d = (await getJson(`${lang}/cards/${encodeURIComponent(tcg)}`)) as Record<string, unknown> | null;
       const card = d ? trimCard(d) : null;
+      // Sin precio de TCGplayer en TCGdex (galerías, promos nuevas): el último de mercado de
+      // TCGplayer que publica el trabajo nocturno (tcgcsv), para no caer en el de Cardmarket (euros).
+      if (card && card.usd == null && lang === 'en') {
+        const v = await tcgcsvUsd(card, day);
+        if (v != null) {
+          card.usd = v;
+          card.usdFrom = 'tcgcsv';
+        }
+      }
       await (await db()).put('tcg', { id, day, data: card });
       setEntry(id, { day, card });
       return card;
