@@ -8,6 +8,7 @@ import { alias, collection, prices, settings, sheets, update } from '../store';
 import { currentValue } from '../value';
 import { Avatar, avatarSrc, shrinkPhoto } from '../ui/Avatar';
 import { go } from '../ui/router';
+import { followReady, PublicarPanel, SiguiendoPanel } from './Siguiendo';
 
 const editing = signal(false);
 const money0 = (v: number) => `$${Math.round(v).toLocaleString('en-US')}`;
@@ -165,6 +166,9 @@ export function Perfil() {
           <dd>{st.wish}</dd>
         </div>
       </dl>
+      {/* Sin la clave de API no se pueden leer binders publicados: se esconde hasta tenerla. */}
+      {followReady && <SiguiendoPanel />}
+      {followReady && <PublicarPanel />}
       <p class="hint prof-sync">Tu perfil se guarda con tu colección: va en el respaldo y se sincroniza con Google Drive.</p>
       <div class="row">
         <button class="btn quiet" onClick={() => go('')}>

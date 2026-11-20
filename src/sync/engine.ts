@@ -16,9 +16,12 @@ import * as store from '../db';
 import type { SyncState } from '../db';
 import { buildCopy, copyDay, copyName, COPY_PREFIX, parseCopy, planCopies, type DailyCopy } from '../model/copies';
 import { setIdTag, today } from '../model/keys';
-import { afterChange, collection, flush, prices, reloadPhotos, update } from '../store';
+import { afterChange, alias, collection, flush, prices, reloadPhotos, settings, sheets, update } from '../store';
 import { applySnap, mergeSnaps, parseSnap, PRICES_NAME, snapOf, snapText, type PriceSnap } from './prices';
-import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, loadGis, PHOTO_PREFIX, signIn, type DriveFile } from './drive';
+import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, hasScope, loadGis, PHOTO_PREFIX, SCOPE_FILE, signIn, type DriveFile, type Token } from './drive';
+import { buildPub, pubProfile, pubSignature, PUB_NAME } from '../model/follow';
+import { firstMonth } from '../model/profile';
+import { binderPayload } from '../publish';
 import {
   baseline,
   explode,
@@ -123,6 +126,7 @@ export async function initSync(): Promise<void> {
   if (!state?.on) return setStatus('off');
   setIdTag(state.tag);
   syncLast.value = state.last ?? '';
+  pubPerm.value = hasScope(state.token, SCOPE_FILE);
   afterChange.add(onLocalChange);
   wire();
   // Cambios hechos antes de esta versión o con la app cerrada a medias.
@@ -380,6 +384,7 @@ async function runSync(): Promise<void> {
 
     await syncPrices(drive, files);
     await dailyCopy(drive, files);
+    await publishStep(drive);
 
     state.last = new Date().toISOString();
     syncLast.value = state.last;
@@ -433,6 +438,103 @@ async function syncPrices(drive: Drive, files: DriveFile[]): Promise<void> {
     if (e instanceof DriveError && e.auth) throw e;
     console.warn('No se pudieron sincronizar los precios', e);
   }
+}
+
+// ---- Binder público (Siguiendo) ----
+//
+// Si publico mi binder, va como archivo en mi Drive que cualquiera con el enlace puede ver, y
+// se pone al día en cada sincronización (solo si cambió). Hace falta el permiso drive.file, que
+// se pide al tocar «Publicar»: un aparato sin ese permiso simplemente no lo pone al día (lo hace
+// el que lo tenga cuando sincronice).
+
+/** Este aparato puede poner al día el binder público (Google ya dio el permiso drive.file). */
+export const pubPerm = signal(false);
+/** Último problema con el binder público (en español). */
+export const pubMsg = signal('');
+
+const pubBody = async (): Promise<{ body: Blob; sig: string }> => {
+  const b = await binderPayload();
+  const prof = pubProfile(sheets.value, collection.value, alias.value, firstMonth(collection.value, prices.value, settings.value.migratedAt));
+  return { body: new Blob([JSON.stringify(buildPub(b, new Date(), prof))], { type: 'application/json' }), sig: pubSignature(b, prof) };
+};
+
+async function publishStep(drive: Drive): Promise<void> {
+  pubPerm.value = hasScope(state!.token, SCOPE_FILE);
+  const want = collection.value.pub;
+  if (!want || !pubPerm.value) return;
+  try {
+    const found = await drive.findMine(PUB_NAME);
+    if (!found.some((f) => f.id === want)) {
+      // Se borró en Drive (a mano, o se dejó de publicar en otro aparato): queda sin publicar.
+      update((c) => {
+        if (c.pub === want) delete c.pub;
+      }, 0);
+      pubMsg.value = 'Tu binder público ya no estaba en Google Drive, así que quedó sin publicar.';
+      return;
+    }
+    const { body, sig } = await pubBody();
+    if (state!.pubId === want && state!.pubSig === sig) return;
+    await drive.write(want, body);
+    state!.pubId = want;
+    state!.pubSig = sig;
+    pubMsg.value = '';
+  } catch (e) {
+    // Sin permiso para el binder (se quitó en Google): la sincronización sigue igual.
+    if (e instanceof DriveError && e.auth) pubPerm.value = false;
+    pubMsg.value = `No se pudo poner al día tu binder público: ${msgOf(e)}`;
+  }
+}
+
+/** Pide (desde un toque) una sesión de Google con permiso para el binder público. */
+async function fileToken(): Promise<Token> {
+  if (!state?.on) throw new Error('Primero conecta Google Drive en Ajustes ⚙️: tu binder público se guarda en tu Drive.');
+  if (tokenOk() && hasScope(state.token, SCOPE_FILE)) return state.token!;
+  const token = await signIn(false, false, [SCOPE_FILE]);
+  state.token = token;
+  pubPerm.value = true;
+  await save();
+  return token;
+}
+
+/** «Publicar mi binder» (llamar desde un toque). Devuelve el id del archivo público. */
+export async function startPublishing(): Promise<string> {
+  const token = await fileToken();
+  return enqueue(async () => {
+    const drive = new Drive(token.access);
+    const found = await drive.findMine(PUB_NAME);
+    const { body, sig } = await pubBody();
+    let id = found[0]?.id;
+    if (id) {
+      await drive.write(id, body);
+      await drive.sharePublic(id);
+    } else id = await drive.createPublic(PUB_NAME, body);
+    state!.pubId = id;
+    state!.pubSig = sig;
+    await save();
+    update((c) => {
+      c.pub = id;
+    }, 0);
+    pubMsg.value = '';
+    return id;
+  });
+}
+
+/** «Dejar de publicar» (llamar desde un toque): borra el archivo público de Drive. */
+export async function stopPublishing(): Promise<void> {
+  const token = await fileToken();
+  await enqueue(async () => {
+    const drive = new Drive(token.access);
+    const ids = new Set((await drive.findMine(PUB_NAME)).map((f) => f.id));
+    if (collection.value.pub) ids.add(collection.value.pub);
+    for (const id of ids) await drive.remove(id);
+    state!.pubId = undefined;
+    state!.pubSig = undefined;
+    await save();
+    update((c) => {
+      delete c.pub;
+    }, 0);
+    pubMsg.value = '';
+  });
 }
 
 // ---- Copias diarias ----

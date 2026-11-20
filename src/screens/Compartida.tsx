@@ -45,11 +45,18 @@ function WhoLine({ w }: { w: ShareWho }) {
   );
 }
 
-function SharedCover({ b, P, mode, go: goPage }: { b: BinderPayload; P: Array<BookPage<Item>>; mode: Mode; go: (i: number) => void }) {
+interface CoverText {
+  /** Línea chica de arriba (por defecto «Ruta Pikachu · binder compartido»). */
+  eyebrow?: string;
+  /** Algo más bajo el título (p. ej. cuándo se actualizó). */
+  extra?: preact.ComponentChildren;
+}
+
+function SharedCover({ b, P, mode, go: goPage, eyebrow, extra }: { b: BinderPayload; P: Array<BookPage<Item>>; mode: Mode; go: (i: number) => void } & CoverText) {
   const pct = (b.own / Math.max(1, b.tot)) * 100;
   return (
     <section class="bcover" aria-label="Portada">
-      <div class="eb">Ruta Pikachu · binder compartido</div>
+      <div class="eb">{eyebrow ?? 'Ruta Pikachu · binder compartido'}</div>
       <div class="who-row">
         {b.who && <Avatar p={{ avatar: b.who.a }} size={44} />}
         <h3>{b.who?.n ? `Binder de ${b.who.n}` : 'Binder de un amigo'}</h3>
@@ -60,6 +67,7 @@ function SharedCover({ b, P, mode, go: goPage }: { b: BinderPayload; P: Array<Bo
       <div class="bar" role="img" aria-label={`${Math.round(pct)} % completo`}>
         <b style={{ width: `${pct.toFixed(1)}%` }} />
       </div>
+      {extra}
       <p>👀 Solo para ver: no cambia nada de tu colección.</p>
       <p>
         {mode === 'full'
@@ -79,17 +87,26 @@ function SharedCover({ b, P, mode, go: goPage }: { b: BinderPayload; P: Array<Bo
   );
 }
 
-function SharedBinder({ b }: { b: BinderPayload }) {
+/** Binder de otra persona, solo para ver (por enlace o porque lo sigo). */
+export function SharedBinder({
+  b,
+  title = 'Binder compartido',
+  tools,
+  onClose = () => go(''),
+  closeLabel = 'Salir del binder compartido',
+  ...text
+}: { b: BinderPayload; title?: string; tools?: preact.ComponentChildren; onClose?: () => void; closeLabel?: string } & CoverText) {
   const P = paginate(b.sheets.map((s) => ({ name: s.name, items: s.cards.map((c) => ({ ...c, theme: s.theme })) })));
   return (
-    <div class="bshared" role="region" aria-label="Binder compartido">
+    <div class="bshared" role="region" aria-label={title}>
       <Book
-        title="Binder compartido"
+        title={title}
         pages={P}
         slot={(c, mode, i) => <SharedSlot key={i} c={c} mode={mode} />}
-        cover={(mode, g) => <SharedCover b={b} P={P} mode={mode} go={g} />}
-        onClose={() => go('')}
-        closeLabel="Salir del binder compartido"
+        cover={(mode, g) => <SharedCover b={b} P={P} mode={mode} go={g} {...text} />}
+        onClose={onClose}
+        closeLabel={closeLabel}
+        tools={tools}
       />
     </div>
   );

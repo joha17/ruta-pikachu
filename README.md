@@ -87,6 +87,36 @@ La primera vez, Google avisa que «no verificó esta app»: es tu propia app; «
 Desde ahí cualquier cuenta de Google puede conectar Drive. Si Google pide verificar la marca (logo o
 nombre visibles en la pantalla de permiso), es opcional: sin eso la app funciona igual.
 
+## Seguir el binder de otra persona
+
+En **Mi perfil** (avatar arriba): «Mi binder público» y «Siguiendo». Sin servidor:
+
+- **Publicar** (opcional, requiere Drive conectado): la app pide el permiso extra `drive.file` (solo
+  ve los archivos que ella creó) y guarda `ruta-pikachu-binder-publico.json` en «Mi unidad» con
+  permiso «cualquiera con el enlace puede ver». Lleva lo mismo que el enlace «Compartir» del binder
+  (cartas, cuáles tengo, imágenes de TCGdex, nombre y avatar), más la fecha. Se pone al día en
+  cada sincronización si cambió. «Dejar de publicar» borra el archivo. El id va en la colección
+  (átomo `pub:yo`); un aparato sin el permiso no lo pone al día, lo hace otro que sí lo tenga.
+- **Seguir**: el enlace es `…/#/seguir?d=<id del archivo>`. Quien lo abre ve el binder y toca
+  «Seguir»; la lista se sincroniza entre sus aparatos (átomos `follow:<id>`). Se lee con
+  `GET https://www.googleapis.com/drive/v3/files/<id>?alt=media&key=<clave de API>`, sin iniciar sesión.
+
+### Clave de API para leer binders publicados (una sola vez)
+
+Google no deja descargar un archivo público de Drive desde el navegador sin una clave (las descargas
+directas no tienen CORS). La clave es pública por diseño, como el ID de cliente, y se limita así:
+
+1. <https://console.cloud.google.com> → proyecto de la app → **APIs y servicios** → **Credenciales**
+   → **Crear credenciales** → **Clave de API**.
+2. Editarla: **Restricciones de aplicaciones** → **Sitios web** → agregar `https://joha17.github.io/*`
+   (y `http://localhost:5173/*` para probar). La app manda solo el origen como referente, por eso
+   va el dominio y no la ruta `/ruta-pikachu/`.
+3. **Restricciones de API** → **Restringir clave** → solo **Google Drive API** → **Guardar**.
+4. Pegarla en `src/sync/config.ts` (`DRIVE_API_KEY_IN_CODE`) o en `VITE_GOOGLE_API_KEY` al compilar.
+
+Y para publicar: **Google Auth Platform** → **Acceso a los datos** → **Agregar o quitar permisos** →
+marcar `.../auth/drive.file` → **Actualizar** → **Guardar**. Es no sensible: no pide revisión.
+
 ## Publicar en GitHub Pages
 
 El workflow `.github/workflows/pages.yml` prueba, construye y publica en cada push a `main`.

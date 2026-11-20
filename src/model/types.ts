@@ -7,6 +7,8 @@
 //   b:b1           carta de la Caja
 // La clave de una hoja fija es su id ("r"); la de una hoja propia, "u:" + id ("u:s1").
 
+import type { Follow } from './follow';
+
 /** Una carta dentro de una hoja (fija o propia). */
 export interface CardDef {
   /** Id local dentro de la hoja ("moltres", "5", "c1"). */
@@ -163,6 +165,10 @@ export interface Collection {
   cond?: Record<string, string>;
   /** Mi perfil: nombre, avatar y desde cuándo colecciono (ver model/profile.ts). */
   profile?: Profile;
+  /** Id del archivo público con mi binder en mi Drive (si lo publico). Ver model/follow.ts. */
+  pub?: string;
+  /** Binders de otras personas que sigo: id del archivo público → nombre y avatar. */
+  follows?: Record<string, Follow>;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
 }
