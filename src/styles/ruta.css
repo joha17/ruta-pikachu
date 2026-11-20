@@ -409,3 +409,12 @@ dialog.sheet:has(.sheet-wide){width:min(720px,calc(100vw - 32px))}
 .bmsg{font:500 12px var(--f-body);color:#F4C430;flex-basis:100%;text-align:right}
 .bshared{position:fixed;inset:0;z-index:70;background:#0b0c10;color:#ECEEF2;overflow:hidden}
 .bslot.ro{cursor:default}
+/* Binder en el celular: nada más ancho que la pantalla y el libro nunca tapa la barra de abajo. */
+.bwrap{grid-template-columns:minmax(0,1fr)}
+.btop>*{min-width:0}
+.btop h2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.bbook{max-height:100%;grid-template-rows:minmax(0,1fr)}
+.bbook>*{min-height:0}
+.bstage{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
+.bbook{width:min(var(--w),100%)}
+.bcover>*{flex-shrink:0}
