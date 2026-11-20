@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, actAll, hasPhoto, ops, say } from '../actions';
 import { FIXED_SHEETS } from '../data';
-import { findCard, sheetCount } from '../model/catalog';
+import { canon, findCard, isOwned, sheetCount } from '../model/catalog';
+import { paidOf } from '../model/gain';
+import { today } from '../model/keys';
+import { parsePaid, setPaid } from '../model/spend';
 import { keyOf } from '../model/keys';
 import type { BoxCard, CardDef } from '../model/types';
 import { alias, collection, formView, openKey, sheets } from '../store';
@@ -13,6 +16,38 @@ import { cachedCard, fetchCard, imageUrl, tcgCache } from '../tcgdex';
 import { priceText, shownPrice } from '../scan/browse';
 import { showSheet } from './sheetView';
 import { buyFlow, preOf, priceOf } from './Compra';
+
+/** Campo «¿Cuánto pagaste?» del formulario de editar (vacío = sin anotar). */
+function PaidField({ k }: { k: string }) {
+  const p = paidOf(collection.value, alias.value, k);
+  return (
+    <Fld
+      id="paid"
+      label="¿Cuánto pagaste? (USD)"
+      val={p ? p.v.toFixed(2) : undefined}
+      opt
+      hint="Para ver cuánto ganas o pierdes con ella. Déjalo vacío si fue regalo o cambio."
+      inputMode="decimal"
+      maxLength={9}
+      placeholder="0.00"
+    />
+  );
+}
+
+/** Guarda lo escrito en «¿Cuánto pagaste?». Devuelve un error si el monto no se entiende. */
+function savePaid(form: Record<string, string>, k: string, name: string): string | null {
+  const t = form.paid ?? '';
+  const v = parsePaid(t);
+  if (t.trim() && v == null) return 'Escribe cuánto pagaste como un monto, por ejemplo 4.99.';
+  const ck = canon(alias.value, k);
+  const before = paidOf(collection.value, alias.value, k);
+  if ((before?.v ?? null) === v) return null;
+  act((c) => setPaid(c, ck, name, v, today(), (s) => canon(alias.value, s) === ck));
+  return null;
+}
+
+/** ¿La tengo? (con los alias de las hojas). */
+const isOwnedKey = (k: string) => isOwned(alias.value, collection.value, k);
 
 function Fld(p: { id: string; label: string; val?: string; opt?: boolean; hint?: string; [k: string]: unknown }) {
   const { id, label, val, opt, hint, ...attrs } = p;
@@ -258,9 +293,12 @@ export function Forms() {
             class="cform"
             onSubmit={(e) => {
               e.preventDefault();
-              const r = ops.cardFromForm(values(e.currentTarget));
+              const fd = values(e.currentTarget);
+              const r = ops.cardFromForm(fd);
               if ('err' in r) return setErr(r.err);
               if (eb) {
+                const pe = savePaid(fd, `b:${eb.id}`, r.c.n);
+                if (pe) return setErr(pe);
                 act((c) => ops.editBox(c, eb.id, { ...r.c, lang: eb.lang, graded: eb.graded }));
                 formView.value = null;
                 return;
@@ -283,6 +321,7 @@ export function Forms() {
             }}
           >
             <CardFields c={bc} withPrice={!eb} tcgHint="Con esto se traen su imagen oficial y su precio de TCGplayer." />
+            {eb && <PaidField k={`b:${eb.id}`} />}
             <div class="row">
               <button class="btn primary bx" type="submit">
                 {eb ? 'Guardar cambios' : 'Guardar en la caja'}
@@ -468,9 +507,14 @@ export function Forms() {
           class="cform"
           onSubmit={(e) => {
             e.preventDefault();
-            const r = ops.cardFromForm(values(e.currentTarget));
+            const fd = values(e.currentTarget);
+            const r = ops.cardFromForm(fd);
             if ('err' in r) return setErr(r.err);
             if (editing) {
+              if (isOwnedKey(editing.key)) {
+                const pe = savePaid(fd, editing.key, r.c.n);
+                if (pe) return setErr(pe);
+              }
               act((cc) => ops.editCard(cc, editing.key, r.c));
               formView.value = null;
               return;
@@ -486,7 +530,7 @@ export function Forms() {
               if (key) openKey.value = key;
               return key ?? '';
             };
-            // Agregarla como conseguida: pregunta cuánto pagué.
+            // Agregarla como conseguida, directo (lo pagado se anota después en «Editar datos»).
             if (!fv.pre?.own) return void add(false);
             void buyFlow([{ name: r.c.n, price: r.price ?? priceOf(undefined, r.c.tcg), pre: preOf(fv.pre, { ...r.c }) }], () => [add(true)]);
           }}
@@ -496,6 +540,7 @@ export function Forms() {
             withPrice={!editing}
             tcgHint="Con esto se traen su imagen oficial y su precio de TCGplayer. Lo ves en tcgdex.dev o en el escáner."
           />
+          {editing && isOwnedKey(editing.key) && <PaidField k={editing.key} />}
           <div class="row">
             <button class="btn primary us" type="submit">
               {editing ? 'Guardar cambios' : altBase ? 'Añadir variante' : 'Añadir a la hoja'}

@@ -21,7 +21,6 @@ import { Avatar } from './ui/Avatar';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
 import { AsistenteDialog, AsistenteFab } from './ui/Asistente';
-import { BuyDialog } from './ui/Compra';
 import { healthProblems } from './ui/Health';
 
 // Íconos de línea simples (24×24), del color del texto.
@@ -199,7 +198,6 @@ export function App() {
       <FichaDialog />
       <AsistenteDialog />
       <ShareDialog />
-      <BuyDialog />
       <Binder />
       {toast.value && (
         <div class={`toast${toast.value.ok ? '' : ' warn'}${toast.value.undo ? ' has-undo' : ''}`} role="status">

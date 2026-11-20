@@ -1,68 +1,45 @@
-// Compras: la pregunta «¿cuánto pagaste?» al agregar una carta (para la ganancia y el resumen del
-// mes), los gastos anotados en Compras y la lista vieja «Lo pienso en frío». Ya no hay presupuesto
-// ni tope: anotar lo que pagué nunca frena una compra.
+// Compras: agregar una carta como conseguida (directo, sin preguntas), lo que pagué por ella (se
+// anota después en la ficha o en «Editar datos»), los gastos anotados en Compras y la lista vieja
+// «Lo pienso en frío». Ya no hay presupuesto ni tope.
 
 import { signal } from '@preact/signals';
-import { useEffect, useRef, useState } from 'preact/hooks';
+import type { ComponentChildren } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
 import { seedPrice } from '../collect';
-import { MAX_BOX } from '../model/catalog';
-import { addSpend, clearLaterFor, daysBetween, monthName, monthOf, monthSpends, monthTotals, removeLater, removeSpend, spentIn } from '../model/spend';
+import { canon, MAX_BOX } from '../model/catalog';
+import { addSpend, clearLaterFor, daysBetween, monthName, monthOf, monthSpends, monthTotals, parsePaid, removeLater, removeSpend, setPaid, spentIn } from '../model/spend';
+import { paidOf } from '../model/gain';
 import { today } from '../model/keys';
 import { fmtDate, money, usd } from '../model/money';
 import { alias, collection, openKey, prices } from '../store';
 import { cachedCard } from '../tcgdex';
 
-/** Una carta que estoy por agregar como comprada. */
+/** Una carta que estoy por agregar como conseguida. */
 export interface BuyItem {
   name: string;
-  /** Precio de mercado para proponer (lo puedo cambiar por lo que pagué). */
+  /** Precio de mercado (ya no se usa al agregar; queda para la lista «en frío»). */
   price: number | null;
   /** Clave si ya está en mis hojas. */
   key?: string;
-  /** Datos para guardarla en la Caja más tarde (si no está en mis hojas). */
+  /** Datos para guardarla en la Caja (si no está en mis hojas). */
   pre?: Record<string, string>;
 }
 
-/** `paid[i]` = null si dejé vacío el precio de esa carta (se agrega igual, sin anotar compra). */
-export type BuyAnswer = { kind: 'buy'; paid: Array<number | null> } | { kind: 'free' } | null;
-
-interface Ask {
-  items: BuyItem[];
-  resolve: (a: BuyAnswer) => void;
-}
-
-const asking = signal<Ask | null>(null);
-
-/** Abre la pregunta y espera la respuesta (null = cancelar, no se agrega nada). */
-export function askBuy(items: BuyItem[]): Promise<BuyAnswer> {
-  asking.value?.resolve(null);
-  return new Promise((resolve) => (asking.value = { items, resolve }));
-}
-
 /**
- * Pregunta cuánto pagué antes de agregar. Si confirmo, corre `add` (que devuelve las claves nuevas,
- * en el mismo orden que `items`) y registra la compra. Devuelve 'added' si se agregó y null si cancelé.
+ * Agrega directo: corre `add` (que devuelve las claves nuevas) y quita esas cartas de «en frío».
+ * No pregunta cuánto pagué: eso se anota después en la ficha o en «Editar datos».
  */
 export async function buyFlow(items: BuyItem[], add: () => string[]): Promise<'added' | null> {
   if (!items.length) return null;
-  const a = await askBuy(items);
-  if (!a) return null;
-  const d = today();
   const keys = add();
-  act((c) => {
-    if (a.kind === 'buy')
-      items.forEach((it, i) => {
-        const v = a.paid[i];
-        if (v != null) addSpend(c, { d, n: it.name, v, k: keys[i] || it.key });
-      });
+  act((c) =>
     clearLaterFor(
       c,
       [...keys, ...items.map((it) => it.key ?? '')].filter(Boolean),
       items.map((it) => it.pre?.tcg ?? '').filter(Boolean),
-    );
-  });
-  if (a.kind === 'buy' && a.paid.some((v) => v != null)) say('Compra anotada.');
+    ),
+  );
   return 'added';
 }
 
@@ -95,95 +72,65 @@ export function refundKey(key: string): void {
   if (back > 0) say(`Se borró la compra de ${money(back)} de este mes.`);
 }
 
-function parsePrice(t: string): number | null {
-  const s = t.trim().replace(',', '.');
-  if (!s) return null;
-  const v = parseFloat(s);
-  return v >= 0 && v < 100000 ? Math.round(v * 100) / 100 : null;
-}
+const parsePrice = parsePaid;
 
-/** La pregunta al agregar: cuánto pagué. Nunca frena: «Saltar» o dejarlo vacío agrega la carta igual. */
-export function BuyDialog() {
-  const ref = useRef<HTMLDialogElement>(null);
-  const ask = asking.value;
-  const [vals, setVals] = useState<string[]>([]);
-
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (ask) {
-      setVals(ask.items.map((it) => (it.price != null ? it.price.toFixed(2) : '')));
-      if (!d.open) d.showModal();
-    } else if (d.open) d.close();
-  }, [ask]);
-
-  const answer = (a: BuyAnswer) => {
-    const cur = asking.value;
-    asking.value = null;
-    cur?.resolve(a);
-  };
-
-  const items = ask?.items ?? [];
-  const paid = items.map((_, i) => parsePrice(vals[i] ?? ''));
-  const none = paid.every((v) => v == null);
-  const total = paid.reduce<number>((t, v) => t + (v ?? 0), 0);
-  const one = items.length === 1;
-
-  return (
-    <dialog ref={ref} class="sheet buy-dlg" aria-label="¿Cuánto pagaste?" onCancel={(e) => (e.preventDefault(), answer(null))}>
-      {ask && (
-        <form
-          class="buy-in"
-          method="dialog"
-          onSubmit={(e) => {
-            e.preventDefault();
-            answer(none ? { kind: 'free' } : { kind: 'buy', paid });
+/** Lo que pagué por una carta, en su ficha: «Pagaste $X» con «Cambiar», o un enlace para anotarlo. */
+export function PaidEdit({ k, name, children }: { k: string; name: string; children?: ComponentChildren }) {
+  const al = alias.value;
+  const paid = paidOf(collection.value, al, k);
+  const [open, setOpen] = useState(false);
+  const [v, setV] = useState('');
+  const [err, setErr] = useState('');
+  useEffect(() => setOpen(false), [k]);
+  if (!open)
+    return (
+      <div class="paid-edit">
+        {children}
+        <button
+          class="linkish"
+          onClick={() => {
+            setV(paid ? paid.v.toFixed(2) : '');
+            setErr('');
+            setOpen(true);
           }}
         >
-          <div class="share-head">
-            <h2>{one ? '¿Cuánto pagaste?' : `¿Cuánto pagaste por estas ${items.length}?`}</h2>
-            <button type="button" class="btn close" aria-label="Cancelar" onClick={() => answer(null)}>
-              ×
-            </button>
-          </div>
-          <ul class="buy-items">
-            {items.map((it, i) => (
-              <li key={i}>
-                <label for={`buy-${i}`}>{it.name}</label>
-                <span class="buy-price">
-                  $
-                  <input
-                    id={`buy-${i}`}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    value={vals[i] ?? ''}
-                    placeholder="0.00"
-                    onInput={(e) => {
-                      const v = [...vals];
-                      v[i] = e.currentTarget.value;
-                      setVals(v);
-                    }}
-                  />
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p class="hint">
-            {one ? 'Puse el precio de mercado: cámbialo por lo que pagaste.' : 'Puse los precios de mercado: cámbialos por lo que pagaste.'} Es opcional: si no
-            quieres anotarlo, toca «Saltar».
-          </p>
-
-          <div class="actions buy-acts">
-            <button type="submit" class="btn primary">
-              {none ? 'Guardar sin precio' : `Anotar ${money(total)}`}
-            </button>
-            <button type="button" class="btn" onClick={() => answer({ kind: 'free' })}>
-              Saltar
-            </button>
-          </div>
-        </form>
+          {paid ? 'Cambiar lo que pagué' : '＋ Anotar cuánto pagaste'}
+        </button>
+      </div>
+    );
+  const save = (x: number | null) => {
+    const ck = canon(al, k);
+    act((c) => setPaid(c, ck, name, x, today(), (s) => canon(alias.value, s) === ck));
+    setOpen(false);
+    say(x == null ? 'Precio pagado borrado.' : `Anotado: pagaste ${money(x)}.`);
+  };
+  return (
+    <form
+      class="budget-form paid-form"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const x = parsePaid(v);
+        if (v.trim() && x == null) return setErr('Escribe un monto, por ejemplo 4.99.');
+        save(x);
+      }}
+    >
+      <label for="paid-v">¿Cuánto pagaste? (USD)</label>
+      <div class="row">
+        <input id="paid-v" inputMode="decimal" autoComplete="off" value={v} placeholder="0.00" onInput={(e) => setV(e.currentTarget.value)} />
+        <button class="btn primary" type="submit">
+          Guardar
+        </button>
+        <button class="btn quiet" type="button" onClick={() => setOpen(false)}>
+          Cancelar
+        </button>
+      </div>
+      {paid && (
+        <button type="button" class="linkish" onClick={() => save(null)}>
+          Borrar lo que pagué
+        </button>
       )}
-    </dialog>
+      {err && <p class="msg warn">{err}</p>}
+    </form>
   );
 }
 

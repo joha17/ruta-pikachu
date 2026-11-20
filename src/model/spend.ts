@@ -64,6 +64,32 @@ export function removeSpend(col: Collection, id: string): void {
   if (col.spend) delete col.spend[id];
 }
 
+/** Lee un precio escrito a mano («4,99», «$12»). null si está vacío o no es válido. */
+export function parsePaid(t: string): number | null {
+  const s = t.trim().replace(/^\$/, '').replace(',', '.');
+  if (!s) return null;
+  const v = parseFloat(s);
+  return v >= 0 && v < 100000 ? cents(v) : null;
+}
+
+/**
+ * Lo que pagué por una carta, desde su ficha o el formulario de editar. Cambia el monto de la compra
+ * más nueva de esa carta (o crea una con fecha `d` si no había); `v` = null borra sus compras.
+ * `same` dice si una clave guardada es la misma carta (por ejemplo, con los alias de las hojas).
+ */
+export function setPaid(col: Collection, key: string, name: string, v: number | null, d: string, same: (k: string) => boolean = (k) => k === key): void {
+  const mine = Object.entries(col.spend ?? {})
+    .filter(([, s]) => s && s.k && same(s.k))
+    .sort(([, a], [, b]) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+  if (v == null) {
+    for (const [id] of mine) removeSpend(col, id);
+    return;
+  }
+  const top = mine[0];
+  if (top) top[1].v = cents(Math.max(0, v));
+  else addSpend(col, { d, n: name, v, k: key });
+}
+
 /** Compras de este mes de una carta (para devolverlas al desmarcarla). */
 export function spendsOfKey(col: Collection, month: string, key: string): SpendRow[] {
   return monthSpends(col, month).filter((s) => s.k === key);

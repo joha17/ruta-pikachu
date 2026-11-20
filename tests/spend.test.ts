@@ -7,7 +7,9 @@ import {
   monthName,
   monthSpends,
   monthTotals,
+  parsePaid,
   removeSpend,
+  setPaid,
   spentIn,
   spendsOfKey,
 } from '../src/model/spend';
@@ -63,5 +65,20 @@ describe('compras anotadas', () => {
     expect(monthName('2026-11')).toBe('noviembre');
     expect(monthName('2025-12', '2026')).toBe('diciembre de 2025');
     expect(daysBetween('2026-11-01', '2026-11-19')).toBe(18);
+  });
+
+  it('lo pagado se anota después: crea, cambia la compra más nueva o la borra', () => {
+    const c = emptyCollection();
+    setPaid(c, 'p:5', 'Pikachu', 12, '2026-11-20');
+    expect(Object.values(c.spend)).toEqual([{ d: '2026-11-20', n: 'Pikachu', v: 12, k: 'p:5' }]);
+    addSpend(c, { d: '2026-11-25', n: 'Pikachu', v: 3, k: 'p:5' }, 'nueva');
+    setPaid(c, 'p:5', 'Pikachu', 4.5, '2026-11-30');
+    expect(c.spend.nueva!.v).toBe(4.5);
+    expect(Object.keys(c.spend)).toHaveLength(2);
+    setPaid(c, 'p:5', 'Pikachu', null, '2026-11-30');
+    expect(c.spend).toEqual({});
+    expect(parsePaid(' $4,99 ')).toBe(4.99);
+    expect(parsePaid('')).toBeNull();
+    expect(parsePaid('abc')).toBeNull();
   });
 });
