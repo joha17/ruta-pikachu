@@ -211,7 +211,10 @@ export function Sincronizar() {
       <h3>Sincronizar con Google Drive</h3>
       <p>
         Lo que agregues en el celular aparece en la computadora, y al revés. Se guarda en una carpeta oculta de <b>tu</b> Google Drive que solo esta app puede ver.
-        Sin conexión sigue funcionando igual y se pone al día después.
+        Sin conexión sigue funcionando igual y se pone al día después.{' '}
+        <a href={`${import.meta.env.BASE_URL}privacidad.html`} target="_blank" rel="noopener">
+          Privacidad
+        </a>
       </p>
       {s === 'off' ? (
         <>

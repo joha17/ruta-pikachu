@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ruta Pikachu · Privacidad</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#f5f5f7;--card:#fff;--ink:#16171d;--muted:#5b5e6b;--line:#e2e3e8;--accent:#8a6400}
+  @media (prefers-color-scheme:dark){:root{--bg:#121318;--card:#1b1d24;--ink:#eceef3;--muted:#a3a7b5;--line:#2c2f39;--accent:#f2c230}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:720px;margin:0 auto;padding:32px 16px 64px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+  h1{font-size:clamp(26px,6vw,36px);line-height:1.15;margin:0 0 4px}
+  h2{font-size:19px;margin:28px 0 6px}
+  p,li{color:var(--muted)}
+  p{margin:6px 0}
+  ul{padding-left:20px;margin:6px 0}
+  a{color:var(--accent)}
+  strong{color:var(--ink)}
+  .date{font-size:14px}
+</style>
+</head>
+<body>
+<main>
+<div class="card">
+  <h1>Política de privacidad</h1>
+  <p class="date">Ruta Pikachu · actualizada el 20 de noviembre de 2026</p>
+
+  <p>Ruta Pikachu es una app gratuita para llevar una colección de cartas Pokémon. Es una página estática en GitHub Pages:
+    <strong>no tiene servidor propio, cuentas ni publicidad, y no usa analítica ni cookies de seguimiento.</strong></p>
+
+  <h2>Dónde quedan tus datos</h2>
+  <p>Tu colección, precios, fotos, alertas y ajustes se guardan solo en tu aparato, en el almacenamiento del navegador
+    (IndexedDB). Nadie más, incluido el autor de la app, puede verlos. Si borras los datos del sitio, se borran.</p>
+
+  <h2>Google Drive (opcional)</h2>
+  <p>Si eliges sincronizar, la app te pide permiso para el alcance <strong>drive.appdata</strong>. Con él solo puede leer y
+    escribir una carpeta oculta propia de la app dentro de <strong>tu</strong> Google Drive. No puede ver ni tocar tus otros
+    archivos. Ahí guarda una copia de tu colección y de los últimos precios para que coincidan tus aparatos.</p>
+  <ul>
+    <li>El permiso se usa desde tu navegador, directo con Google. Los datos no pasan por ningún otro servidor.</li>
+    <li>No se comparten, venden ni usan para publicidad o para entrenar modelos.</li>
+    <li>Puedes quitar el permiso cuando quieras en <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.
+      La carpeta de la app se puede borrar desde Drive → Configuración → Administrar apps.</li>
+  </ul>
+  <p>El uso de la información recibida de las API de Google cumple la
+    <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de datos de usuario de los servicios de API de Google</a>,
+    incluidos los requisitos de uso limitado.</p>
+
+  <h2>Servicios que la app consulta</h2>
+  <ul>
+    <li><strong>TCGdex, tcgcsv, TCGplayer, pokemontcg.io y Limitless TCG</strong>: datos públicos de cartas, imágenes y precios.
+      Solo se envía qué carta se busca, no datos tuyos.</li>
+    <li><strong>Claude (Anthropic)</strong>, solo si tú pones tu propia clave en «Ayuda de Claude»: las fotos del escáner y un
+      resumen de la colección van a Anthropic para responder. La clave queda solo en tu aparato.</li>
+    <li><strong>GitHub</strong>, solo si activas «Avisos con la app cerrada» con tu propio token: tus alertas se copian a un gist
+      secreto de tu cuenta.</li>
+  </ul>
+
+  <h2>Enlaces compartidos</h2>
+  <p>Cuando compartes una hoja o tu binder, la lista de cartas va dentro del enlace. Lo ve quien tenga el enlace; no lleva
+    precios ni fotos tuyas.</p>
+
+  <h2>Contacto</h2>
+  <p>Dudas o pedidos sobre privacidad: abre un tema en
+    <a href="https://github.com/joha17/ruta-pikachu/issues">github.com/joha17/ruta-pikachu/issues</a>.</p>
+
+  <p><a href="./">← Volver a Ruta Pikachu</a></p>
+</div>
+</main>
+</body>
+</html>
