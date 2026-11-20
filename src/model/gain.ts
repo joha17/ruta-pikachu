@@ -1,5 +1,5 @@
-// Cuánto gano o pierdo: lo que pagué por cada carta (las compras del presupuesto) frente a lo
-// que vale hoy. Las cartas sin compra anotada (regalos, cambios o de antes del presupuesto)
+// Cuánto gano o pierdo: lo que pagué por cada carta (las compras anotadas) frente a lo
+// que vale hoy. Las cartas sin compra anotada (regalos, cambios o de antes de anotar compras)
 // no entran en la cuenta: no sabemos cuánto costaron.
 
 import { canon } from './catalog';

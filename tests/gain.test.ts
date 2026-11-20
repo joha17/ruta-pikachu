@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addSpend } from '../src/model/budget';
+import { addSpend } from '../src/model/spend';
 import { gainOf, gainText, paidOf } from '../src/model/gain';
 import { emptyCollection, emptyPrices } from '../src/model/types';
 

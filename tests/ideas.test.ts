@@ -73,12 +73,13 @@ describe('ideas para la próxima hoja', () => {
     return { col, pr, sheets, alias, map: refMap(sheets, col, alias) };
   };
 
-  it('perfil de estilo y faltantes con id y precio, en el prompt con el presupuesto', () => {
+  it('perfil de estilo y faltantes con id y precio, en el prompt sin presupuesto', () => {
     const { col, pr, sheets, alias, map } = setup();
     expect(styleProfile(sheets, col)).toMatch(/Pokémon que más tengo: Moltres \(1\)/);
     const t = missingTable(sheets, col, pr, alias, map.byKey);
     expect(t.split('\n')[1]).toMatch(/^c\d+ \| .+ \| .+ \| .+ \| 4\.00$/);
-    expect(ideasPrompt('RES', 'PERFIL', t, 25)).toContain('Monthly budget: $25 USD.');
+    expect(ideasPrompt('RES', 'PERFIL', t)).toContain(t);
+    expect(ideasPrompt('RES', 'PERFIL', t)).not.toMatch(/budget/i);
   });
 
   it('limpia: solo faltantes con id conocido, sin repetir, y hasta 20 candidatas nuevas', () => {
@@ -122,19 +123,20 @@ describe('ideas para la próxima hoja', () => {
     const lookup = async (name: string) =>
       name === 'Eevee' ? [{ id: 'sv08.5-074', localId: '074', name: 'Eevee' }] : name === 'Eevee ex' ? [{ id: 'sv08.5-167', localId: '167', name: 'Eevee ex' }] : [];
     const price = async (tcg: string) => ({ v: tcg === 'sv08.5-167' ? 600 : 1.5, cur: 'USD' as const });
-    const r = await makeIdeas(25, 'claude-haiku-5-5', send, lookup, price);
+    const r = await makeIdeas('claude-haiku-5-5', send, lookup, price);
     expect(r.out.nueva.cartas).toEqual([
       { n: 'Eevee', set: 'Prismatic Evolutions', setId: 'sv08.5', tcg: 'sv08.5-074', num: '074/131', why: 'y', price: { v: 1.5, cur: 'USD' } },
+      { n: 'Eevee ex', set: 'Prismatic Evolutions', setId: 'sv08.5', tcg: 'sv08.5-167', num: '167/131', why: 'muy cara', price: { v: 600, cur: 'USD' } },
     ]);
     expect(r.out.nueva.descartadas).toBe(1);
-    expect(r.out.nueva.caras).toBe(1);
-    expect(r.out.nueva.total).toBe(1.5);
-    expect(r.budget).toBe(25);
+    expect(r.out.nueva.caras).toBeUndefined();
+    expect(r.out.nueva.total).toBe(601.5);
+    expect(r.budget).toBeUndefined();
     expect(r.out.completar).toHaveLength(1);
     expect(Object.keys(r.refs ?? {})).toEqual([id]);
-    await makeIdeas(25, 'claude-haiku-5-5', send, lookup, price);
+    await makeIdeas('claude-haiku-5-5', send, lookup, price);
     expect(n).toBe(1);
-    await makeIdeas(50, 'claude-haiku-5-5', send, lookup, price);
+    await makeIdeas('claude-sonnet-5-5', send, lookup, price);
     expect(n).toBe(2);
   });
 });

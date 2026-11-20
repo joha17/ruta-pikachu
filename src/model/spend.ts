@@ -1,10 +1,7 @@
-// Presupuesto mensual de compras: cada compra registrada resta del mes en que se hizo.
-// El mes es el del calendario (AAAA-MM), así que el 1.º empieza de cero solo.
+// Compras anotadas: cuánto pagué por cada carta (o por otros gastos) y en qué mes. Sirve para la
+// ganancia de la colección y el resumen del mes. Ya no hay presupuesto ni tope de gasto.
 
 import type { Collection, LaterCard, Spend } from './types';
-
-export const DEFAULT_BUDGET = 70;
-export const MAX_BUDGET = 100000;
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -22,16 +19,6 @@ export function monthName(m: string, thisYear?: string): string {
   return thisYear && y !== thisYear ? `${name} de ${y}` : name;
 }
 
-export function budgetOf(col: Collection): number {
-  const b = col.budget;
-  return typeof b === 'number' && b >= 0 && b <= MAX_BUDGET ? b : DEFAULT_BUDGET;
-}
-
-export function setBudget(col: Collection, v: number): void {
-  if (!(v >= 0 && v <= MAX_BUDGET)) return;
-  col.budget = cents(v);
-}
-
 export type SpendRow = Spend & { id: string };
 
 /** Compras de un mes, la más nueva primero. */
@@ -44,26 +31,6 @@ export function monthSpends(col: Collection, month: string): SpendRow[] {
 
 export function spentIn(col: Collection, month: string): number {
   return cents(monthSpends(col, month).reduce((t, s) => t + s.v, 0));
-}
-
-export interface BudgetCheck {
-  budget: number;
-  spent: number;
-  /** Lo que queda antes de esta compra (negativo si ya me pasé). */
-  left: number;
-  /** Lo que quedaría después de esta compra. */
-  after: number;
-  /** Cuánto me paso con esta compra (0 si no me paso). */
-  over: number;
-}
-
-/** ¿Cómo queda el mes si gasto `amount` más? */
-export function checkBudget(col: Collection, month: string, amount = 0): BudgetCheck {
-  const budget = budgetOf(col);
-  const spent = spentIn(col, month);
-  const left = cents(budget - spent);
-  const after = cents(left - amount);
-  return { budget, spent, left, after, over: after < 0 ? cents(-after) : 0 };
 }
 
 /** Totales por mes, el más nuevo primero. */

@@ -652,7 +652,7 @@ export function Coleccion() {
               <p>
                 «Pagaste» suma lo que anotaste al marcar cada carta como comprada y lo compara con su precio de hoy.
                 {gain.noPaid > 0 &&
-                  ` ${gain.noPaid === 1 ? '1 carta no entra' : `${gain.noPaid} cartas no entran`} porque no tiene${gain.noPaid === 1 ? '' : 'n'} precio de compra (regalos, cambios o de antes del presupuesto).`}
+                  ` ${gain.noPaid === 1 ? '1 carta no entra' : `${gain.noPaid} cartas no entran`} porque no tiene${gain.noPaid === 1 ? '' : 'n'} precio de compra (regalos, cambios o de antes de anotar compras).`}
                 {gain.noPrice > 0 && ` ${gain.noPrice === 1 ? '1 carta comprada aún no tiene' : `${gain.noPrice} cartas compradas aún no tienen`} precio de hoy.`}
               </p>
             )}

@@ -153,7 +153,7 @@ export interface Collection {
   alerts: Record<string, PriceAlert>;
   /** Alertas disparadas: id (fecha|carta|motivo) → qué pasó. No se borra al cambiar o quitar la alerta. */
   alertLog: Record<string, AlertEvent>;
-  /** Presupuesto mensual de compras en USD (sin valor = 70, ver model/budget.ts). */
+  /** Ya no se usa: era el presupuesto mensual de compras. Se conserva tal cual para no perder datos al sincronizar. */
   budget?: number;
   /** Compras registradas: id → qué compré, cuándo y cuánto pagué. */
   spend: Record<string, Spend>;
@@ -183,7 +183,7 @@ export interface Profile {
   hide?: true;
 }
 
-/** Una compra registrada (resta del presupuesto de su mes). */
+/** Una compra registrada (ver model/spend.ts). */
 export interface Spend {
   /** Día de la compra, AAAA-MM-DD. */
   d: string;

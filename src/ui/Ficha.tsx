@@ -19,7 +19,7 @@ import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
 import { openAsistente } from './Asistente';
 import { Zoomable } from './Zoom';
-import { buyFlow, refundKey } from './Presupuesto';
+import { buyFlow, refundKey } from './Compra';
 import { gainText, paidOf } from '../model/gain';
 import { condLabel, condOf, COND_HELP, COND_MAX, isGraded, RAW_CONDS } from '../model/condition';
 

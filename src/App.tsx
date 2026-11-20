@@ -21,7 +21,7 @@ import { Avatar } from './ui/Avatar';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
 import { AsistenteDialog, AsistenteFab } from './ui/Asistente';
-import { BuyDialog } from './ui/Presupuesto';
+import { BuyDialog } from './ui/Compra';
 import { healthProblems } from './ui/Health';
 
 // Íconos de línea simples (24×24), del color del texto.

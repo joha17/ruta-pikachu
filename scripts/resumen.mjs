@@ -1,4 +1,4 @@
-// Resumen del mes por Telegram: el primer día de cada mes, lo que gastaste frente al presupuesto,
+// Resumen del mes por Telegram: el primer día de cada mes, lo que gastaste,
 // las cartas que conseguiste y cuánto subió o bajó la colección. Corre en GitHub Actions cada noche,
 // después del aviso de alertas, y casi siempre no hace nada.
 //

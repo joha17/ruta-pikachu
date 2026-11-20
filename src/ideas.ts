@@ -21,7 +21,7 @@ import {
 import { today } from './model/keys';
 import { manualOf, usd as priceOf } from './model/money';
 import { usedRefs } from './model/refs';
-import { fitBudget, groundCards, normText, withPrices, type NameLookup, type PriceLookup } from './model/ground';
+import { firstCards, groundCards, normText, withPrices, type NameLookup, type PriceLookup } from './model/ground';
 import { shownPrice } from './scan/browse';
 import type { Brief, CardIndex } from './scan/match';
 import { loadIndex, loadSets } from './scan/search';
@@ -101,13 +101,12 @@ export async function loadLastIdeas(): Promise<void> {
   ideasLoaded = true;
 }
 
-export function ideasInput(budget: number): { prompt: string; byId: Record<string, string> } {
+export function ideasInput(): { prompt: string; byId: Record<string, string> } {
   const map = currentRefs();
   const prompt = ideasPrompt(
     currentSummary(map.byKey),
     styleProfile(sheets.value, collection.value),
     missingTable(sheets.value, collection.value, prices.value, alias.value, map.byKey),
-    budget,
   );
   return { prompt, byId: map.byId };
 }
@@ -140,14 +139,13 @@ export const catalogLookup: NameLookup = async (name) => {
 export const catalogPrice: PriceLookup = async (tcg) => shownPrice(await fetchCard(tcg));
 
 export async function makeIdeas(
-  budget: number,
   model: ClaudeModel,
   send?: JsonSend,
   lookup: NameLookup = catalogLookup,
   price: PriceLookup = catalogPrice,
 ): Promise<SavedIdeas> {
   await loadLastIdeas();
-  const { prompt, byId } = ideasInput(budget);
+  const { prompt, byId } = ideasInput();
   const h = hashText(prompt);
   const day = today();
   const prev = lastIdeas.value;
@@ -159,14 +157,13 @@ export async function makeIdeas(
   const out = cleanIdeas(raw, byId);
   // Solo cartas que existen de verdad en ese set (Claude a veces inventa cartas).
   const { cards, dropped } = await groundCards(out.nueva.cartas, sets, lookup);
-  // Y que quepan en el presupuesto: ninguna más cara que el presupuesto ni la hoja entera tampoco.
-  const fit = fitBudget(await withPrices(cards, price), budget);
-  out.nueva.cartas = fit.cards;
+  // Hasta 9, con el precio de hoy de cada una.
+  const pick = firstCards(await withPrices(cards, price));
+  out.nueva.cartas = pick.cards;
   out.nueva.descartadas = dropped;
-  out.nueva.caras = fit.caras;
-  out.nueva.total = fit.total;
+  out.nueva.total = pick.total;
   const texts = [out.resumen, out.nueva.idea, ...out.completar.map((c) => c.why), ...out.nueva.cartas.map((c) => c.why)];
-  const r: SavedIdeas = { d: day, h, model, cost, budget, out, refs: usedRefs(texts, byId) };
+  const r: SavedIdeas = { d: day, h, model, cost, out, refs: usedRefs(texts, byId) };
   lastIdeas.value = r;
   await saveIdeas(r);
   return r;

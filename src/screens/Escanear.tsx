@@ -21,7 +21,7 @@ import { seedPrice } from '../collect';
 import { cachedCard, fetchCard, imageUrl } from '../tcgdex';
 import { TcgInfo } from '../ui/TcgInfo';
 import { Zoomable } from '../ui/Zoom';
-import { buyFlow, priceOf, type BuyItem } from '../ui/Presupuesto';
+import { buyFlow, priceOf, type BuyItem } from '../ui/Compra';
 
 interface Shot {
   id: number;
@@ -245,13 +245,13 @@ function markOwned(shot: Shot, key: string) {
   patch(shot.id, { done: 'Marcada como conseguida' });
 }
 
-/** Para la pregunta del presupuesto: una carta de tus hojas que vas a marcar. */
+/** Para la pregunta «¿cuánto pagaste?»: una carta de tus hojas que vas a marcar. */
 function itemOwned(key: string): BuyItem {
   const f = findCard(sheets.value, collection.value, key);
   return { name: f ? cardTitle(f.card) : key, price: priceOf(key), key };
 }
 
-/** Para la pregunta del presupuesto: una carta nueva que irá a la caja. */
+/** Para la pregunta «¿cuánto pagaste?»: una carta nueva que irá a la caja. */
 function itemNew(shot: Shot, c: Cand): BuyItem {
   const pre = preFrom(c, shot);
   return { name: pre.n, price: priceOf(undefined, c.brief.id), pre };

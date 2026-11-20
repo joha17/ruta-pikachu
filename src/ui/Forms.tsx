@@ -12,7 +12,7 @@ import { loadSets } from '../scan/search';
 import { cachedCard, fetchCard, imageUrl, tcgCache } from '../tcgdex';
 import { priceText, shownPrice } from '../scan/browse';
 import { showSheet } from './sheetView';
-import { buyFlow, preOf, priceOf } from './Presupuesto';
+import { buyFlow, preOf, priceOf } from './Compra';
 
 function Fld(p: { id: string; label: string; val?: string; opt?: boolean; hint?: string; [k: string]: unknown }) {
   const { id, label, val, opt, hint, ...attrs } = p;
@@ -279,8 +279,6 @@ export function Forms() {
                 openKey.value = id ? `b:${id}` : '';
                 say('Guardada en la caja.');
                 return [id ? `b:${id}` : ''];
-              }).then((a) => {
-                if (a === 'later') formView.value = null;
               });
             }}
           >
@@ -488,11 +486,9 @@ export function Forms() {
               if (key) openKey.value = key;
               return key ?? '';
             };
-            // Agregarla como conseguida es una compra: pasa por el presupuesto.
+            // Agregarla como conseguida: pregunta cuánto pagué.
             if (!fv.pre?.own) return void add(false);
-            void buyFlow([{ name: r.c.n, price: r.price ?? priceOf(undefined, r.c.tcg), pre: preOf(fv.pre, { ...r.c }) }], () => [add(true)]).then((a) => {
-              if (a === 'later') formView.value = null;
-            });
+            void buyFlow([{ name: r.c.n, price: r.price ?? priceOf(undefined, r.c.tcg), pre: preOf(fv.pre, { ...r.c }) }], () => [add(true)]);
           }}
         >
           <CardFields
