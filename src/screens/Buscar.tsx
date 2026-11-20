@@ -7,7 +7,7 @@ import { go } from '../ui/router';
 import { signal } from '@preact/signals';
 import { Fragment, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { act, ops, say } from '../actions';
+import { act, ops, say, sayUndo } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
 import { buyFlow, priceOf } from '../ui/Presupuesto';
 import { findCard, isOwned, roomSheets } from '../model/catalog';
@@ -400,6 +400,33 @@ function Vista({ tooMany }: { tooMany: boolean }) {
   );
 }
 
+/**
+ * «+» de la cuadrícula: con un toque, sin abrir la carta ni preguntar el precio. Si ya está en una
+ * hoja tuya (te falta), la marca como conseguida en su bolsillo; si no, la guarda en la Caja.
+ */
+async function quickAdd(c: BrowseResult): Promise<void> {
+  const key = tcgIndex().get(c.id)?.[0];
+  if (key) {
+    const name = findCard(sheets.value, collection.value, key)?.card;
+    const hadWish = !!collection.value.wish[key];
+    act((cc) => {
+      if (!isOwned(alias.value, cc, key)) ops.toggle(cc, alias.value, key);
+    });
+    sayUndo(`✓ ${name ? cardTitle(name) : c.name}: marcada como conseguida.`, () =>
+      act((cc) => {
+        if (isOwned(alias.value, cc, key)) ops.toggle(cc, alias.value, key);
+        if (hadWish) cc.wish[key] = true;
+      }),
+    );
+    return;
+  }
+  // Con los datos completos (rareza, precio) si llegan rápido; si no, igual se guarda.
+  await Promise.race([fetchCard(c.id), new Promise((r) => setTimeout(r, 1500))]);
+  const nk = addTcgToBox(c);
+  if (!nk) return;
+  sayUndo(`📦 ${c.name} guardada en la caja.`, () => act((cc) => ops.removeBox(cc, nk.slice(2))));
+}
+
 function Grid({ r, loading }: { r: BrowseResult[]; loading: boolean }) {
   const v = view.value;
   const idx = tcgIndex();
@@ -468,35 +495,47 @@ function Grid({ r, loading }: { r: BrowseResult[]; loading: boolean }) {
             const full = cachedCard(c.id);
             const p = shownPrice(full);
             return (
-              <button
-                key={c.id}
-                class="cand"
-                onClick={() => (selected.value = c)}
-                aria-label={`${c.name}, ${c.setName} ${c.num}${p ? `, ${priceText(p)}` : ''}${own ? ', ya la tienes' : ''}`}
-              >
-                <span class="cand-img">
-                  <CardImg
-                    c={{ id: c.id, image: c.image ?? full?.image, tcgpId: full?.tcgpId }}
-                    q="low"
-                    alt=""
-                    fallback={<span class="cand-noimg">{asked(c.id) || failed.value.has(c.id) ? 'Sin imagen' : 'Buscando imagen…'}</span>}
-                  />
-                  {own && (
-                    <i class="cand-own" aria-hidden="true">
-                      ✓
-                    </i>
-                  )}
-                </span>
-                <span class="cand-cap">
-                  <b>{c.name}</b>
-                  <small>
-                    {c.setName} · {c.num}
-                  </small>
-                  <span class={`cand-price${p ? '' : ' none'}`} title={p?.cur === 'EUR' ? 'Cardmarket (sin precio en TCGplayer)' : 'TCGplayer, precio de mercado'}>
-                    {asked(c.id) || failed.value.has(c.id) ? priceText(p) : '…'}
+              <div key={c.id} class="cand-cell">
+                <button
+                  class="cand"
+                  onClick={() => (selected.value = c)}
+                  aria-label={`${c.name}, ${c.setName} ${c.num}${p ? `, ${priceText(p)}` : ''}${own ? ', ya la tienes' : ''}`}
+                >
+                  <span class="cand-img">
+                    <CardImg
+                      c={{ id: c.id, image: c.image ?? full?.image, tcgpId: full?.tcgpId }}
+                      q="low"
+                      alt=""
+                      fallback={<span class="cand-noimg">{asked(c.id) || failed.value.has(c.id) ? 'Sin imagen' : 'Buscando imagen…'}</span>}
+                    />
+                    {own && (
+                      <i class="cand-own" aria-hidden="true">
+                        ✓
+                      </i>
+                    )}
                   </span>
-                </span>
-              </button>
+                  <span class="cand-cap">
+                    <b>{c.name}</b>
+                    <small>
+                      {c.setName} · {c.num}
+                    </small>
+                    <span class={`cand-price${p ? '' : ' none'}`} title={p?.cur === 'EUR' ? 'Cardmarket (sin precio en TCGplayer)' : 'TCGplayer, precio de mercado'}>
+                      {asked(c.id) || failed.value.has(c.id) ? priceText(p) : '…'}
+                    </span>
+                  </span>
+                </button>
+                {!own && (
+                  <button
+                    type="button"
+                    class="cand-add"
+                    title={idx.has(c.id) ? 'Marcar como conseguida' : 'Guardar en la caja'}
+                    aria-label={`${idx.has(c.id) ? 'Marcar como conseguida' : 'Guardar en la caja'}: ${c.name}`}
+                    onClick={() => void quickAdd(c)}
+                  >
+                    +
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
