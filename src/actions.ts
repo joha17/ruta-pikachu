@@ -8,12 +8,27 @@ import type { PhotoChanges } from './model/ops';
 import { collection, flush, photoKeys, prices, reloadPhotos, update } from './store';
 
 /** Mensaje corto que aparece abajo y se va solo. */
-export const toast = signal<{ text: string; ok?: boolean } | null>(null);
+export const toast = signal<{ text: string; ok?: boolean; undo?: () => void } | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function say(text: string, ok = true): void {
   toast.value = { text, ok };
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => (toast.value = null), 3200);
+}
+
+/** Igual que `say`, con un botón «Deshacer» (se queda un poco más para alcanzar a tocarlo). */
+export function sayUndo(text: string, undo: () => void): void {
+  const t = {
+    text,
+    ok: true,
+    undo: () => {
+      if (toast.value === t) toast.value = null;
+      undo();
+    },
+  };
+  toast.value = t;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (toast.value = null), 6000);
 }
 
 export async function applyPhotos(ch: PhotoChanges): Promise<void> {

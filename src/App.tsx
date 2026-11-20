@@ -202,8 +202,13 @@ export function App() {
       <BuyDialog />
       <Binder />
       {toast.value && (
-        <div class={`toast${toast.value.ok ? '' : ' warn'}`} role="status">
-          {toast.value.text}
+        <div class={`toast${toast.value.ok ? '' : ' warn'}${toast.value.undo ? ' has-undo' : ''}`} role="status">
+          <span>{toast.value.text}</span>
+          {toast.value.undo && (
+            <button type="button" class="toast-undo" onClick={toast.value.undo}>
+              Deshacer
+            </button>
+          )}
         </div>
       )}
     </>
