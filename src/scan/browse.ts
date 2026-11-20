@@ -1,6 +1,7 @@
 // Pestaña «Buscar»: todas las cartas de TCGdex (inglés) con filtros de nombre, set, rareza,
 // tipo y categoría. Sin TCG Pocket. Las imágenes solo se enlazan desde assets.tcgdex.net.
 
+import { EUR_USD_FALLBACK } from '../fx';
 import { getJson } from '../tcgdex';
 import { isPocket, setIdOf, type Brief, type SetBrief } from './match';
 import { cleanQuery } from './names';
@@ -208,20 +209,37 @@ export function parseView(raw: unknown): ViewOpts {
   };
 }
 
-/** Precio de una carta para mostrar y ordenar: USD de TCGplayer o, si no hay, EUR de Cardmarket. */
+/**
+ * Precio de una carta para mostrar y ordenar, siempre en dólares: el de mercado de TCGplayer
+ * (de TCGdex o, si no trae, del historial de tcgcsv) o, si solo hay Cardmarket, los euros
+ * convertidos a dólares y marcados como aproximados.
+ */
 export interface ShownPrice {
   v: number;
-  cur: 'USD' | 'EUR';
+  /** true = convertido de euros (Cardmarket), no es precio de TCGplayer. */
+  approx?: boolean;
+  /** Ideas guardadas antes de pasar todo a dólares: 'EUR' = `v` está en euros. */
+  cur?: 'USD' | 'EUR';
 }
-export function shownPrice(c: { usd: number | null; eur?: number } | null | undefined): ShownPrice | null {
+export function shownPrice(
+  c: { usd: number | null; eur?: number } | null | undefined,
+  eurUsd = EUR_USD_FALLBACK,
+): ShownPrice | null {
   if (!c) return null;
-  if (c.usd != null) return { v: c.usd, cur: 'USD' };
-  if (c.eur != null) return { v: c.eur, cur: 'EUR' };
+  if (c.usd != null) return { v: c.usd };
+  if (c.eur != null) return { v: Math.round(c.eur * eurUsd * 100) / 100, approx: true };
   return null;
 }
 export function priceText(p: ShownPrice | null): string {
   if (!p) return '—';
-  return `${p.cur === 'USD' ? '$' : '€'}${p.v.toFixed(2)}`;
+  if (p.cur === 'EUR') return `≈$${(p.v * EUR_USD_FALLBACK).toFixed(2)}`;
+  return `${p.approx ? '≈' : ''}$${p.v.toFixed(2)}`;
+}
+/** De dónde sale el precio (para el title o la ficha). */
+export function priceSource(p: ShownPrice | null, from?: string): string {
+  if (!p) return 'Sin precio en USD';
+  if (p.approx) return 'Aproximado: Cardmarket (euros) pasado a dólares; no hay precio de TCGplayer';
+  return from === 'tcgcsv' ? 'TCGplayer, precio de mercado (historial)' : 'TCGplayer, precio de mercado';
 }
 
 /**

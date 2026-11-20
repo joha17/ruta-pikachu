@@ -13,6 +13,7 @@ import { boot } from './store';
 import { initSync } from './sync/engine';
 import { loadNubeCfg } from './nube';
 import { wireValueSnapshots } from './value';
+import { loadRate } from './fx';
 
 render(<App />, document.getElementById('app')!);
 // Al terminar de abrir la colección: precios del día (una vez al día, nunca en bucle).
@@ -22,4 +23,6 @@ void boot().then(() => {
   void initSync();
   // Para el puntito en ⚙ si el aviso de Telegram se cortó (token vencido, noche sin correr).
   void loadNubeCfg();
+  // Euro → dólar del día, para las cartas que solo tienen precio de Cardmarket.
+  void loadRate();
 });

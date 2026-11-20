@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { arrange, DEFAULT_VIEW, parseView, priceText, shownPrice, type BrowseResult } from '../src/scan/browse';
+import { arrange, DEFAULT_VIEW, parseView, priceSource, priceText, shownPrice, type BrowseResult } from '../src/scan/browse';
 import { eurPrice, imageCandidates, isPlaceholder, ptcgioNum, ptcgioSet, tcgplayerId, trimCard } from '../src/tcgdex';
 
 const R = (id: string, name: string): BrowseResult => ({ id, name, num: id.split('-')[1]!, setId: id.split('-')[0]!, setName: '' });
@@ -26,10 +26,16 @@ describe('Buscar: opciones de vista', () => {
     expect(parseView({ sort: 'x', size: 9 })).toEqual(DEFAULT_VIEW);
     expect(parseView(null)).toEqual(DEFAULT_VIEW);
   });
-  it('precio: TCGplayer en USD y, si no hay, Cardmarket en EUR', () => {
+  it('precio siempre en USD: TCGplayer y, si no hay, Cardmarket pasado a dólares y marcado ≈', () => {
     expect(priceText(shownPrice({ usd: 26.59, eur: 22.3 }))).toBe('$26.59');
-    expect(priceText(shownPrice({ usd: null, eur: 159.06 }))).toBe('€159.06');
+    expect(shownPrice({ usd: null, eur: 100 }, 1.1)).toEqual({ v: 110, approx: true });
+    expect(priceText(shownPrice({ usd: null, eur: 100 }, 1.1))).toBe('≈$110.00');
     expect(priceText(shownPrice({ usd: null }))).toBe('—');
+    expect(priceSource(shownPrice({ usd: null }))).toBe('Sin precio en USD');
+    expect(priceSource(shownPrice({ usd: null, eur: 5 }))).toMatch(/^Aproximado/);
+    expect(priceSource(shownPrice({ usd: 3 }), 'tcgcsv')).toMatch(/historial/);
+    // Ideas guardadas antes del cambio, con el precio en euros: nunca salen con «€».
+    expect(priceText({ v: 100, cur: 'EUR' })).toMatch(/^≈\$/);
   });
 });
 

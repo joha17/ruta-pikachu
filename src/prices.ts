@@ -10,11 +10,10 @@ import { checkAlerts } from './alerts';
 import { savePrices } from './db';
 import { allKeys, canon, findCard } from './model/catalog';
 import { today } from './model/keys';
-import { backfill, productIdOf, remoteHistory } from './history';
-import { latestRemote } from './model/remoteHist';
+import { backfill } from './history';
 import { pendingToday, recordDay } from './model/trend';
 import { alias, collection, prices, sheets } from './store';
-import { fetchCard, tcgCache, type Lang, type TcgCard } from './tcgdex';
+import { fetchCard, tcgCache, type Lang } from './tcgdex';
 
 export interface PriceRun {
   running: boolean;
@@ -66,9 +65,9 @@ export async function refreshPrices(only?: Set<string>): Promise<void> {
       await fetchCard(t.tcg, t.lang);
       const e = tcgCache.value.get(`${t.lang}/${t.tcg}`);
       if (e && e.day === day) {
-        // Sin precio de TCGplayer en TCGdex (pasa con galerías y promos nuevas): el último precio
-        // de mercado de TCGplayer que publica el trabajo nocturno (tcgcsv), si es de esta semana.
-        const v = e.card?.usd ?? (t.lang === 'en' && e.card ? await tcgcsvPrice(e.card, day) : null);
+        // Solo dólares de TCGplayer (fetchCard ya completa con tcgcsv las que TCGdex no trae).
+        // Nunca Cardmarket: así los totales y el historial no mezclan monedas ni aproximaciones.
+        const v = e.card?.usd ?? null;
         results[t.key] = v;
         if (v == null) run.noPrice++;
       } else run.failed++;
@@ -87,15 +86,6 @@ export async function refreshPrices(only?: Set<string>): Promise<void> {
   priceRun.value = { ...run };
   // Con las cartas ya consultadas hoy, completa su historial con el de tcgcsv (una vez al día).
   void backfill(list.map((t) => t.key));
-}
-
-async function tcgcsvPrice(card: TcgCard, day: string): Promise<number | null> {
-  try {
-    const pid = await productIdOf(card);
-    return pid ? latestRemote(await remoteHistory(pid), day) : null;
-  } catch {
-    return null;
-  }
 }
 
 let triedDay = '';

@@ -108,10 +108,12 @@ export async function groundCards(
 
 // ---------------- Precios ----------------
 
-/** Precio para mostrar: USD de TCGplayer o, si no hay, EUR de Cardmarket. */
+/** Precio para mostrar, en USD: de TCGplayer o, con approx, Cardmarket pasado a dólares. */
 export interface CardPrice {
   v: number;
-  cur: 'USD' | 'EUR';
+  approx?: boolean;
+  /** Ideas guardadas antes de pasar todo a dólares: 'EUR' = el precio está en euros. */
+  cur?: 'USD' | 'EUR';
 }
 export type PriceLookup = (tcg: string) => Promise<CardPrice | null>;
 
@@ -119,11 +121,11 @@ export type Priced = Grounded & { price: CardPrice | null };
 
 /**
  * Las primeras `max` cartas comprobadas (en el orden de Claude), con su precio si lo hay, y lo que
- * cuestan juntas las que tienen precio en USD.
+ * cuestan juntas las que tienen precio de TCGplayer (sin las aproximadas).
  */
 export function firstCards(cards: Priced[], max = 9): { cards: Priced[]; total: number } {
   const out = cards.slice(0, max);
-  const total = out.reduce((t, c) => t + (c.price?.cur === 'USD' ? c.price.v : 0), 0);
+  const total = out.reduce((t, c) => t + (c.price && !c.price.approx && c.price.cur !== 'EUR' ? c.price.v : 0), 0);
   return { cards: out, total: Math.round(total * 100) / 100 };
 }
 
