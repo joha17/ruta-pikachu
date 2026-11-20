@@ -17,7 +17,7 @@ export type Tool = 'informe' | 'preguntar' | 'ideas' | 'consejero' | 'contexto';
 const TOOLS: Record<Tool, { t: string; d: string }> = {
   informe: { t: '📊 Informe de tu colección', d: 'Cómo va tu colección y qué te conviene completar.' },
   preguntar: { t: '💬 Pregúntale a tu colección', d: 'Escribe lo que quieras saber de tus cartas y precios.' },
-  ideas: { t: '💡 Ideas para tu próxima hoja', d: 'Qué completar con tu presupuesto y una hoja nueva a tu estilo.' },
+  ideas: { t: '💡 Ideas para tu próxima hoja', d: 'Qué completar y una hoja nueva a tu estilo.' },
   consejero: { t: '🛒 Consejero de compras', d: 'Qué cartas de tu lista comprar ya y cuáles esperar.' },
   contexto: { t: '🔎 ¿Por qué vale esto?', d: 'El valor de esta carta y qué tan difícil es conseguirla.' },
 };

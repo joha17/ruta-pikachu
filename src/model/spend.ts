@@ -1,10 +1,7 @@
-// Presupuesto mensual de compras: cada compra registrada resta del mes en que se hizo.
-// El mes es el del calendario (AAAA-MM), así que el 1.º empieza de cero solo.
+// Compras anotadas: cuánto pagué por cada carta (o por otros gastos) y en qué mes. Sirve para la
+// ganancia de la colección y el resumen del mes. Ya no hay presupuesto ni tope de gasto.
 
 import type { Collection, LaterCard, Spend } from './types';
-
-export const DEFAULT_BUDGET = 70;
-export const MAX_BUDGET = 100000;
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -22,16 +19,6 @@ export function monthName(m: string, thisYear?: string): string {
   return thisYear && y !== thisYear ? `${name} de ${y}` : name;
 }
 
-export function budgetOf(col: Collection): number {
-  const b = col.budget;
-  return typeof b === 'number' && b >= 0 && b <= MAX_BUDGET ? b : DEFAULT_BUDGET;
-}
-
-export function setBudget(col: Collection, v: number): void {
-  if (!(v >= 0 && v <= MAX_BUDGET)) return;
-  col.budget = cents(v);
-}
-
 export type SpendRow = Spend & { id: string };
 
 /** Compras de un mes, la más nueva primero. */
@@ -44,26 +31,6 @@ export function monthSpends(col: Collection, month: string): SpendRow[] {
 
 export function spentIn(col: Collection, month: string): number {
   return cents(monthSpends(col, month).reduce((t, s) => t + s.v, 0));
-}
-
-export interface BudgetCheck {
-  budget: number;
-  spent: number;
-  /** Lo que queda antes de esta compra (negativo si ya me pasé). */
-  left: number;
-  /** Lo que quedaría después de esta compra. */
-  after: number;
-  /** Cuánto me paso con esta compra (0 si no me paso). */
-  over: number;
-}
-
-/** ¿Cómo queda el mes si gasto `amount` más? */
-export function checkBudget(col: Collection, month: string, amount = 0): BudgetCheck {
-  const budget = budgetOf(col);
-  const spent = spentIn(col, month);
-  const left = cents(budget - spent);
-  const after = cents(left - amount);
-  return { budget, spent, left, after, over: after < 0 ? cents(-after) : 0 };
 }
 
 /** Totales por mes, el más nuevo primero. */
@@ -95,6 +62,32 @@ export function addSpend(col: Collection, s: Spend, id = newEntryId(s.d)): strin
 
 export function removeSpend(col: Collection, id: string): void {
   if (col.spend) delete col.spend[id];
+}
+
+/** Lee un precio escrito a mano («4,99», «$12»). null si está vacío o no es válido. */
+export function parsePaid(t: string): number | null {
+  const s = t.trim().replace(/^\$/, '').replace(',', '.');
+  if (!s) return null;
+  const v = parseFloat(s);
+  return v >= 0 && v < 100000 ? cents(v) : null;
+}
+
+/**
+ * Lo que pagué por una carta, desde su ficha o el formulario de editar. Cambia el monto de la compra
+ * más nueva de esa carta (o crea una con fecha `d` si no había); `v` = null borra sus compras.
+ * `same` dice si una clave guardada es la misma carta (por ejemplo, con los alias de las hojas).
+ */
+export function setPaid(col: Collection, key: string, name: string, v: number | null, d: string, same: (k: string) => boolean = (k) => k === key): void {
+  const mine = Object.entries(col.spend ?? {})
+    .filter(([, s]) => s && s.k && same(s.k))
+    .sort(([, a], [, b]) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+  if (v == null) {
+    for (const [id] of mine) removeSpend(col, id);
+    return;
+  }
+  const top = mine[0];
+  if (top) top[1].v = cents(Math.max(0, v));
+  else addSpend(col, { d, n: name, v, k: key });
 }
 
 /** Compras de este mes de una carta (para devolverlas al desmarcarla). */

@@ -19,7 +19,7 @@ import { PriceTrend } from './Trend';
 import { TcgInfo } from './TcgInfo';
 import { openAsistente } from './Asistente';
 import { Zoomable } from './Zoom';
-import { buyFlow, refundKey } from './Presupuesto';
+import { buyFlow, PaidEdit, refundKey } from './Compra';
 import { gainText, paidOf } from '../model/gain';
 import { condLabel, condOf, COND_HELP, COND_MAX, isGraded, RAW_CONDS } from '../model/condition';
 
@@ -241,18 +241,22 @@ function CardSheet({ k }: { k: string }) {
       </div>
       {/* De la tendencia en adelante ocupa todo el ancho: en escritorio usa el hueco bajo la imagen. */}
       <div class="sheet-body sheet-wide">
-        {paid && (
-          <p class={`gain-line ficha-gain ${nowUsd != null ? gainText(paid.v, nowUsd).dir : 'same'}`}>
-            Pagaste <strong>{money(paid.v)}</strong> el {fmtDate(paid.d)}
-            {nowUsd != null ? (
-              <>
-                {' '}
-                · hoy vale <strong>{money(nowUsd)}</strong> · <span class="gain-diff">{gainText(paid.v, nowUsd).text}</span>
-              </>
-            ) : (
-              ' · aún sin precio de hoy'
-            )}
-          </p>
+        {(own || isBox) && (
+          <PaidEdit k={k} name={title}>
+          {paid && (
+            <p class={`gain-line ficha-gain ${nowUsd != null ? gainText(paid.v, nowUsd).dir : 'same'}`}>
+              Pagaste <strong>{money(paid.v)}</strong> el {fmtDate(paid.d)}
+              {nowUsd != null ? (
+                <>
+                  {' '}
+                  · hoy vale <strong>{money(nowUsd)}</strong> · <span class="gain-diff">{gainText(paid.v, nowUsd).text}</span>
+                </>
+              ) : (
+                ' · aún sin precio de hoy'
+              )}
+            </p>
+          )}
+          </PaidEdit>
         )}
         <PriceTrend k={k} />
         {c.tcg && <TcgInfo tcg={c.tcg} lang={c.lang === 'ja' ? 'ja' : 'en'} />}

@@ -1,5 +1,5 @@
-// Colección → «＋ Hoja» → «🤖 Ideas para tu próxima hoja»: qué completar con tu presupuesto y una
-// hoja nueva a tu estilo.
+// Colección → «＋ Hoja» → «🤖 Ideas para tu próxima hoja»: qué completar y una hoja nueva a tu
+// estilo.
 
 import { useEffect, useState } from 'preact/hooks';
 import { ideasEstimate, ideasInput, lastIdeas, loadLastIdeas, makeIdeas } from '../ideas';
@@ -16,17 +16,7 @@ import { alias, collection, openKey, prices, sheets } from '../store';
 import { RefText } from './RefText';
 import { go } from './router';
 
-function readBudget(): number {
-  try {
-    const v = Number(localStorage.getItem('ruta-ideas-budget'));
-    return Number.isFinite(v) && v > 0 ? v : 30;
-  } catch {
-    return 30;
-  }
-}
-
 export function Ideas() {
-  const [budget, setBudget] = useState(readBudget);
   const [busy, setBusy] = useState<ClaudeModel | null>(null);
   const [err, setErr] = useState('');
   useEffect(() => {
@@ -36,30 +26,19 @@ export function Ideas() {
   const cfg = claudeCfg.value;
   const r = lastIdeas.value;
   const ready = claudeReady(cfg);
-  const { prompt } = ideasInput(budget);
+  const { prompt } = ideasInput();
   const h = hashText(prompt);
   const day = today();
-  // Solo cartas comprobadas en TCGdex y con su precio; las ideas guardadas antes de eso no se muestran.
-  const nuevas = (r?.out.nueva.cartas ?? []).filter(
-    (c): c is typeof c & { tcg: string; setId: string; price: { v: number; cur: 'USD' | 'EUR' } } => !!c.tcg && !!c.setId && !!c.price,
-  );
+  // Solo cartas comprobadas en TCGdex; las ideas guardadas antes de eso no se muestran.
+  const nuevas = (r?.out.nueva.cartas ?? []).filter((c): c is typeof c & { tcg: string; setId: string } => !!c.tcg && !!c.setId);
   const nv = r?.out.nueva;
   const viejas = !!r && nuevas.length === 0 && (r.out.nueva.cartas.length ?? 0) > 0;
-
-  function setB(v: number) {
-    setBudget(v);
-    try {
-      localStorage.setItem('ruta-ideas-budget', String(v));
-    } catch {
-      /* sin almacenamiento */
-    }
-  }
 
   async function run(model: ClaudeModel) {
     setBusy(model);
     setErr('');
     try {
-      await makeIdeas(budget, model);
+      await makeIdeas(model);
     } catch (e) {
       setErr(e instanceof AiError ? e.message : 'No se pudo preguntar a Claude.');
     } finally {
@@ -79,7 +58,7 @@ export function Ideas() {
           )}
           {r.out.completar.length > 0 && (
             <>
-              <h4>Para completar tus hojas (presupuesto ${r.budget})</h4>
+              <h4>Para completar tus hojas</h4>
               <ul class="ideas-list">
                 {r.out.completar.map((c) => {
                   const f = findCard(sheets.value, collection.value, c.key);
@@ -121,31 +100,26 @@ export function Ideas() {
                       · {c.set}
                       {c.num && ` ${c.num}`}
                     </small>{' '}
-                    <b>{priceText(c.price)}</b>
+                    <b>{priceText(c.price ?? null)}</b>
                     {c.why && <small class="why">{c.why}</small>}
                   </li>
                 ))}
               </ol>
-              <p>
-                Juntas cuestan <b>{money(nv?.total ?? null)}</b>, dentro de tus ${r.budget}.
-                {nuevas.length < 9 && ` Son ${nuevas.length} porque las demás no cabían en el presupuesto.`}
-              </p>
+              {!!nv?.total && (
+                <p>
+                  Juntas cuestan unos <b>{money(nv.total)}</b>.
+                </p>
+              )}
               <p class="hint">
                 Todas están comprobadas en el catálogo de TCGdex, con su precio de hoy.
-                {!!nv?.descartadas && ` Quité ${nv.descartadas} ${nv.descartadas === 1 ? 'carta que no existe' : 'cartas que no existen'}`}
-                {!!nv?.descartadas && !!nv?.caras && ' y'}
-                {!nv?.descartadas && !!nv?.caras && ' Quité'}
-                {!!nv?.caras && ` ${nv.caras} que se pasaban del presupuesto`}
-                {(!!nv?.descartadas || !!nv?.caras) && '.'} Toca una para verla en Buscar. Si te gusta la idea, créala con «＋ Crear hoja».
+                {!!nv?.descartadas && ` Quité ${nv.descartadas} ${nv.descartadas === 1 ? 'carta que no existe' : 'cartas que no existen'}.`} Toca una para verla en
+                Buscar. Si te gusta la idea, créala con «＋ Crear hoja».
               </p>
             </>
           )}
-          {viejas && <p class="hint">Estas ideas son de antes de que la app comprobara las cartas y sus precios. Pide ideas de nuevo para ver una hoja nueva dentro de tu presupuesto.</p>}
-          {!viejas && nuevas.length === 0 && (!!nv?.descartadas || !!nv?.caras) && (
-            <p class="hint">
-              Ninguna de las cartas que sugirió Claude para una hoja nueva existe o cabe en tus ${r.budget}, así que no te muestro ninguna. Prueba de nuevo, sube el
-              presupuesto o usa Sonnet.
-            </p>
+          {viejas && <p class="hint">Estas ideas son de antes de que la app comprobara las cartas y sus precios. Pide ideas de nuevo para ver una hoja nueva con cartas comprobadas.</p>}
+          {!viejas && nuevas.length === 0 && !!nv?.descartadas && (
+            <p class="hint">Ninguna de las cartas que sugirió Claude para una hoja nueva existe, así que no te muestro ninguna. Prueba de nuevo o usa Sonnet.</p>
           )}
           <p class="hint">
             {MODELS[r.model as ClaudeModel]?.label ?? r.model}, {fmtDate(r.d)}, costó unos {usd(r.cost)}.
@@ -154,7 +128,7 @@ export function Ideas() {
       ) : (
         <p class="hint">
           Claude mira tus hojas, lo que te falta con su precio y tus gustos (artistas, Pokémon y rarezas que más tienes), y te sugiere qué completar
-          con tu presupuesto y una hoja nueva de 9 cartas a tu estilo.
+          y una hoja nueva de 9 cartas a tu estilo.
         </p>
       )}
       {!ready ? (
@@ -172,10 +146,6 @@ export function Ideas() {
         </p>
       ) : (
         <>
-          <div class="fld ideas-budget">
-            <label for="ideas-budget">Presupuesto para cartas este mes (USD)</label>
-            <input id="ideas-budget" type="number" min={1} step={5} inputMode="decimal" value={budget} onChange={(e) => setB(Math.max(1, Number(e.currentTarget.value) || 1))} />
-          </div>
           <div class="inf-actions">
             {(['claude-haiku-5-5', 'claude-sonnet-5-5'] as ClaudeModel[]).map((m) => {
               const fresh = reportFresh(r, day, h, m);

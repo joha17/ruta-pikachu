@@ -1,6 +1,5 @@
 // Lo que la app copia al gist para el resumen del mes por Telegram (ver monthly.ts).
 
-import { budgetOf } from './budget';
 import { findCard, haveAndMissing } from './catalog';
 import { usd } from './money';
 import { prevMonth, type MonthData } from './monthly';
@@ -35,5 +34,5 @@ export function buildMonth(
   }
   const limit = Date.parse(day) - (VALUE_KEEP - 1) * DAY;
   const value = series.filter((p) => Date.parse(p.d) >= limit).map((p): [string, number] => [p.d, cents(p.v)]);
-  return { v: 1, at: day, budget: budgetOf(col), spend, have, value };
+  return { v: 1, at: day, spend, have, value };
 }

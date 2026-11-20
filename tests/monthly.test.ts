@@ -1,7 +1,7 @@
 // Resumen del mes por Telegram: lo que copia la app (monthlyData.ts) y el mensaje (monthly.ts).
 import { describe, expect, it } from 'vitest';
 import { FIXED_SHEETS as FIXED } from '../src/data';
-import { addSpend } from '../src/model/budget';
+import { addSpend } from '../src/model/spend';
 import { aliases, allSheets } from '../src/model/catalog';
 import { monthlyStep, prevMonth, summarize, summaryText, type MonthData } from '../src/model/monthly';
 import { buildMonth } from '../src/model/monthlyData';
@@ -13,7 +13,6 @@ const AL = aliases(sheets);
 const data = (p: Partial<MonthData> = {}): MonthData => ({
   v: 1,
   at: '2026-12-01',
-  budget: 70,
   spend: [
     { d: '2026-10-30', n: 'Vieja', v: 50 },
     { d: '2026-11-02', n: 'Pikachu', v: 12.5, k: 'a' },
@@ -43,20 +42,21 @@ describe('resumen del mes', () => {
 
   it('gasto, cartas nuevas (compradas y regaladas) y valor del fin del mes anterior al fin del mes', () => {
     const s = summarize(data(), { sent: '2026-10', base: { d: '2026-11-01', keys: ['old', 'a'] } }, '2026-11');
-    expect(s).toMatchObject({ spent: 42.5, budget: 70, buys: 2, top: { n: 'Mew', v: 30 }, value: { from: 100, to: 142 } });
+    expect(s).toMatchObject({ spent: 42.5, buys: 2, top: { n: 'Mew', v: 30 }, value: { from: 100, to: 142 } });
     expect(s.cards.map((c) => c.n)).toEqual(['Mew', 'Pikachu', 'Eevee']);
     expect(s.cardsSince).toBeUndefined();
     expect(s.stale).toBeUndefined();
     const t = summaryText(s);
     expect(t).toContain('Tu resumen de noviembre');
-    expect(t).toContain('Gastaste $42.50 de tus $70.00: te sobraron $27.50.');
+    expect(t).toContain('Gastaste $42.50.');
+    expect(t).not.toMatch(/presupuesto|sobraron|\$70/);
     expect(t).toContain('La más cara: Mew ($30.00)');
     expect(t).toContain('Conseguiste 3 cartas (hoy valen $42.00)');
     expect(t).toContain('Tu colección subió $42.00 (+42.0 %): de $100.00 a $142.00.');
     expect(t).not.toContain('Charizard');
   });
 
-  it('avisa si se pasó, si bajó la colección y si los datos son viejos', () => {
+  it('dice lo gastado sin compararlo, si bajó la colección y si los datos son viejos', () => {
     const d = data({
       at: '2026-11-20',
       spend: [{ d: '2026-11-05', n: 'Caja', v: 85 }],
@@ -66,7 +66,8 @@ describe('resumen del mes', () => {
       ],
     });
     const t = summaryText(summarize(d, { base: { d: '2026-11-19', keys: ['old', 'a', 'b', 'gift'] } }, '2026-11'));
-    expect(t).toContain('te pasaste por $15.00');
+    expect(t).toContain('Gastaste $85.00.');
+    expect(t).not.toContain('pasaste');
     expect(t).toContain('bajó $20.00 (−10.0 %)');
     expect(t).toContain('No agregaste cartas desde el 19 de noviembre.');
     expect(t).toContain('la última vez que abriste la app (20 de noviembre)');
@@ -74,7 +75,8 @@ describe('resumen del mes', () => {
 
   it('sin compras', () => {
     const t = summaryText(summarize(data({ spend: [] }), { base: { d: '2026-11-01', keys: [] } }, '2026-11'));
-    expect(t).toContain('No registraste compras: tus $70.00 quedaron intactos.');
+    expect(t).toContain('No registraste compras.');
+    expect(t).not.toContain('intactos');
   });
 
   it('la primera vez solo guarda lo que tengo; después manda una vez al mes', () => {
@@ -107,6 +109,6 @@ describe('resumen del mes', () => {
     expect(m.spend.map((s) => s.n)).toEqual(['Octubre']);
     expect(m.have.find((h) => h.k === full)).toMatchObject({ p: 9.99 });
     expect(m.value).toEqual([['2026-11-18', 9.99]]);
-    expect(m.budget).toBe(70);
+    expect(m).not.toHaveProperty('budget');
   });
 });

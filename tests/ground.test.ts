@@ -1,6 +1,6 @@
 // Las cartas que sugiere Claude se comprueban en el catálogo antes de mostrarlas.
 import { describe, expect, it } from 'vitest';
-import { fitBudget, groundCards, groundOne, normText, setScore, withPrices } from '../src/model/ground';
+import { firstCards, groundCards, groundOne, normText, setScore, withPrices } from '../src/model/ground';
 import type { Brief, SetBrief } from '../src/scan/match';
 
 const SETS: SetBrief[] = [
@@ -61,12 +61,13 @@ describe('comprobar cartas sugeridas', () => {
     expect(r).toEqual({ cards: [], dropped: 1 });
   });
 
-  it('presupuesto: ninguna carta más cara que el presupuesto y la hoja entera tampoco', () => {
+  it('sin presupuesto: deja las primeras 9 cartas reales, caras o sin precio incluidas', () => {
     const g = (tcg: string, v: number | null) => ({ n: tcg, set: 'S', setId: 's', tcg, num: '1', why: '', price: v == null ? null : { v, cur: 'USD' as const } });
-    const r = fitBudget([g('felt-hat', 932.09), g('a', 30), g('b', 25), g('sin-precio', null), g('c', 20), g('d', 10), g('e', 4)], 80);
-    expect(r.cards.map((c) => c.tcg)).toEqual(['a', 'b', 'c', 'e']);
-    expect(r.total).toBe(79);
-    expect(r.caras).toBe(3);
+    const list = [g('felt-hat', 932.09), g('a', 30), g('sin-precio', null), ...Array.from({ length: 8 }, (_, i) => g(`x${i}`, 1))];
+    const r = firstCards(list);
+    expect(r.cards).toHaveLength(9);
+    expect(r.cards.slice(0, 3).map((c) => c.tcg)).toEqual(['felt-hat', 'a', 'sin-precio']);
+    expect(r.total).toBe(968.09);
   });
 
   it('busca el precio de cada carta y si falla queda sin precio', async () => {

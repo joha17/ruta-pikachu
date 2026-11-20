@@ -1,4 +1,4 @@
-// Resumen del mes por Telegram: el día 1, lo que gasté frente al presupuesto, las cartas que
+// Resumen del mes por Telegram: el día 1, lo que gasté, las cartas que
 // conseguí y cuánto subió o bajó la colección.
 //
 // La app copia lo necesario al mismo gist secreto de las alertas (archivo ruta-pikachu-mes.json, ver
@@ -18,7 +18,8 @@ export interface MonthData {
   v: 1;
   /** Día en que la app copió esto (AAAA-MM-DD). */
   at: string;
-  budget: number;
+  /** Ya no se usa (era el presupuesto mensual); los datos viejos del gist pueden traerlo. */
+  budget?: number;
   /** Compras del mes en curso y del anterior. */
   spend: Array<{ d: string; n: string; v: number; k?: string }>;
   /** Lo que tengo hoy: clave, nombre y precio (si hay). */
@@ -62,7 +63,6 @@ function dayName(d: string): string {
 export interface MonthSummary {
   month: string;
   spent: number;
-  budget: number;
   buys: number;
   top?: { n: string; v: number };
   cards: Array<{ n: string; p?: number }>;
@@ -95,7 +95,7 @@ export function summarize(data: MonthData, state: SummaryState, month: string): 
   const to = inMonth[inMonth.length - 1];
   const value = from && to && from !== to ? { from: from[1], to: to[1] } : undefined;
 
-  const out: MonthSummary = { month, spent, budget: data.budget, buys: spends.length, cards: cards.map((c) => ({ n: c.n, p: c.p })) };
+  const out: MonthSummary = { month, spent, buys: spends.length, cards: cards.map((c) => ({ n: c.n, p: c.p })) };
   if (top) out.top = top;
   if (state.base && state.base.d > start) out.cardsSince = state.base.d;
   if (value) out.value = value;
@@ -107,11 +107,9 @@ export function summarize(data: MonthData, state: SummaryState, month: string): 
 export function summaryText(s: MonthSummary): string {
   const L: string[] = [`📅 Tu resumen de ${monthName(s.month)}`, ''];
 
-  if (!s.buys) L.push(`💸 No registraste compras: tus ${usdTxt(s.budget)} quedaron intactos.`);
+  if (!s.buys) L.push('💸 No registraste compras.');
   else {
-    const left = cents(s.budget - s.spent);
-    const tail = left >= 0 ? `te sobraron ${usdTxt(left)}` : `te pasaste por ${usdTxt(-left)}`;
-    L.push(`💸 Gastaste ${usdTxt(s.spent)} de tus ${usdTxt(s.budget)}: ${tail}.`);
+    L.push(`💸 Gastaste ${usdTxt(s.spent)}.`);
     const n = s.buys === 1 ? '1 compra' : `${s.buys} compras`;
     L.push(s.top && s.buys > 1 ? `   ${n}. La más cara: ${s.top.n} (${usdTxt(s.top.v)}).` : `   ${n}.`);
   }

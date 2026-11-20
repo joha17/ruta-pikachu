@@ -9,7 +9,7 @@ import { Fragment, type ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say, sayUndo } from '../actions';
 import { addTcgToBox, addTcgToSheet, preFromTcg } from '../collect';
-import { buyFlow, priceOf } from '../ui/Presupuesto';
+import { buyFlow, priceOf } from '../ui/Compra';
 import { findCard, isOwned, roomSheets } from '../model/catalog';
 import { sheetOfKey } from '../model/keys';
 import { money } from '../model/money';

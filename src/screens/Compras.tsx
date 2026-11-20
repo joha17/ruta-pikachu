@@ -10,7 +10,7 @@ import { shopItems, shopText, sortShop, sumShop, type ShopItem, type ShopSort } 
 import { alias, collection, openKey, prices, sheets } from '../store';
 import { TrendMark } from '../ui/Trend';
 import { AdviceTag } from '../ui/Consejero';
-import { BudgetPanel, EnFrio } from '../ui/Presupuesto';
+import { EnFrio, SpendPanel } from '../ui/Compra';
 
 function readPrefs(): { sort: ShopSort; sheet: string } {
   try {
@@ -162,7 +162,7 @@ export function Compras() {
           )}
         </div>
       </div>
-      <BudgetPanel />
+      <SpendPanel />
       <EnFrio />
       <Hits />
       <div class="shop-sel">
