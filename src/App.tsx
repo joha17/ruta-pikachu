@@ -16,6 +16,8 @@ import { SyncChip } from './screens/Sincronizar';
 import { syncStatus } from './sync/engine';
 import { Metas } from './screens/Metas';
 import { Alertas } from './screens/Alertas';
+import { Perfil } from './screens/Perfil';
+import { Avatar } from './ui/Avatar';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
 import { AsistenteDialog, AsistenteFab } from './ui/Asistente';
@@ -71,6 +73,17 @@ function AlertBell({ r }: { r: string }) {
           {n > 99 ? '99+' : n}
         </span>
       )}
+    </button>
+  );
+}
+
+/** Mi avatar en la cabecera: abre «Mi perfil». */
+function ProfileBtn({ r }: { r: string }) {
+  const p = collection.value.profile;
+  const label = p?.name ? `Mi perfil: ${p.name}` : 'Mi perfil';
+  return (
+    <button class="iconbtn prof-btn" title={label} aria-label={label} aria-current={r === 'perfil' ? 'page' : undefined} onClick={() => go('perfil')}>
+      <Avatar p={p} size={28} />
     </button>
   );
 }
@@ -139,6 +152,7 @@ export function App() {
         <div class="topbar-r">
           <SaveChip />
           <SyncChip />
+          <ProfileBtn r={r} />
           <AlertBell r={r} />
           <button
             class="iconbtn"
@@ -165,6 +179,8 @@ export function App() {
           <Metas />
         ) : r === 'alertas' ? (
           <Alertas />
+        ) : r === 'perfil' ? (
+          <Perfil />
         ) : r === 'ver' ? (
           <Compartida />
         ) : (

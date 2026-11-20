@@ -2,6 +2,7 @@
 // Solo lleva lo que se ve en la hoja: nombre, cartas y cuáles tengo. Nada más de la colección.
 
 import { canon, slots } from './catalog';
+import { cleanWho, shareWho, type ShareWho } from './profile';
 import { cardTitle } from './shop';
 import type { CardDef, Collection, SheetDef } from './types';
 
@@ -26,6 +27,8 @@ export interface SharePayload {
   name: string;
   theme?: string;
   cards: ShareCard[];
+  /** Nombre y avatar de quien comparte (si los puso y no los ocultó). */
+  who?: ShareWho;
 }
 
 /** Arma lo que se comparte de una hoja. `imageOf` da la base de la imagen oficial si ya se conoce. */
@@ -44,7 +47,8 @@ export function buildShare(
     if (base?.startsWith(IMG_HOST)) out.img = base.slice(IMG_HOST.length);
     return out;
   });
-  return { v: SHARE_VERSION, name: sheet.title ?? sheet.name, theme: sheet.theme, cards };
+  const who = shareWho(col.profile);
+  return { v: SHARE_VERSION, name: sheet.title ?? sheet.name, theme: sheet.theme, cards, ...(who ? { who } : {}) };
 }
 
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : undefined);
@@ -63,7 +67,8 @@ export function cleanShare(raw: unknown): SharePayload | null {
   }
   if (!cards.length) return null;
   const theme = str(r.theme, 12);
-  return { v: SHARE_VERSION, name, ...(theme && /^[a-z]+$/.test(theme) ? { theme } : {}), cards };
+  const who = cleanWho(r.who);
+  return { v: SHARE_VERSION, name, ...(theme && /^[a-z]+$/.test(theme) ? { theme } : {}), cards, ...(who ? { who } : {}) };
 }
 
 export function shareCount(p: SharePayload): { own: number; total: number } {
@@ -97,6 +102,7 @@ export interface BinderPayload {
   /** Cartas en la caja, esperando bolsillo. */
   box?: number;
   sheets: BinderSheet[];
+  who?: ShareWho;
 }
 
 /** Arma lo que se comparte del binder completo. Mismas reglas que una hoja: nombres, cuáles tengo e imágenes de TCGdex. */
@@ -117,7 +123,8 @@ export function buildBinderShare(
   }
   const own = [...seen.values()].filter(Boolean).length;
   const box = col.box.length;
-  return { v: SHARE_VERSION, k: BINDER_KIND, own, tot: seen.size, ...(box ? { box } : {}), sheets: out };
+  const who = shareWho(col.profile);
+  return { v: SHARE_VERSION, k: BINDER_KIND, own, tot: seen.size, ...(box ? { box } : {}), sheets: out, ...(who ? { who } : {}) };
 }
 
 function cleanCard(c: unknown): ShareCard | null {
@@ -166,5 +173,6 @@ export function cleanBinder(raw: unknown): BinderPayload | null {
   const tot = int(r.tot, MAX_TOTAL) || total;
   const own = Math.min(int(r.own, MAX_TOTAL), tot);
   const box = int(r.box, 10000);
-  return { v: SHARE_VERSION, k: BINDER_KIND, own, tot, ...(box ? { box } : {}), sheets };
+  const who = cleanWho(r.who);
+  return { v: SHARE_VERSION, k: BINDER_KIND, own, tot, ...(box ? { box } : {}), sheets, ...(who ? { who } : {}) };
 }
