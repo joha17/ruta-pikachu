@@ -1,6 +1,6 @@
 // Sincronización entre aparatos: la parte pura (sin red ni IndexedDB).
 //
-// La colección se parte en «átomos»: cada carta marcada, deseo, precio a mano, alerta de precio, alerta disparada, compra, carta en frío, condición, presupuesto, variante,
+// La colección se parte en «átomos»: cada carta marcada, deseo, el perfil, precio a mano, alerta de precio, alerta disparada, compra, carta en frío, condición, presupuesto, variante,
 // orden de hoja, hoja propia, carta de hoja propia, carta agregada a una hoja fija, carta de la Caja y foto. Cada átomo
 // lleva la hora de su último cambio. Al combinar dos copias gana, átomo por átomo, el cambio
 // más reciente. Un borrado deja una marca (átomo sin valor) para que un aparato
@@ -11,6 +11,7 @@
 // operación de la colección tiene que saber que existe la sincronización.
 
 import { normAlert } from '../model/alerts';
+import { cleanProfile } from '../model/profile';
 import type { AlertEvent, BoxCard, LaterCard, Spend, CardDef, Collection, CustomSheet, ManualPrice, MyGoal, SheetRename } from '../model/types';
 import { emptyCollection } from '../model/types';
 
@@ -66,6 +67,7 @@ const KINDS = new Set<string>([
   'spend',
   'later',
   'cond',
+  'profile',
   'sheet',
   'card',
   'xsheet',
@@ -104,6 +106,7 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   for (const [k, v] of Object.entries(col.spend ?? {})) out[`spend:${k}`] = v;
   for (const [k, v] of Object.entries(col.later ?? {})) out[`later:${k}`] = v;
   for (const [k, v] of Object.entries(col.cond ?? {})) if (v) out[`cond:${k}`] = v;
+  if (col.profile) out['profile:yo'] = col.profile;
   for (const sh of col.custom ?? []) {
     const head: Record<string, unknown> = { name: sh.name, cards: sh.cards.map((c) => c.k) };
     if (sh.desc) head.desc = sh.desc;
@@ -248,6 +251,9 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
     else if (kind === 'later') col.later[k] = v as LaterCard;
     else if (kind === 'cond') {
       if (typeof v === 'string' && v) col.cond = { ...(col.cond ?? {}), [k]: v };
+    } else if (kind === 'profile') {
+      const p = cleanProfile(v);
+      if (p) col.profile = p;
     } else if (kind === 'sheet') sheets.set(k, v as { name: string; desc?: string; cards: string[] });
     else if (kind === 'card') {
       const dot = k.indexOf('.');

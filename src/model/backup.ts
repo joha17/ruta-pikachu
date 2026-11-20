@@ -2,6 +2,7 @@
 // Nunca lleva la clave de Claude ni la caché de TCGdex (esa se vuelve a bajar).
 
 import { normAlerts } from './alerts';
+import { cleanProfile } from './profile';
 import { emptyCollection, emptyPrices, type Collection, type PriceBook } from './types';
 
 export const BACKUP_KIND = 'ruta-pikachu-respaldo';
@@ -116,6 +117,9 @@ export function parseBackup(text: string): Backup {
   if (typeof s.migratedAt === 'string') settings.migratedAt = s.migratedAt;
   const collection: Collection = { ...emptyCollection(), ...(c as unknown as Collection) };
   normAlerts(collection);
+  const prof = cleanProfile(collection.profile);
+  if (prof) collection.profile = prof;
+  else delete collection.profile;
   return {
     kind: BACKUP_KIND,
     version: raw.version,

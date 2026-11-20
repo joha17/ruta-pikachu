@@ -161,8 +161,26 @@ export interface Collection {
   later: Record<string, LaterCard>;
   /** Condición de cada copia: clave → «NM», «LP»… o gradeo («PSA 10»). Ver model/condition.ts. */
   cond?: Record<string, string>;
+  /** Mi perfil: nombre, avatar y desde cuándo colecciono (ver model/profile.ts). */
+  profile?: Profile;
   /** Último guardado, AAAA-MM-DD. */
   saved: string;
+}
+
+/** Mi perfil. Se sincroniza por Drive y va en el respaldo. */
+export interface Profile {
+  /** Nombre o apodo (máximo 30). */
+  name?: string;
+  /** Frase corta (máximo 80). */
+  about?: string;
+  /** Avatar: número de Pokédex de la lista de model/profile.ts. */
+  avatar?: number;
+  /** Foto propia, pequeña y recortada (data:image/jpeg;base64,…). Si hay, se muestra en vez del avatar. */
+  photo?: string;
+  /** Desde cuándo colecciono, AAAA-MM. */
+  since?: string;
+  /** No poner mi nombre ni mi avatar en los enlaces que comparto. */
+  hide?: true;
 }
 
 /** Una compra registrada (resta del presupuesto de su mes). */

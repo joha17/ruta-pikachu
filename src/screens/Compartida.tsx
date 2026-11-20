@@ -6,6 +6,8 @@ import { shareImage, type BinderPayload, type ShareCard, type SharePayload } fro
 import { decodeAny, sharedParam } from '../share';
 import { Book, BookIndex, bookIndex, paginate, type BookPage, type Mode } from '../ui/Binder';
 import { go } from '../ui/router';
+import { Avatar } from '../ui/Avatar';
+import type { ShareWho } from '../model/profile';
 
 type Got = { sheet: SharePayload } | { binder: BinderPayload } | null;
 const state = signal<{ h: string; p: Got; done: boolean }>({ h: '', p: null, done: false });
@@ -34,12 +36,24 @@ function SharedSlot({ c, mode }: { c: Item; mode: Mode }) {
   );
 }
 
+function WhoLine({ w }: { w: ShareWho }) {
+  return (
+    <p class="who-line">
+      <Avatar p={{ avatar: w.a }} size={32} />
+      <span>{w.n ? `Te la compartió ${w.n}` : 'Te la compartió un amigo'}</span>
+    </p>
+  );
+}
+
 function SharedCover({ b, P, mode, go: goPage }: { b: BinderPayload; P: Array<BookPage<Item>>; mode: Mode; go: (i: number) => void }) {
   const pct = (b.own / Math.max(1, b.tot)) * 100;
   return (
     <section class="bcover" aria-label="Portada">
       <div class="eb">Ruta Pikachu · binder compartido</div>
-      <h3>Binder de un amigo</h3>
+      <div class="who-row">
+        {b.who && <Avatar p={{ avatar: b.who.a }} size={44} />}
+        <h3>{b.who?.n ? `Binder de ${b.who.n}` : 'Binder de un amigo'}</h3>
+      </div>
       <div class="big">
         {b.own} <small style={{ fontSize: '.55em', color: '#C9CED8' }}>de {b.tot} cartas</small>
       </div>
@@ -109,6 +123,7 @@ export function Compartida() {
   return (
     <section class="sheet-view shared">
       <p class="shared-note">👀 Hoja compartida, solo para ver. No cambia nada de tu colección.</p>
+      {p.who && <WhoLine w={p.who} />}
       <div class="section-head">
         <div>
           <h1 class="shared-h">{p.name}</h1>
