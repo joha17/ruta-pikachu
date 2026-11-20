@@ -1,7 +1,7 @@
 // Hoja o binder compartido por enlace: solo para ver. No toca la colección de este aparato.
 
 import { signal } from '@preact/signals';
-import { useEffect } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { shareImage, type BinderPayload, type ShareCard, type SharePayload } from '../model/share';
 import { decodeAny, sharedParam } from '../share';
 import { Book, BookIndex, bookIndex, paginate, type BookPage, type Mode } from '../ui/Binder';
@@ -15,7 +15,8 @@ const state = signal<{ h: string; p: Got; done: boolean }>({ h: '', p: null, don
 type Item = ShareCard & { theme?: string };
 
 function SharedSlot({ c, mode }: { c: Item; mode: Mode }) {
-  const src = shareImage(c, 'low');
+  const [broken, setBroken] = useState(false);
+  const src = broken ? null : shareImage(c, 'low');
   const show = mode === 'full' || c.own;
   const lab = `${c.n}${c.own ? ', la tiene' : ', le falta'}`;
   const tick = mode === 'full' && c.own ? <span class="bt" aria-hidden="true">✓</span> : null;
@@ -23,7 +24,7 @@ function SharedSlot({ c, mode }: { c: Item; mode: Mode }) {
   if (show && src)
     return (
       <div class="bslot ro" role="img" aria-label={lab}>
-        <img src={src} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+        <img src={src} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onError={() => setBroken(true)} />
         {tick}
       </div>
     );

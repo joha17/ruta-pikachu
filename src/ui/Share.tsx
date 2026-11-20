@@ -14,7 +14,10 @@ export const sharing = signal('');
 function payloadOf(id: string): SharePayload | null {
   const sh = sheets.value.find((s) => s.id === id);
   if (!sh) return null;
-  return buildShare(sh, collection.value, alias.value, (c) => cachedCard(c.tcg, c.lang === 'ja' ? 'ja' : 'en')?.image);
+  return buildShare(sh, collection.value, alias.value, (c) => {
+    const tc = cachedCard(c.tcg, c.lang === 'ja' ? 'ja' : 'en');
+    return tc ? { image: tc.image, tp: tc.tcgpId } : undefined;
+  });
 }
 
 function fileName(name: string): string {

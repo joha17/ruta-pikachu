@@ -24,6 +24,23 @@ describe('compartir hoja', () => {
     expect(shareImage(m, 'low')).toBe('https://assets.tcgdex.net/en/sv/sv10/229/low.webp');
   });
 
+  it('si TCGdex no tiene imagen, lleva el ID de TCGplayer para la foto de respaldo (nunca fotos propias)', () => {
+    const c = emptyCollection();
+    const p = buildShare(rocket, c, AL, (card) => (card.k === 'moltres' ? { tp: 685510 } : { image: 'data:image/jpeg;base64,AAAA', tp: 0 }));
+    const m = p.cards.find((x) => x.n.includes('Moltres'))!;
+    expect(m.tp).toBe(685510);
+    expect(m.img).toBeUndefined();
+    expect(shareImage(m, 'low')).toBe('https://tcgplayer-cdn.tcgplayer.com/product/685510_200w.jpg');
+    expect(p.cards.filter((x) => x.img || x.tp)).toHaveLength(1);
+    expect(JSON.stringify(p)).not.toContain('data:image');
+    // Lo que llega de un enlace: solo un número.
+    expect(cleanShare({ v: 1, name: 'x', cards: [{ n: 'a', tp: 'https://evil/' }, { n: 'b', tp: 12.5 }, { n: 'c', tp: 685510 }] })!.cards.map((x) => x.tp)).toEqual([
+      undefined,
+      undefined,
+      685510,
+    ]);
+  });
+
   it('ida y vuelta por el enlace', async () => {
     const p = buildShare(rocket, emptyCollection(), AL, () => undefined);
     const h = await encodeShare(p);

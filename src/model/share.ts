@@ -18,6 +18,8 @@ export interface ShareCard {
   set?: string;
   /** Ruta de la imagen en assets.tcgdex.net, sin el dominio ni /low.webp (p. ej. "en/sv/sv10/229"). */
   img?: string;
+  /** ID de producto de TCGplayer: imagen de respaldo cuando TCGdex no tiene (promos nuevas, galerías). */
+  tp?: number;
   /** 1 = la tengo. */
   own: 0 | 1;
 }
@@ -31,20 +33,24 @@ export interface SharePayload {
   who?: ShareWho;
 }
 
-/** Arma lo que se comparte de una hoja. `imageOf` da la base de la imagen oficial si ya se conoce. */
-export function buildShare(
-  sheet: SheetDef,
-  col: Collection,
-  alias: Record<string, string>,
-  imageOf: (card: CardDef) => string | undefined,
-): SharePayload {
+/** Imagen oficial de una carta: la base de TCGdex y, de respaldo, el ID de producto de TCGplayer. */
+export type ImageOf = (card: CardDef) => string | { image?: string; tp?: number } | undefined;
+
+const artOf = (imageOf: ImageOf, c: CardDef): { image?: string; tp?: number } => {
+  const r = imageOf(c);
+  return typeof r === 'string' ? { image: r } : (r ?? {});
+};
+
+/** Arma lo que se comparte de una hoja. `imageOf` da la imagen oficial si ya se conoce. Nunca fotos propias. */
+export function buildShare(sheet: SheetDef, col: Collection, alias: Record<string, string>, imageOf: ImageOf): SharePayload {
   const cards: ShareCard[] = slots(sheet, col).map((s) => {
     const c = s.card;
     const out: ShareCard = { n: cardTitle(c), own: col.owned[canon(alias, s.key)] ? 1 : 0 };
     if (c.num?.trim()) out.num = c.num.trim();
     if (c.set?.trim()) out.set = c.set.trim();
-    const base = imageOf(c);
+    const { image: base, tp } = artOf(imageOf, c);
     if (base?.startsWith(IMG_HOST)) out.img = base.slice(IMG_HOST.length);
+    else if (isTp(tp)) out.tp = tp;
     return out;
   });
   const who = shareWho(col.profile);
@@ -75,8 +81,13 @@ export function shareCount(p: SharePayload): { own: number; total: number } {
   return { own: p.cards.filter((c) => c.own).length, total: p.cards.length };
 }
 
+const isTp = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0 && v < 1e9;
+
+/** Imagen para mostrar: la de TCGdex o, si no hay, la foto de TCGplayer (misma URL que usa la ficha). */
 export function shareImage(c: ShareCard, q: 'low' | 'high'): string | null {
-  return c.img ? `${IMG_HOST}${c.img}/${q}.webp` : null;
+  if (c.img) return `${IMG_HOST}${c.img}/${q}.webp`;
+  if (c.tp) return `https://tcgplayer-cdn.tcgplayer.com/product/${c.tp}_${q === 'low' ? '200w' : 'in_1000x1000'}.jpg`;
+  return null;
 }
 
 // ---- Binder completo ----
@@ -110,7 +121,7 @@ export function buildBinderShare(
   sheets: SheetDef[],
   col: Collection,
   alias: Record<string, string>,
-  imageOf: (card: CardDef) => string | undefined,
+  imageOf: ImageOf,
 ): BinderPayload {
   const out: BinderSheet[] = [];
   const seen = new Map<string, boolean>();
@@ -139,6 +150,7 @@ function cleanCard(c: unknown): ShareCard | null {
   if (set) card.set = set;
   const img = str(o.img, 120);
   if (img && /^[a-z]{2}(?:-[a-z]{2})?\/[A-Za-z0-9._/-]+$/.test(img) && !img.includes('..')) card.img = img;
+  else if (isTp(o.tp)) card.tp = o.tp;
   return card;
 }
 
