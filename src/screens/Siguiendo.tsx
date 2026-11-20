@@ -8,9 +8,13 @@ import { agoText, followIdFrom, followLink, type PubProfile } from '../model/fol
 import { monthText } from '../model/profile';
 import { collection } from '../store';
 import { pubMsg, pubPerm, startPublishing, stopPublishing, syncConfigured, syncOn } from '../sync/engine';
+import { DRIVE_API_KEY } from '../sync/drive';
 import { Avatar } from '../ui/Avatar';
 import { go } from '../ui/router';
 import { SharedBinder } from './Compartida';
+
+/** «Siguiendo» funciona solo con la clave de API para leer binders publicados (config.ts). */
+export const followReady = !!DRIVE_API_KEY;
 
 const appBase = () => location.href.split('#')[0]!;
 
@@ -228,6 +232,16 @@ export function Seguir() {
     if (id) void loadFollow(id, true);
   }, [id]);
   const back = () => go('perfil');
+  if (!followReady)
+    return (
+      <section class="panel">
+        <h1>Muy pronto</h1>
+        <p>Seguir binders todavía no está activado en esta versión de la app.</p>
+        <button class="btn primary" onClick={() => go('')}>
+          Ir a mi colección
+        </button>
+      </section>
+    );
   if (!id || !v || v.st === 'loading') return <p class="loading">{id ? 'Abriendo su binder…' : 'Falta el enlace del binder.'}</p>;
   if (v.st === 'err')
     return (
