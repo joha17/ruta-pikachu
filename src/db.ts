@@ -68,6 +68,9 @@ export interface SyncState {
   token?: Token;
   /** Última sincronización completa (ISO). */
   last?: string;
+  /** Binder público: el archivo y cómo estaba la última vez que se subió (para no subirlo si no cambió). */
+  pubId?: string;
+  pubSig?: string;
 }
 
 /** Respuesta de TCGdex guardada para no repetir llamadas (una por carta y día). */

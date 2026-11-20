@@ -12,6 +12,7 @@
 
 import { normAlert } from '../model/alerts';
 import { cleanProfile } from '../model/profile';
+import { cleanFollow, isFileId } from '../model/follow';
 import type { AlertEvent, BoxCard, LaterCard, Spend, CardDef, Collection, CustomSheet, ManualPrice, MyGoal, SheetRename } from '../model/types';
 import { emptyCollection } from '../model/types';
 
@@ -68,6 +69,8 @@ const KINDS = new Set<string>([
   'later',
   'cond',
   'profile',
+  'pub',
+  'follow',
   'sheet',
   'card',
   'xsheet',
@@ -107,6 +110,8 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   for (const [k, v] of Object.entries(col.later ?? {})) out[`later:${k}`] = v;
   for (const [k, v] of Object.entries(col.cond ?? {})) if (v) out[`cond:${k}`] = v;
   if (col.profile) out['profile:yo'] = col.profile;
+  if (col.pub) out['pub:yo'] = col.pub;
+  for (const [k, v] of Object.entries(col.follows ?? {})) out[`follow:${k}`] = v;
   for (const sh of col.custom ?? []) {
     const head: Record<string, unknown> = { name: sh.name, cards: sh.cards.map((c) => c.k) };
     if (sh.desc) head.desc = sh.desc;
@@ -254,6 +259,11 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
     } else if (kind === 'profile') {
       const p = cleanProfile(v);
       if (p) col.profile = p;
+    } else if (kind === 'pub') {
+      if (isFileId(v)) col.pub = v;
+    } else if (kind === 'follow') {
+      const f = cleanFollow(v);
+      if (f && isFileId(k)) col.follows = { ...(col.follows ?? {}), [k]: f };
     } else if (kind === 'sheet') sheets.set(k, v as { name: string; desc?: string; cards: string[] });
     else if (kind === 'card') {
       const dot = k.indexOf('.');

@@ -3,6 +3,7 @@
 
 import { normAlerts } from './alerts';
 import { cleanProfile } from './profile';
+import { cleanFollows } from './follow';
 import { emptyCollection, emptyPrices, type Collection, type PriceBook } from './types';
 
 export const BACKUP_KIND = 'ruta-pikachu-respaldo';
@@ -120,6 +121,7 @@ export function parseBackup(text: string): Backup {
   const prof = cleanProfile(collection.profile);
   if (prof) collection.profile = prof;
   else delete collection.profile;
+  cleanFollows(collection);
   return {
     kind: BACKUP_KIND,
     version: raw.version,

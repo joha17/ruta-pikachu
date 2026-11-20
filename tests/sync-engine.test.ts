@@ -8,6 +8,9 @@ interface FFile {
   name: string;
   createdTime: string;
   data: Blob;
+  /** 'drive' = «Mi unidad» (binder público); si no, la carpeta oculta de la app. */
+  space?: 'drive';
+  public?: boolean;
 }
 
 /** Drive de mentira: solo lo que usa la app (carpeta oculta, listar, leer, crear, reemplazar, borrar). */
@@ -18,25 +21,49 @@ class FakeDrive {
   fetch = async (input: string | URL | Request, init: RequestInit = {}): Promise<Response> => {
     if (!this.online) throw new TypeError('Failed to fetch');
     const u = new URL(String(input));
+    if (u.hostname !== 'www.googleapis.com') return new Response('', { status: 404 });
     const auth = (init.headers as Record<string, string> | undefined)?.Authorization;
+    const id = /\/files\/([^/?]+)/.exec(u.pathname)?.[1];
+    // Lectura pública con clave de API (sin sesión): solo archivos con permiso «cualquiera».
+    if (!auth && u.searchParams.get('key')) {
+      const f = id ? this.files.get(id) : undefined;
+      return f?.public ? new Response(f.data) : new Response('', { status: 404 });
+    }
     if (auth !== 'Bearer tok') return new Response('no', { status: 401 });
     const m = init.method ?? 'GET';
-    const id = /\/files\/([^/?]+)/.exec(u.pathname)?.[1];
     if (u.pathname === '/drive/v3/files' && m === 'GET') {
-      expect(u.searchParams.get('spaces')).toBe('appDataFolder');
-      const files = [...this.files.values()].map(({ id, name, createdTime }) => ({ id, name, createdTime }));
+      const space = u.searchParams.get('spaces');
+      if (space === 'drive') {
+        const name = /name = '([^']+)'/.exec(u.searchParams.get('q') ?? '')?.[1];
+        const files = [...this.files.values()].filter((f) => f.space === 'drive' && f.name === name).map(({ id, name, createdTime }) => ({ id, name, createdTime }));
+        return Response.json({ files });
+      }
+      expect(space).toBe('appDataFolder');
+      const files = [...this.files.values()].filter((f) => !f.space).map(({ id, name, createdTime }) => ({ id, name, createdTime }));
       return Response.json({ files });
     }
     if (u.pathname === '/upload/drive/v3/files' && m === 'POST') {
       const form = init.body as FormData;
-      const meta = JSON.parse(await (form.get('metadata') as Blob).text()) as { name: string; parents: string[] };
-      expect(meta.parents).toEqual(['appDataFolder']);
+      const meta = JSON.parse(await (form.get('metadata') as Blob).text()) as { name: string; parents?: string[] };
+      if (meta.parents) expect(meta.parents).toEqual(['appDataFolder']);
       const f: FFile = { id: `f${++this.n}`, name: meta.name, createdTime: new Date(Date.now() - 2 * 864e5).toISOString(), data: form.get('file') as Blob };
+      if (!meta.parents) {
+        // Los id de Drive de verdad son largos (unos 33 caracteres).
+        this.files.delete(f.id);
+        f.id = `pub${this.n}AbCdEfGhIjKlMnOpQrStUvWxYz`;
+        f.space = 'drive';
+        this.files.set(f.id, f);
+      }
       this.files.set(f.id, f);
       return Response.json({ id: f.id });
     }
     const f = id ? this.files.get(id) : undefined;
     if (!f) return new Response('', { status: 404 });
+    if (u.pathname.endsWith('/permissions') && m === 'POST') {
+      expect(JSON.parse(String(init.body))).toEqual({ role: 'reader', type: 'anyone' });
+      f.public = true;
+      return Response.json({ id: 'anyoneWithLink' });
+    }
     if (m === 'GET') return new Response(f.data);
     if (m === 'PATCH') {
       f.data = new Blob([await new Response(init.body as BodyInit).arrayBuffer()], { type: 'application/json' });
@@ -70,7 +97,7 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 /** Un aparato: módulos propios (vi.resetModules) y su propia IndexedDB. */
-async function device(tag: string, exp = Date.now() + 3600e3) {
+async function device(tag: string, exp = Date.now() + 3600e3, scope?: string) {
   vi.stubGlobal('indexedDB', new IDBFactory());
   vi.resetModules();
   const db = await import('../src/db');
@@ -78,13 +105,14 @@ async function device(tag: string, exp = Date.now() + 3600e3) {
   const actions = await import('../src/actions');
   const eng = await import('../src/sync/engine');
   const merge = await import('../src/sync/merge');
+  const follow = await import('../src/follow');
   await store.boot();
   await db.saveSync({
     on: true,
     tag,
     doc: merge.baseline(merge.explode(store.collection.value), merge.seqsOf(store.collection.value)),
     pending: {},
-    token: { access: 'tok', exp },
+    token: { access: 'tok', exp, ...(scope ? { scope } : {}) },
   });
   await eng.initSync();
   await eng.syncNow();
@@ -92,7 +120,7 @@ async function device(tag: string, exp = Date.now() + 3600e3) {
     actions.act(fn);
     await store.flush();
   };
-  return { db, store, actions, eng, edit, A: {} as Record<string, string> };
+  return { db, store, actions, eng, follow, edit, A: {} as Record<string, string> };
 }
 
 describe('motor de sincronización con Drive', () => {
@@ -270,6 +298,88 @@ describe('motor de sincronización con Drive', () => {
       d.eng.stopSync();
     } finally {
       vi.useRealTimers();
+    }
+  });
+
+  it('publicar mi binder: archivo público que se pone al día, otro lo sigue sin sesión y al dejar de publicar se borra', async () => {
+    vi.stubEnv('VITE_GOOGLE_API_KEY', 'clave-de-prueba');
+    const FILE = 'https://www.googleapis.com/auth/drive.file';
+    const APPDATA = 'https://www.googleapis.com/auth/drive.appdata';
+    const asked: string[] = [];
+    (window as unknown as { google: unknown }).google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (c: { scope: string; callback: (r: unknown) => void }) => ({
+            requestAccessToken: () => {
+              asked.push(c.scope);
+              c.callback({ access_token: 'tok', expires_in: 3600, scope: `${APPDATA} ${FILE}` });
+            },
+          }),
+          revoke: () => undefined,
+        },
+      },
+    };
+    try {
+      const cel = await device('pb1');
+      await cel.edit((c) => {
+        c.profile = { name: 'Johannes', avatar: 25, photo: 'data:image/png;base64,AAAA' };
+      });
+      // El Drive de mentira ya trae cartas de las pruebas anteriores: se cuenta desde lo que haya.
+      await cel.edit((c) => {
+        delete c.owned['p:20'];
+        delete c.owned['p:21'];
+      });
+      await cel.eng.syncNow();
+      expect(cel.eng.pubPerm.value).toBe(false);
+      await cel.edit((c) => void cel.actions.ops.toggle(c, cel.A, 'p:20'));
+
+      const id = await cel.eng.startPublishing();
+      expect(asked.at(-1)).toBe(`${APPDATA} ${FILE}`);
+      expect(cel.store.collection.value.pub).toBe(id);
+      expect(drive.files.get(id)).toMatchObject({ space: 'drive', public: true, name: 'ruta-pikachu-binder-publico.json' });
+      const pub = JSON.parse(await drive.files.get(id)!.data.text());
+      expect(pub).toMatchObject({ k: 'binder', who: { n: 'Johannes', a: 25 } });
+      expect(pub.own).toBeGreaterThan(0);
+      const own1 = pub.own as number;
+      expect(typeof pub.upd).toBe('string');
+      // Nada de precios, compras ni la foto del perfil.
+      expect(JSON.stringify(pub)).not.toMatch(/data:image|spend|usd|paid/);
+      // La carpeta oculta no ve el archivo público (no se mezcla con la sincronización).
+      expect((await drive.doc()).atoms['pub:yo']).toBeUndefined();
+      await cel.eng.syncNow();
+      expect((await drive.doc()).atoms['pub:yo']!.v).toBe(id);
+
+      // Otro aparato (otra persona, sin sesión de Google para leer) lo abre y lo sigue.
+      // (El Drive de mentira es uno solo: se desconecta para que sea «otra cuenta».)
+      const amigo = await device('pb2');
+      await amigo.eng.disconnect();
+      await amigo.edit((c) => {
+        delete c.pub;
+      });
+      await amigo.follow.loadFollow(id, true);
+      const v = amigo.follow.followViews.value[id]!;
+      expect(v.st).toBe('ok');
+      if (v.st === 'ok') expect(v.b.own).toBe(own1);
+      amigo.follow.follow(id, v.st === 'ok' ? v.b.who : undefined);
+      await amigo.store.flush();
+      expect(amigo.store.collection.value.follows?.[id]).toMatchObject({ n: 'Johannes', a: 25 });
+
+      // Cambio en el celular: el binder público se pone al día con la sincronización.
+      await cel.edit((c) => void cel.actions.ops.toggle(c, cel.A, 'p:21'));
+      await cel.eng.syncNow();
+      expect(cel.eng.pubPerm.value).toBe(true);
+      expect(cel.eng.pubMsg.value).toBe('');
+      expect(JSON.parse(await drive.files.get(id)!.data.text()).own).toBe(own1 + 1);
+
+      // Dejar de publicar: el archivo se borra y el enlace deja de funcionar.
+      await cel.eng.stopPublishing();
+      expect(drive.files.has(id)).toBe(false);
+      expect(cel.store.collection.value.pub).toBeUndefined();
+      await amigo.follow.loadFollow(id, true);
+      expect(amigo.follow.followViews.value[id]).toMatchObject({ st: 'err', msg: expect.stringMatching(/ya no está publicado/) });
+      cel.eng.stopSync();
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 });

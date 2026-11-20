@@ -17,6 +17,7 @@ import { syncStatus } from './sync/engine';
 import { Metas } from './screens/Metas';
 import { Alertas } from './screens/Alertas';
 import { Perfil } from './screens/Perfil';
+import { Seguir } from './screens/Siguiendo';
 import { Avatar } from './ui/Avatar';
 import { Binder } from './ui/Binder';
 import { FichaDialog } from './ui/Ficha';
@@ -182,6 +183,8 @@ export function App() {
           <Perfil />
         ) : r === 'ver' ? (
           <Compartida />
+        ) : r === 'seguir' ? (
+          <Seguir />
         ) : (
           <Coleccion />
         )}
