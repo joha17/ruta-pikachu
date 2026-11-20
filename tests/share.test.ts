@@ -1,10 +1,10 @@
 // Compartir una hoja: qué viaja en el enlace y que un enlace armado a mano no meta nada raro.
 import { describe, expect, it } from 'vitest';
 import { FIXED_SHEETS } from '../src/data';
-import { aliases, allSheets } from '../src/model/catalog';
-import { buildShare, cleanShare, shareCount, shareImage } from '../src/model/share';
+import { aliases, allSheets, slots } from '../src/model/catalog';
+import { buildBinderShare, buildShare, cleanBinder, cleanShare, shareCount, shareImage } from '../src/model/share';
 import { emptyCollection } from '../src/model/types';
-import { decodeShare, encodeShare } from '../src/share';
+import { decodeAny, decodeShare, encodeShare } from '../src/share';
 
 const sheets = allSheets(FIXED_SHEETS, emptyCollection());
 const AL = aliases(sheets);
@@ -53,5 +53,41 @@ describe('compartir hoja', () => {
       { n: 'B', own: 0 },
       { n: 'C', own: 0 },
     ]);
+  });
+});
+
+describe('compartir el binder completo', () => {
+  it('lleva todas las hojas con cartas, cuáles tengo y la caja', async () => {
+    const c = emptyCollection();
+    c.owned['r:moltres'] = true;
+    const b = buildBinderShare(sheets, c, AL, () => undefined);
+    const withCards = sheets.filter((s) => slots(s, c).length);
+    expect(b.sheets.map((s) => s.name)).toEqual(withCards.map((s) => s.name));
+    expect(b.own).toBe(1);
+    expect(b.tot).toBeGreaterThan(50);
+    expect(b.box).toBeUndefined();
+    // Ida y vuelta por el enlace, y el enlace de una hoja sigue funcionando.
+    const h = await encodeShare(b);
+    expect(h.length).toBeLessThan(80000);
+    expect(await decodeAny(h)).toEqual({ binder: b });
+    const one = buildShare(rocket, c, AL, () => undefined);
+    expect(await decodeAny(await encodeShare(one))).toEqual({ sheet: one });
+    expect(await decodeShare(h)).toBeNull();
+  });
+
+  it('limpia un binder armado a mano', () => {
+    expect(cleanBinder({ v: 1, k: 'otro', sheets: [] })).toBeNull();
+    expect(cleanBinder({ v: 1, k: 'binder', own: 1, tot: 1, sheets: [{ name: 'x', cards: [] }] })).toBeNull();
+    const b = cleanBinder({
+      v: 1,
+      k: 'binder',
+      own: 99,
+      tot: 2,
+      box: -3,
+      sheets: [{ name: 'Hoja', theme: 'red;x', cards: [{ n: 'A', own: 1, img: 'https://malo.com/x' }, { n: 'B', own: 'si', img: 'en/sv/sv10/1' }] }],
+    })!;
+    expect(b.own).toBe(2);
+    expect(b.box).toBeUndefined();
+    expect(b.sheets[0]).toEqual({ name: 'Hoja', cards: [{ n: 'A', own: 1 }, { n: 'B', own: 0, img: 'en/sv/sv10/1' }] });
   });
 });

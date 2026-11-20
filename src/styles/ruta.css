@@ -405,3 +405,8 @@ dialog.sheet:has(.sheet-wide){width:min(720px,calc(100vw - 32px))}
 .cond-pick{display:grid;gap:8px;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
 .cond-graded{display:flex;gap:8px}
 .cond-graded input{flex:1;min-width:0}
+/* Binder compartido por enlace (solo para ver) y botón «Compartir» del binder */
+.btools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.bmsg{font:500 12px var(--f-body);color:#F4C430;flex-basis:100%;text-align:right}
+.bshared{position:fixed;inset:0;z-index:70;background:#0b0c10;color:#ECEEF2;overflow:hidden}
+.bslot.ro{cursor:default}

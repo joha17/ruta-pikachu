@@ -1,6 +1,6 @@
 // Compartir una hoja: el enlace de solo lectura (comprimido en la URL) y la imagen PNG.
 
-import { cleanShare, shareCount, shareImage, type SharePayload } from './model/share';
+import { cleanBinder, cleanShare, shareCount, shareImage, type BinderPayload, type SharePayload } from './model/share';
 
 function toB64url(bytes: Uint8Array): string {
   let s = '';
@@ -20,26 +20,39 @@ async function pipe(bytes: Uint8Array, t: CompressionStream | DecompressionStrea
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-/** Hoja → texto corto para la URL (JSON comprimido en base64url). */
-export async function encodeShare(p: SharePayload): Promise<string> {
+/** Hoja o binder → texto corto para la URL (JSON comprimido en base64url). */
+export async function encodeShare(p: SharePayload | BinderPayload): Promise<string> {
   const raw = new TextEncoder().encode(JSON.stringify(p));
   return toB64url(await pipe(raw, new CompressionStream('deflate-raw')));
 }
 
-/** Texto de la URL → hoja revisada (o null si no sirve). */
-export async function decodeShare(s: string): Promise<SharePayload | null> {
+async function decodeRaw(s: string): Promise<unknown> {
   try {
-    if (s.length > 20000) return null;
+    if (s.length > 80000) return null;
     const raw = await pipe(fromB64url(s), new DecompressionStream('deflate-raw'));
-    if (raw.length > 100000) return null;
-    return cleanShare(JSON.parse(new TextDecoder().decode(raw)));
+    if (raw.length > 400000) return null;
+    return JSON.parse(new TextDecoder().decode(raw));
   } catch {
     return null;
   }
 }
 
+/** Texto de la URL → hoja revisada (o null si no sirve). */
+export async function decodeShare(s: string): Promise<SharePayload | null> {
+  return cleanShare(await decodeRaw(s));
+}
+
+/** Lo que trae un enlace «#/ver»: una hoja o el binder completo (o null si no sirve). */
+export async function decodeAny(s: string): Promise<{ sheet: SharePayload } | { binder: BinderPayload } | null> {
+  const raw = await decodeRaw(s);
+  const binder = cleanBinder(raw);
+  if (binder) return { binder };
+  const sheet = cleanShare(raw);
+  return sheet ? { sheet } : null;
+}
+
 /** Enlace completo a la vista de solo lectura. */
-export async function shareLink(p: SharePayload): Promise<string> {
+export async function shareLink(p: SharePayload | BinderPayload): Promise<string> {
   const base = location.href.split('#')[0];
   return `${base}#/ver?h=${await encodeShare(p)}`;
 }
