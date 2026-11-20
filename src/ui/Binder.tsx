@@ -7,7 +7,7 @@ import { fmtDate, money, sumKeys, usd } from '../model/money';
 import { cardTitle } from '../model/shop';
 import type { CardDef } from '../model/types';
 import { alias, binderOpen, collection, openKey, prices, sheets } from '../store';
-import { markFailed, useArt } from './art';
+import { checkLoaded, markFailed, useArt } from './art';
 import { ShareBinderButton } from './Share';
 
 export type Mode = 'mine' | 'full';
@@ -96,6 +96,7 @@ function Slot({ k, card, mode }: { k: string; card: CardDef; mode: Mode }) {
           loading="lazy"
           referrerpolicy="no-referrer"
           onError={() => art.kind === 'official' && markFailed(art.src!)}
+          onLoad={(e) => art.kind === 'official' && checkLoaded(e.currentTarget)}
         />
         {tick}
       </button>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mergeRemote, remoteSeries, shardOf, type RemoteShard } from '../src/model/remoteHist';
+import { latestRemote, mergeRemote, remoteSeries, shardOf, type RemoteShard } from '../src/model/remoteHist';
 import { histSeries } from '../src/model/trend';
 import { emptyPrices } from '../src/model/types';
 
@@ -44,5 +44,19 @@ describe('historial de tcgcsv', () => {
     const pr = emptyPrices();
     mergeRemote(pr, { 'e:x': 'r:x' }, 'e:x', [{ d: '2026-01-01', v: 3 }], '2026-02-01');
     expect(pr.hist['2026-01-01']).toEqual({ 'r:x': 3 });
+  });
+});
+
+describe('latestRemote', () => {
+  const pts = [
+    { d: '2026-11-10', v: 40 },
+    { d: '2026-11-19', v: 44.17 },
+  ];
+  it('da el último precio si es reciente', () => {
+    expect(latestRemote(pts, '2026-11-20')).toBe(44.17);
+  });
+  it('no usa un precio viejo ni una serie vacía', () => {
+    expect(latestRemote(pts, '2026-12-20')).toBeNull();
+    expect(latestRemote([], '2026-11-20')).toBeNull();
   });
 });

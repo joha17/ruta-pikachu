@@ -72,4 +72,21 @@ describe('Buscar: imágenes que no sirven', () => {
   it('Classic Collection no se busca en pokemontcg.io (numera distinto)', () => {
     expect(imageCandidates({ id: 'cel25cc-CC015' }, 'low')).toEqual([]);
   });
+  it('Gengar TG06 (Lost Origin Trainer Gallery): sin imagen ni precio de TCGplayer en TCGdex, toma el ID de variants_detailed', () => {
+    const c = trimCard({
+      id: 'swsh11tg-TG06',
+      localId: 'TG06',
+      name: 'Gengar',
+      set: { id: 'swsh11tg', name: 'Lost Origin Trainer Gallery' },
+      variants_detailed: [{ type: 'holo', thirdParty: { cardmarket: 674226, tcgplayer: 284266 } }],
+      pricing: { cardmarket: { trend: 32.66 }, tcgplayer: null },
+    });
+    expect(c.image).toBeUndefined();
+    expect(c.usd).toBeNull();
+    expect(c.tcgpId).toBe(284266);
+    expect(imageCandidates(c, 'high')).toEqual([
+      'https://tcgplayer-cdn.tcgplayer.com/product/284266_in_1000x1000.jpg',
+      'https://images.pokemontcg.io/swsh11tg/TG06_hires.png',
+    ]);
+  });
 });

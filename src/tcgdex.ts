@@ -12,7 +12,7 @@ export const API = 'https://api.tcgdex.net/v2';
 export type Lang = 'en' | 'ja';
 
 /** Versión del recorte: las cartas guardadas con una versión anterior se vuelven a pedir una vez. */
-export const CARD_V = 3;
+export const CARD_V = 4;
 
 /** Lo que guardamos de cada carta de TCGdex. */
 export interface TcgCard {
@@ -76,6 +76,19 @@ export function tcgplayerId(pricing: Pricing): number | undefined {
   for (const k of [...PRICE_ORDER, ...Object.keys(tp)]) {
     const v = (tp[k] as { productId?: unknown } | undefined)?.productId;
     if (typeof v === 'number' && v > 0) return v;
+  }
+  return undefined;
+}
+
+/**
+ * ID de TCGplayer de `variants_detailed[].thirdParty.tcgplayer`: TCGdex lo trae aunque no tenga
+ * precios de TCGplayer (pasa con galerías como Lost Origin Trainer Gallery).
+ */
+export function thirdPartyTcgplayerId(variants: unknown): number | undefined {
+  if (!Array.isArray(variants)) return undefined;
+  for (const v of variants) {
+    const id = (v as { thirdParty?: { tcgplayer?: unknown } } | null)?.thirdParty?.tcgplayer;
+    if (typeof id === 'number' && id > 0) return id;
   }
   return undefined;
 }
@@ -163,7 +176,7 @@ export function trimCard(d: Record<string, unknown>): TcgCard {
   if (p.updated) out.priceUpdated = p.updated;
   const eur = eurPrice(d.pricing);
   if (eur != null) out.eur = eur;
-  const tid = tcgplayerId(d.pricing as Pricing);
+  const tid = tcgplayerId(d.pricing as Pricing) ?? thirdPartyTcgplayerId(d.variants_detailed);
   if (tid) out.tcgpId = tid;
   return out;
 }

@@ -52,3 +52,11 @@ export function mergeRemote(pr: PriceBook, alias: Record<string, string>, key: s
   }
   return changed;
 }
+
+/** Último precio de la serie si es de los últimos `maxDays` días antes de `today` (si no, null). */
+export function latestRemote(pts: Point[], today: string, maxDays = 7): number | null {
+  const last = pts[pts.length - 1];
+  if (!last) return null;
+  const age = (Date.parse(today) - Date.parse(last.d)) / DAY;
+  return age >= 0 && age <= maxDays ? last.v : null;
+}
