@@ -504,3 +504,6 @@ body.camfs-open{overflow:hidden}
 .health b{color:var(--warn)}
 .health ul{margin:6px 0 0;padding-left:18px;display:grid;gap:8px}
 .health li .btn{margin-top:4px}
+
+.camfs-zoom{margin-left:auto;min-width:48px;height:44px;border-radius:22px;border:2px solid rgba(255,255,255,.7);background:rgba(0,0,0,.5);color:#fff;font-weight:700;font-size:15px;cursor:pointer}
+.camfs-zoom[aria-pressed="true"]{background:var(--yellow);color:#000;border-color:var(--yellow)}
