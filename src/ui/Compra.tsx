@@ -24,7 +24,8 @@ export interface BuyItem {
   pre?: Record<string, string>;
 }
 
-export type BuyAnswer = { kind: 'buy'; paid: number[] } | { kind: 'free' } | null;
+/** `paid[i]` = null si dejé vacío el precio de esa carta (se agrega igual, sin anotar compra). */
+export type BuyAnswer = { kind: 'buy'; paid: Array<number | null> } | { kind: 'free' } | null;
 
 interface Ask {
   items: BuyItem[];
@@ -52,8 +53,8 @@ export async function buyFlow(items: BuyItem[], add: () => string[]): Promise<'a
   act((c) => {
     if (a.kind === 'buy')
       items.forEach((it, i) => {
-        const v = a.paid[i] ?? 0;
-        addSpend(c, { d, n: it.name, v, k: keys[i] || it.key });
+        const v = a.paid[i];
+        if (v != null) addSpend(c, { d, n: it.name, v, k: keys[i] || it.key });
       });
     clearLaterFor(
       c,
@@ -61,7 +62,7 @@ export async function buyFlow(items: BuyItem[], add: () => string[]): Promise<'a
       items.map((it) => it.pre?.tcg ?? '').filter(Boolean),
     );
   });
-  if (a.kind === 'buy') say('Compra anotada.');
+  if (a.kind === 'buy' && a.paid.some((v) => v != null)) say('Compra anotada.');
   return 'added';
 }
 
@@ -101,7 +102,7 @@ function parsePrice(t: string): number | null {
   return v >= 0 && v < 100000 ? Math.round(v * 100) / 100 : null;
 }
 
-/** La pregunta al agregar: cuánto pagué (o «no fue compra»). */
+/** La pregunta al agregar: cuánto pagué. Nunca frena: «Saltar» o dejarlo vacío agrega la carta igual. */
 export function BuyDialog() {
   const ref = useRef<HTMLDialogElement>(null);
   const ask = asking.value;
@@ -124,7 +125,7 @@ export function BuyDialog() {
 
   const items = ask?.items ?? [];
   const paid = items.map((_, i) => parsePrice(vals[i] ?? ''));
-  const missing = paid.some((v) => v == null);
+  const none = paid.every((v) => v == null);
   const total = paid.reduce<number>((t, v) => t + (v ?? 0), 0);
   const one = items.length === 1;
 
@@ -136,8 +137,7 @@ export function BuyDialog() {
           method="dialog"
           onSubmit={(e) => {
             e.preventDefault();
-            if (missing) return;
-            answer({ kind: 'buy', paid: paid.map((v) => v ?? 0) });
+            answer(none ? { kind: 'free' } : { kind: 'buy', paid });
           }}
         >
           <div class="share-head">
@@ -168,18 +168,19 @@ export function BuyDialog() {
               </li>
             ))}
           </ul>
-          <p class="hint">{one ? 'Puse el precio de mercado: cámbialo por lo que pagaste de verdad.' : 'Puse los precios de mercado: cámbialos por lo que pagaste.'}</p>
+          <p class="hint">
+            {one ? 'Puse el precio de mercado: cámbialo por lo que pagaste.' : 'Puse los precios de mercado: cámbialos por lo que pagaste.'} Es opcional: si no
+            quieres anotarlo, toca «Saltar».
+          </p>
 
-          <div class="actions">
-            <button type="submit" class="btn primary" disabled={missing}>
-              {missing ? 'Escribe cuánto pagaste' : `Anotar compra (${money(total)})`}
+          <div class="actions buy-acts">
+            <button type="submit" class="btn primary">
+              {none ? 'Guardar sin precio' : `Anotar ${money(total)}`}
+            </button>
+            <button type="button" class="btn" onClick={() => answer({ kind: 'free' })}>
+              Saltar
             </button>
           </div>
-          <p class="buy-alt">
-            <button type="button" class="linkish" onClick={() => answer({ kind: 'free' })}>
-              No fue compra (regalo, cambio o ya la tenía)
-            </button>
-          </p>
         </form>
       )}
     </dialog>
