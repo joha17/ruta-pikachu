@@ -55,11 +55,13 @@ Lo que se agrega en un aparato aparece en los demás (pestaña **Respaldo** → 
   comparando con la última copia después de cada guardado, así que funciona sin conexión.
 - Los ids nuevos llevan una marca del aparato (`b12k3f`) para que dos aparatos sin conexión no
   creen la misma carta n.º 12.
-- Se sincroniza al abrir, unos segundos después de cada cambio, al volver a la app, al recuperar la
-  conexión y cada 3 minutos mientras está abierta (`src/sync/engine.ts`).
-- Google da un permiso de una hora. Después, el indicador de arriba dice «☁ Sincronizar»: un toque
-  lo renueva (Google no deja renovarlo sin un toque en una app sin servidor). Los cambios se guardan
-  mientras tanto.
+- Se sincroniza sola: al abrir, unos segundos después de cada cambio, al volver a la app, al salir
+  de ella si quedó algo por subir, al recuperar la conexión y cada 3 minutos mientras está abierta
+  (`src/sync/engine.ts`). Si Drive falla se reintenta sola (30 s, 1, 2, 4 y luego cada 5 min).
+- Google da un permiso de una hora. Cuando vence (o le faltan 5 min), el siguiente toque en
+  cualquier parte de la app lo renueva sin preguntar (`prompt: 'none'`; Google no deja renovarlo
+  sin un toque en una app sin servidor). Si Google necesita preguntar algo, el indicador de arriba
+  dice «☁ Reconectar». Los cambios se guardan mientras tanto y suben al renovarse.
 - Viajan también los últimos precios automáticos (`precios.json`): por carta gana el del día más reciente, así los totales dan igual en todos los aparatos.
 - No viajan: la clave de Claude, el tema ni el historial completo de precios.
 

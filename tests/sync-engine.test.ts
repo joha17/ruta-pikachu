@@ -70,7 +70,7 @@ beforeAll(() => {
 afterAll(() => vi.unstubAllGlobals());
 
 /** Un aparato: módulos propios (vi.resetModules) y su propia IndexedDB. */
-async function device(tag: string) {
+async function device(tag: string, exp = Date.now() + 3600e3) {
   vi.stubGlobal('indexedDB', new IDBFactory());
   vi.resetModules();
   const db = await import('../src/db');
@@ -84,7 +84,7 @@ async function device(tag: string) {
     tag,
     doc: merge.baseline(merge.explode(store.collection.value), merge.seqsOf(store.collection.value)),
     pending: {},
-    token: { access: 'tok', exp: Date.now() + 3600e3 },
+    token: { access: 'tok', exp },
   });
   await eng.initSync();
   await eng.syncNow();
@@ -206,5 +206,70 @@ describe('motor de sincronización con Drive', () => {
     const doc = await drive.doc();
     for (const k of had) expect(doc.atoms[`owned:${k}`]!.v).toBe(true);
     d.eng.stopSync();
+  });
+
+  it('sin tocar «Sincronizar»: la sesión vencida se renueva sola con el próximo toque y sube el cambio', async () => {
+    // Google de mentira: con prompt «none» da un token nuevo sin mostrar nada.
+    const prompts: string[] = [];
+    let answer: { access_token?: string; error?: string } = { access_token: 'tok' };
+    (window as unknown as { google: unknown }).google = {
+      accounts: {
+        oauth2: {
+          initTokenClient: (c: { callback: (r: unknown) => void }) => ({
+            requestAccessToken: (o: { prompt?: string }) => {
+              prompts.push(o.prompt ?? '');
+              c.callback({ ...answer, expires_in: 3600 });
+            },
+          }),
+          revoke: () => undefined,
+        },
+      },
+    };
+    const d = await device('ren', Date.now() - 1000);
+    expect(d.eng.syncStatus.value).toBe('login');
+    await d.edit((c) => void d.actions.ops.toggle(c, d.A, 'p:11'));
+    await vi.waitFor(() => expect(d.eng.syncStatus.value).toBe('login'));
+
+    // Un toque cualquiera en la app.
+    document.dispatchEvent(new Event('click'));
+    await vi.waitFor(() => expect(d.eng.syncStatus.value).toBe('ok'));
+    expect(prompts).toEqual(['none']);
+    expect((await drive.doc()).atoms['owned:p:11']!.v).toBe(true);
+    expect((await d.db.loadSync())!.token!.exp).toBeGreaterThan(Date.now() + 50 * 60e3);
+
+    // Con la sesión al día, tocar no vuelve a abrir Google.
+    document.dispatchEvent(new Event('click'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(prompts).toHaveLength(1);
+    d.eng.stopSync();
+
+    // Si Google necesita preguntar algo, queda en pausa sin insistir en cada toque.
+    answer = { error: 'interaction_required' };
+    const e = await device('re2', Date.now() - 1000);
+    document.dispatchEvent(new Event('click'));
+    await new Promise((r) => setTimeout(r, 10));
+    document.dispatchEvent(new Event('click'));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(prompts).toEqual(['none', 'none']);
+    expect(e.eng.syncStatus.value).toBe('login');
+    e.eng.stopSync();
+  });
+
+  it('si Drive falla, se reintenta solo', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
+    try {
+      const d = await device('rty');
+      vi.stubGlobal('fetch', async () => new Response('', { status: 503 }));
+      await d.edit((c) => void d.actions.ops.toggle(c, d.A, 'p:12'));
+      await d.eng.syncNow();
+      expect(d.eng.syncStatus.value).toBe('error');
+      vi.stubGlobal('fetch', drive.fetch);
+      await vi.advanceTimersByTimeAsync(31_000);
+      await vi.waitFor(() => expect(d.eng.syncStatus.value).toBe('ok'));
+      expect((await drive.doc()).atoms['owned:p:12']!.v).toBe(true);
+      d.eng.stopSync();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

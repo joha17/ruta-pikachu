@@ -75,7 +75,7 @@ export function problems({ nube, sync, now }: HealthInput): Problem[] {
     out.push({ id: 'drive', where: 'drive', text: `No se pudo sincronizar con Google Drive${sync.msg ? `: ${sync.msg}` : '.'}` });
   } else if (sync.status === 'login' && sync.last && t - Date.parse(sync.last) > DRIVE_PAUSE_DAYS * DAY) {
     const d = Math.floor((t - Date.parse(sync.last)) / DAY);
-    out.push({ id: 'drive', where: 'drive', text: `La sincronización con Google Drive está en pausa hace ${d} días: la sesión de Google caducó. Toca «Sincronizar».` });
+    out.push({ id: 'drive', where: 'drive', text: `La sincronización con Google Drive está en pausa hace ${d} días: la sesión de Google caducó. Toca «Reconectar» arriba.` });
   }
   return out;
 }

@@ -2,8 +2,12 @@
 //
 // - Después de cada guardado (y de cada cambio de fotos) se ponen horas a lo que cambió, aunque
 //   no haya conexión. Luego, agrupando cambios seguidos, se sincroniza.
-// - Se sincroniza también al abrir la app, al volver a ella, al recuperar la conexión y cada
-//   pocos minutos mientras está abierta.
+// - Se sincroniza también al abrir la app, al volver a ella, al recuperar la conexión, cada
+//   pocos minutos mientras está abierta y al salir de ella (si quedó algo por subir).
+// - Si falla (Drive ocupado, conexión mala) se reintenta solo, cada vez más espaciado.
+// - La sesión de Google dura una hora. Cuando vence (o está por vencer), el siguiente toque en
+//   cualquier parte de la app la renueva sin preguntar nada (Google solo deja abrir su ventanita
+//   justo después de un toque). Si Google necesita preguntar algo, queda «Reconectar» arriba.
 // - La clave de Claude y los ajustes no viajan: cada aparato tiene los suyos.
 // - Los precios automáticos viajan aparte (precios.json): por carta, el del día más reciente.
 
@@ -14,7 +18,7 @@ import { buildCopy, copyDay, copyName, COPY_PREFIX, parseCopy, planCopies, type 
 import { setIdTag, today } from '../model/keys';
 import { afterChange, collection, flush, prices, reloadPhotos, update } from '../store';
 import { applySnap, mergeSnaps, parseSnap, PRICES_NAME, snapOf, snapText, type PriceSnap } from './prices';
-import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, PHOTO_PREFIX, signIn, type DriveFile } from './drive';
+import { Drive, DriveError, DOC_NAME, GOOGLE_CLIENT_ID, loadGis, PHOTO_PREFIX, signIn, type DriveFile } from './drive';
 import {
   baseline,
   explode,
@@ -44,11 +48,22 @@ let state: SyncState | null = null;
 let queue: Promise<unknown> = Promise.resolve();
 let debounce: ReturnType<typeof setTimeout> | undefined;
 let poll: ReturnType<typeof setInterval> | undefined;
+let retry: ReturnType<typeof setTimeout> | undefined;
+let retries = 0;
+let renewing = false;
+let lastAutoRenew = 0;
 
 const AFTER_CHANGE_MS = 4000;
 const POLL_MS = 3 * 60_000;
 /** Fotos huérfanas en Drive: se borran solo si llevan más de un día (otro aparato podría estar a medio subir). */
 const ORPHAN_MS = 864e5;
+/** La sesión se renueva sola si le quedan menos de 5 minutos (así no se corta a media sesión). */
+const RENEW_EARLY_MS = 5 * 60_000;
+/** Entre dos renovaciones automáticas que fallaron: no abrir la ventanita de Google en cada toque. */
+const AUTO_RENEW_GAP_MS = 2 * 60_000;
+/** Reintentos tras un error: 30 s, 1 min, 2 min, 4 min y después cada 5 min. */
+const RETRY_MS = [30_000, 60_000, 120_000, 240_000, 300_000];
+const LOGIN_MSG = 'La sesión de Google venció. Se renueva sola con tu próximo toque en la app; si no, toca «Reconectar».';
 
 function enqueue<T>(fn: () => Promise<T>): Promise<T> {
   const p = queue.then(fn, fn);
@@ -57,6 +72,7 @@ function enqueue<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 const tokenOk = () => !!state?.token && state.token.exp > Date.now();
+const tokenSoon = () => !state?.token || state.token.exp - Date.now() < RENEW_EARLY_MS;
 
 function setStatus(s: SyncStatus, msg = ''): void {
   syncStatus.value = s;
@@ -115,7 +131,9 @@ export async function initSync(): Promise<void> {
     if (stampNow(meta)) await save();
   });
   if (tokenOk()) void syncNow();
-  else setStatus('login', 'Toca «Sincronizar» para seguir con Google Drive.');
+  else setStatus('login', LOGIN_MSG);
+  // El script de Google se carga ya, para que la renovación en el próximo toque sea inmediata.
+  loadGis().catch(() => undefined);
 }
 
 let wired = false;
@@ -129,10 +147,17 @@ function wire(): void {
     if (state?.on) setStatus('offline');
   });
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState !== 'visible' || !state?.on || !tokenOk()) return;
+    if (!state?.on || !tokenOk()) return;
+    if (document.visibilityState !== 'visible') {
+      // Al salir de la app (cambiar de app, apagar la pantalla): subir ya lo que falte.
+      if (syncStatus.value === 'pending') void syncNow();
+      return;
+    }
     const ago = Date.now() - Date.parse(state.last ?? '0');
     if (!(ago < 30_000)) void syncNow();
   });
+  // Cualquier toque sirve para renovar la sesión de Google (ver arriba).
+  document.addEventListener('click', onTap, { capture: true });
   poll = setInterval(() => {
     if (document.visibilityState === 'visible' && state?.on && tokenOk() && navigator.onLine) void syncNow();
   }, POLL_MS);
@@ -144,12 +169,44 @@ function onLocalChange(): void {
     const { meta } = await localPhotos();
     if (!stampNow(meta)) return;
     await save();
-    if (syncStatus.value !== 'syncing') setStatus(tokenOk() ? 'pending' : 'login', tokenOk() ? '' : 'Toca «Sincronizar» para subir los cambios.');
+    if (syncStatus.value !== 'syncing') setStatus(tokenOk() ? 'pending' : 'login', tokenOk() ? '' : LOGIN_MSG);
     clearTimeout(debounce);
     debounce = setTimeout(() => {
       if (tokenOk()) void syncNow();
     }, AFTER_CHANGE_MS);
   });
+}
+
+// ---- Renovar la sesión de Google sin botón ----
+
+/**
+ * En cada toque: si la sesión venció o está por vencer, se renueva sin mostrar nada y se
+ * sincroniza. Los botones de Drive (marcados con data-sync-tap) piden la sesión por su cuenta.
+ */
+function onTap(e: Event): void {
+  if (!state?.on || renewing || !navigator.onLine || !tokenSoon()) return;
+  const t = e.target as Element | null;
+  if (typeof t?.closest === 'function' && t.closest('[data-sync-tap]')) return;
+  if (Date.now() - lastAutoRenew < AUTO_RENEW_GAP_MS) return;
+  lastAutoRenew = Date.now();
+  void renewSilently();
+}
+
+async function renewSilently(): Promise<void> {
+  renewing = true;
+  try {
+    const token = await signIn(false, true);
+    if (!state?.on) return;
+    state.token = token;
+    await save();
+    lastAutoRenew = 0;
+    void syncNow();
+  } catch {
+    // Google quiere preguntar algo (otra cuenta, permiso quitado…): queda «Reconectar» arriba.
+    if (state?.on && !tokenOk()) setStatus('login', LOGIN_MSG);
+  } finally {
+    renewing = false;
+  }
 }
 
 // ---- Botones ----
@@ -215,7 +272,9 @@ export async function disconnect(): Promise<void> {
 export function stopSync(): void {
   afterChange.delete(onLocalChange);
   clearTimeout(debounce);
+  clearTimeout(retry);
   clearInterval(poll);
+  document.removeEventListener('click', onTap, { capture: true });
   wired = false;
 }
 
@@ -227,7 +286,18 @@ function msgOf(e: unknown): string {
 
 export function syncNow(): Promise<void> {
   clearTimeout(debounce);
+  clearTimeout(retry);
   return enqueue(runSync);
+}
+
+/** Tras un error que no es de sesión: se vuelve a intentar solo, cada vez más espaciado. */
+function scheduleRetry(): void {
+  clearTimeout(retry);
+  const ms = RETRY_MS[Math.min(retries, RETRY_MS.length - 1)]!;
+  retries++;
+  retry = setTimeout(() => {
+    if (state?.on && tokenOk()) void syncNow();
+  }, ms);
 }
 
 async function readDocs(drive: Drive, files: DriveFile[]): Promise<{ remote: SyncDoc | null; docFiles: DriveFile[] }> {
@@ -243,7 +313,7 @@ async function readDocs(drive: Drive, files: DriveFile[]): Promise<{ remote: Syn
 
 async function runSync(): Promise<void> {
   if (!state?.on) return;
-  if (!tokenOk()) return setStatus('login', 'Toca «Sincronizar» para seguir con Google Drive.');
+  if (!tokenOk()) return setStatus('login', LOGIN_MSG);
   if (!navigator.onLine) return setStatus('offline');
   setStatus('syncing');
   try {
@@ -314,15 +384,19 @@ async function runSync(): Promise<void> {
     state.last = new Date().toISOString();
     syncLast.value = state.last;
     await save();
+    retries = 0;
     setStatus('ok', Object.keys(pending).length ? `Faltan ${Object.keys(pending).length} fotos que otro aparato aún no subió.` : '');
   } catch (e) {
     await save().catch(() => undefined);
     if (e instanceof DriveError && e.auth) {
       if (state) state.token = undefined;
       await save().catch(() => undefined);
-      setStatus('login', 'La sesión de Google caducó. Toca «Sincronizar» para seguir.');
-    } else if (e instanceof DriveError && e.offline) setStatus('offline');
-    else setStatus('error', msgOf(e));
+      setStatus('login', LOGIN_MSG);
+    } else {
+      if (e instanceof DriveError && e.offline) setStatus('offline');
+      else setStatus('error', msgOf(e));
+      scheduleRetry();
+    }
   }
 }
 
@@ -411,7 +485,7 @@ export async function refreshCopies(): Promise<void> {
 
 /** Baja una copia de Drive para ver qué tiene antes de restaurarla. */
 export async function readCopy(id: string): Promise<DailyCopy> {
-  if (!state?.on || !tokenOk()) throw new Error('Toca «Sincronizar» para volver a entrar a Google Drive.');
+  if (!state?.on || !tokenOk()) throw new Error('Toca «Reconectar» arriba para volver a entrar a Google Drive.');
   const text = await (await new Drive(state.token!.access).read(id)).text();
   return parseCopy(text);
 }
