@@ -486,3 +486,27 @@ dialog.zoom .close{position:fixed;top:12px;right:12px;z-index:1}
 .toast.has-undo{display:flex;align-items:center;gap:14px;width:max-content}
 .toast.has-undo>span{flex:1 1 auto}
 .toast-undo{flex:none;background:none;border:0;padding:4px 2px;color:inherit;font:800 14px var(--f-body);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+
+/* ---- Cabecera en el celular ----
+   El logo y el título nunca se encogen ni se tapan: el GIF de Pikachu solo usa el espacio que sobra
+   y se esconde si no cabe entero. La nube queda como un ícono (el estado va en su color y en el texto
+   que lee el lector de pantalla), y los íconos se achican un poco para que respiren. */
+.brand{flex:0 1 auto}
+.brand span{overflow:hidden;text-overflow:ellipsis}
+.sprites{flex:1 1 0;container-type:inline-size}
+@container (max-width:30px){.sprites img{display:none}}
+@media (max-width:619px){
+  .topbar{gap:6px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right))}
+  .brand{gap:7px;font-size:17px}
+  .brand img{width:26px;height:26px}
+  .sprites img{height:22px}
+  .topbar-r{flex:0 1 auto;gap:2px}
+  .topbar-r .iconbtn{width:36px;height:36px}
+  .topbar-r .iconbtn svg{width:21px;height:21px}
+  .topbar-r .chip{max-width:30vw}
+  .sync-chip{width:34px;height:34px;min-width:0;padding:0;display:grid;place-items:center;font-size:15px}
+  .sync-chip .sync-txt{display:none}
+  .sync-chip:not(.ok):not(.warn){animation:syncpulse 1.4s ease-in-out infinite}
+}
+@keyframes syncpulse{50%{opacity:.45}}
+@media (prefers-reduced-motion: reduce){.sync-chip{animation:none!important}}
