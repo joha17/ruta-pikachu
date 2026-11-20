@@ -152,16 +152,41 @@ interface ImageCaptureLike {
 }
 type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
 
+/** Zoom 2x de la cámara (apagado salvo que lo actives): agranda también el grano. */
+const zoom2 = signal(readFlag('ruta-zoom2'));
+
+function readFlag(k: string): boolean {
+  try {
+    return localStorage.getItem(k) === '1';
+  } catch {
+    return false;
+  }
+}
+
+type ZoomCaps = { zoom?: { min: number; max: number } };
+
+/** ¿Deja la cámara poner zoom 2x? */
+function canZoom(stream: MediaStream | null): boolean {
+  const caps = (stream?.getVideoTracks()[0]?.getCapabilities?.() ?? {}) as ZoomCaps;
+  return !!caps.zoom && caps.zoom.max >= 1.8;
+}
+
+/** Zoom 1x o 2x. Es zoom digital: con poca luz el grano se ve el doble de grande. */
+async function applyZoom(stream: MediaStream, on: boolean): Promise<void> {
+  const t = stream.getVideoTracks()[0];
+  const caps = (t?.getCapabilities?.() ?? {}) as ZoomCaps;
+  if (!t || !caps.zoom) return;
+  const z = on ? Math.min(2, caps.zoom.max) : Math.max(1, caps.zoom.min);
+  await t.applyConstraints({ advanced: [{ zoom: z } as MediaTrackConstraintSet] }).catch(() => undefined);
+}
+
 /** Enfoque continuo si la cámara lo permite (de cerca, el autoenfoque a veces se queda fijo). */
 async function keepFocus(stream: MediaStream): Promise<void> {
   const t = stream.getVideoTracks()[0];
-  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[]; zoom?: { min: number; max: number } };
+  const caps = (t?.getCapabilities?.() ?? {}) as { focusMode?: string[] };
   if (t && caps.focusMode?.includes('continuous'))
     await t.applyConstraints({ advanced: [{ focusMode: 'continuous' } as MediaTrackConstraintSet] }).catch(() => undefined);
-  // Celulares como el Galaxy S23 Ultra no enfocan de muy cerca con la cámara principal: con algo
-  // de zoom la carta llena el marco a unos 20 cm, donde sí enfoca.
-  if (t && caps.zoom && caps.zoom.max >= 1.8)
-    await t.applyConstraints({ advanced: [{ zoom: Math.min(2, caps.zoom.max) } as MediaTrackConstraintSet] }).catch(() => undefined);
+  if (zoom2.value) await applyZoom(stream, true);
 }
 
 /** Tamaño de foto a pedir: el mayor que permita la cámara, con el lado largo hasta 4032 px (12 MP). */
@@ -225,6 +250,18 @@ function Camera({ onClose }: { onClose: () => void }) {
   const [showAll, setShowAll] = useState(false);
   const [count, setCount] = useState(0);
   const streamRef = useRef<MediaStream | null>(null);
+  const [zoomable, setZoomable] = useState(false);
+
+  function toggleZoom() {
+    const on = !zoom2.value;
+    zoom2.value = on;
+    try {
+      localStorage.setItem('ruta-zoom2', on ? '1' : '0');
+    } catch {
+      /* sin almacenamiento: solo dura esta sesión */
+    }
+    if (streamRef.current) void applyZoom(streamRef.current, on);
+  }
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -244,6 +281,7 @@ function Camera({ onClose }: { onClose: () => void }) {
         if (!alive) return stream.getTracks().forEach((t) => t.stop());
         streamRef.current = stream;
         await keepFocus(stream);
+        setZoomable(canZoom(stream));
         const v = video.current!;
         v.srcObject = stream;
         await v.play();
@@ -346,12 +384,17 @@ function Camera({ onClose }: { onClose: () => void }) {
         <span class="camfs-count">
           {burst.value ? `${count} escaneadas · ${listed} reconocidas` : 'Toca la pantalla o el botón para tomar la foto'}
         </span>
+        {zoomable && (
+          <button class="camfs-zoom" onClick={toggleZoom} aria-pressed={zoom2.value} aria-label={zoom2.value ? 'Quitar el zoom' : 'Zoom 2x'}>
+            {zoom2.value ? '2x' : '1x'}
+          </button>
+        )}
       </div>
       {!ready && <p class="cam-wait">Abriendo la cámara…</p>}
 
       {!shot && !busy && (
         <div class="camfs-bottom">
-          <p class="camfs-hint">Carta dentro del marco, a unos 20 cm, de frente y sin reflejos. Toca la pantalla o el botón.</p>
+          <p class="camfs-hint">Carta entera dentro del marco, con el número de abajo visible, de frente, con buena luz y sin reflejos.</p>
           <button class="camfs-shutter" onClick={() => void shoot()} disabled={!ready} aria-label="Tomar foto" />
         </div>
       )}
@@ -1217,6 +1260,20 @@ export function Escanear() {
             <button class="btn primary us" onClick={() => setCam(true)}>
               📷 {single ? 'Escanear otra' : 'Abrir la cámara'}
             </button>
+            <label class="btn quiet file">
+              📸 Cámara del celular
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={onFiles}
+                onClick={() => {
+                  warmUp();
+                  void loadIndex();
+                }}
+                aria-label="Tomar la foto con la cámara del celular"
+              />
+            </label>
             <label class="btn quiet file">
               {loadingFile ? 'Abriendo…' : burst.value ? 'Elegir fotos' : 'Elegir una foto'}
               <input

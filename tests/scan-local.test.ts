@@ -122,6 +122,7 @@ describe('números mal leídos', () => {
     const sv06 = SETS[0];
     expect(digitEvidence('087', sv06, '0877167')).toBe(2);
     expect(digitEvidence('115', SETS[2], 'IUS115103')).toBe(2); // total con un dígito mal leído
+    expect(digitEvidence('087', sv06, 'ET087/17')).toBe(2); // total con una cifra perdida (167 → 17)
     expect(digitEvidence('GG5', SETS[7], 'FGG05GG70')).toBe(2);
     expect(digitEvidence('087', sv06, 'X087Y')).toBe(1);
     expect(digitEvidence('087', sv06, 'X123Y')).toBe(0);

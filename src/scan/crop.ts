@@ -254,6 +254,12 @@ export function findCards(gray: ArrayLike<number>, w: number, h: number, minFrac
     return { cx, cy, w: p.cw, h: p.b - p.t, angle: p.a };
   };
   const out = [toBox(pick)];
+  // La carta entera suele tener bordes más débiles que el dibujo o el recuadro de texto (borde gris
+  // contra la funda o la mano): el rectángulo más grande con un puntaje razonable va segundo.
+  let big: Box | null = null;
+  for (const c of all)
+    if (c.s >= top.s * 0.5 && Math.abs(c.a - pick.a) < 0.04 && c.b - c.t > (pick.b - pick.t) * 1.06 && (!big || c.b - c.t > big.b - big.t)) big = c;
+  if (big && max > 1) out.push(toBox(big));
   // Otros rectángulos bien distintos (otro alto o corridos), de mejor a peor puntaje.
   const differs = (a: CardBox, b: CardBox) => Math.abs(a.h - b.h) / b.h > 0.06 || Math.abs(a.cy - b.cy) > b.h * 0.04;
   for (const c of [top, ...all.sort((a, b) => b.s - a.s)]) {
@@ -338,7 +344,10 @@ export function cardsFromImage(img: ImageBitmap | HTMLImageElement | HTMLCanvasE
   const [x, y, w, h] = box ?? [0, 0, W, H];
   const [cx, cy, cw, ch] = fitCard(x, y, w, h, W, H);
   const plain = cropTo(img, cx, cy, cw, ch);
-  return found.length ? [cropRotated(img, found[0]!), plain, ...found.slice(1).map((f) => cropRotated(img, f))] : [plain];
+  if (!found.length) return [plain];
+  // Foto suelta: el segundo rectángulo (normalmente la carta entera) antes que la foto tal cual.
+  const crops = found.map((f) => cropRotated(img, f));
+  return [crops[0]!, ...crops.slice(1, 2), plain, ...crops.slice(2)];
 }
 
 export function cardFromImage(img: ImageBitmap | HTMLImageElement | HTMLCanvasElement): HTMLCanvasElement {
@@ -444,4 +453,35 @@ export function pickPhotoSize(maxW: number | undefined, maxH: number | undefined
   if (!maxW || !maxH) return { imageWidth: cap, imageHeight: Math.round((cap * 3) / 4) };
   const k = Math.min(1, cap / Math.max(maxW, maxH));
   return { imageWidth: Math.round(maxW * k), imageHeight: Math.round(maxH * k) };
+}
+
+/**
+ * Filtro de mediana 3×3 sobre una franja ya en gris: borra el granulado del brillo holográfico y
+ * del ruido de la cámara sin desdibujar las letras. Con franjas chicas (400–600 px) el lector
+ * lee mucho mejor así que con franjas grandes y nítidas, donde ve cada grano como una letra.
+ */
+export function median3(c: HTMLCanvasElement): HTMLCanvasElement {
+  const g = c.getContext('2d', { willReadFrequently: true })!;
+  const W = c.width;
+  const H = c.height;
+  const d = g.getImageData(0, 0, W, H);
+  const p = d.data;
+  const src = new Uint8ClampedArray(W * H);
+  for (let i = 0; i < src.length; i++) src[i] = p[i * 4]!;
+  const win = new Uint8Array(9);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let n = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const yy = Math.min(H - 1, Math.max(0, y + dy));
+          const xx = Math.min(W - 1, Math.max(0, x + dx));
+          win[n++] = src[yy * W + xx]!;
+        }
+      win.sort();
+      const i = (y * W + x) * 4;
+      p[i] = p[i + 1] = p[i + 2] = win[4]!;
+    }
+  g.putImageData(d, 0, 0);
+  return c;
 }

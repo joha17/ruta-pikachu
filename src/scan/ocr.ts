@@ -4,7 +4,7 @@
 
 import { signal } from '@preact/signals';
 import type { Worker } from 'tesseract.js';
-import { localBinarize, prepStrip } from './crop';
+import { localBinarize, median3, prepStrip } from './crop';
 import type { Reading } from './identify';
 
 export type OcrState = 'off' | 'loading' | 'ready' | 'error';
@@ -61,17 +61,21 @@ const TOP_WIDE = { x: 0, y: 0, w: 1, h: 0.22 };
  * Cada lectura del número sale bien en cartas distintas (texto oscuro sobre gris, claro sobre
  * oscuro, abajo a la derecha en cartas viejas), así que se hacen varias y se juntan.
  */
-type Mode = 'plain' | 'invert' | 'dark' | 'light';
+type Mode = 'plain' | 'invert' | 'dark' | 'light' | 'smooth';
 const BOTTOM_PASSES: Array<[typeof BOTTOM_LEFT, number, Mode]> = [
   [BOTTOM_LEFT, 1400, 'plain'],
   [NUMBER_LINE, 1000, 'dark'],
   [NUMBER_LINE, 1000, 'invert'],
   [NUMBER_LINE, 1000, 'light'],
   [BOTTOM_RIGHT, 1400, 'plain'],
+  // Fotos con brillo holográfico o grano: franja chica y sin grano.
+  [NUMBER_LINE, 450, 'smooth'],
+  [NUMBER_LINE, 650, 'smooth'],
 ];
 
 function strip(card: HTMLCanvasElement, r: typeof BOTTOM_LEFT, tw: number, mode: Mode): HTMLCanvasElement {
   const s = prepStrip(card, r, tw, mode === 'invert');
+  if (mode === 'smooth') return median3(s);
   return mode === 'dark' || mode === 'light' ? localBinarize(s, mode === 'light') : s;
 }
 
@@ -86,7 +90,10 @@ export async function readCard(card: HTMLCanvasElement): Promise<Reading> {
   // Segunda pasada suelta sobre la franja ancha: encuentra el nombre aunque el recorte quede corrido.
   await w.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT, tessedit_char_whitelist: '' });
   const wide = (await w.recognize(prepStrip(card, TOP_WIDE, 1600))).data.text;
+  // Y una franja chica sin grano: en cartas holográficas es la única que lee bien el nombre.
+  const small = (await w.recognize(median3(prepStrip(card, TOP, 420)))).data.text;
   const top = `${line.trim()}
+${small.trim()}
 ${wide.trim()}`;
   return { bottom: bottoms.join('\n'), top };
 }

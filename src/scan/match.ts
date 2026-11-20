@@ -201,7 +201,12 @@ export function digitEvidence(localId: string, set: SetBrief | undefined, digits
   if (off >= 10 && !promo) {
     const tot = p ? p + String(off) : String(off).padStart(3, '0');
     // El total con un carácter mal leído también vale («115/103» por 115/193): la carta ya cuadra por nombre.
-    const fuzzy = [tot, ...[...tot].map((_, i) => `${tot.slice(0, i)}.${tot.slice(i + 1)}`)].join('|');
+    // Y con un carácter de menos («096/12» por 096/182): la cifra fina del medio a veces se pierde.
+    const fuzzy = [
+      tot,
+      ...[...tot].map((_, i) => `${tot.slice(0, i)}.${tot.slice(i + 1)}`),
+      ...(tot.length >= 3 ? [...tot].map((_, i) => `${tot.slice(0, i)}${tot.slice(i + 1)}`) : []),
+    ].join('|');
     if (new RegExp(`${num}.{0,2}(?:${fuzzy})`).test(digits)) return 2;
   }
   return num.length >= 3 && digits.includes(num) ? 1 : 0;
