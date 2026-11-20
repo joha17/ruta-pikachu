@@ -179,3 +179,18 @@ describe('lista de compras y metas', () => {
     expect(g.pikachu.tag).toBe('0/30');
   });
 });
+
+describe('startBlank', () => {
+  it('oculta las hojas y objetivos fijos sin tocar lo demás', () => {
+    const col = emptyCollection();
+    col.myGoals = [{ id: 'g1', t: 'Mía' }];
+    ops.startBlank(col, ['p', 'r'], ['energias']);
+    expect(col.hidden).toEqual({ p: true, r: true });
+    expect(col.hiddenGoals).toEqual({ energias: true });
+    expect(col.myGoals).toHaveLength(1);
+    ops.restoreSheet(col, 'p');
+    ops.restoreGoals(col);
+    expect(col.hidden).toEqual({ r: true });
+    expect(col.hiddenGoals).toEqual({});
+  });
+});

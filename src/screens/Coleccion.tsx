@@ -4,7 +4,7 @@ import { signal } from '@preact/signals';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { act, ops, say } from '../actions';
-import { FIXED_SHEETS } from '../data';
+import { FIXED_SHEETS, LISTS } from '../data';
 import { boxDupes, dealText, type Deal } from '../model/box';
 import { haveAndMissing, isOwned, MAX_BOX, MAX_CARDS, MAX_SHEETS, POCKETS, sheetCount, slots, type Slot } from '../model/catalog';
 import { fmtDate, money, sumKeys } from '../model/money';
@@ -12,7 +12,7 @@ import { gainOf, gainText } from '../model/gain';
 import { today } from '../model/keys';
 import { priceRun } from '../prices';
 import type { SheetDef } from '../model/types';
-import { alias, binderOpen, collection, formView, isEmpty, openKey, prices, sheets } from '../store';
+import { alias, binderOpen, collection, formView, isEmpty, openKey, prices, settings, sheets, updateSettings } from '../store';
 import { Pocket } from '../ui/Pocket';
 import { PriceStatus } from '../ui/PriceStatus';
 import { go } from '../ui/router';
@@ -528,8 +528,41 @@ function Nav({ items, cur }: { items: Array<[string, string, string]>; cur: stri
   );
 }
 
+/** Primera vez sin datos: empezar de cero, con las hojas de ejemplo o sin ellas. */
+function StartFresh() {
+  const begin = (blank: boolean) => {
+    if (blank)
+      act((c) =>
+        ops.startBlank(
+          c,
+          FIXED_SHEETS.map((s) => s.id),
+          LISTS.goals.map((g) => g.id),
+        ),
+      );
+    void updateSettings({ started: true });
+    say(blank ? 'Listo: colección en blanco. Crea tu primera hoja con «＋ Hoja».' : 'Listo: empieza a llenar las hojas.');
+  };
+  return (
+    <div class="start-fresh">
+      <h2>¿Empiezas de cero?</h2>
+      <p>
+        La app trae {FIXED_SHEETS.length} hojas y unas metas de ejemplo (Pikachu 30C y otras). Puedes empezar con ellas vacías o
+        en blanco para armar tus propias hojas. Las de ejemplo se pueden volver a mostrar cuando quieras.
+      </p>
+      <div class="row">
+        <button class="btn primary" onClick={() => begin(true)}>
+          Empezar en blanco
+        </button>
+        <button class="btn" onClick={() => begin(false)}>
+          Usar las hojas de ejemplo
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function Coleccion() {
-  if (isEmpty.value)
+  if (isEmpty.value && !settings.value.started)
     return (
       <section class="panel empty-start">
         <h1>Tu colección</h1>
@@ -551,6 +584,7 @@ export function Coleccion() {
             Importar desde el Artifact
           </button>
         </div>
+        <StartFresh />
       </section>
     );
   const col = collection.value;
