@@ -34,7 +34,7 @@ export function toolsFor(r: string, ficha: boolean): Tool[] {
 }
 
 /** Dónde no va el botón flotante: el escáner tiene su propia ayuda de Claude. */
-const NO_FAB = new Set(['escanear', 'respaldo', 'importar', 'ver']);
+const NO_FAB = new Set(['escanear', 'respaldo', 'ver']);
 
 export function openAsistente(r = route.value, ficha = !!openKey.value): void {
   const t = toolsFor(r, ficha);

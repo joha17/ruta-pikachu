@@ -24,14 +24,6 @@ npm run preview    # servir el build (prueba de PWA y sin conexión)
 - Claves de carta: `p:5`, `r:moltres`, `u:s1.c1` (hoja propia), `b:b1` (Caja). Son las mismas
   del Artifact, así que precios, fotos y favoritos siguen igual.
 
-## Migración desde el Artifact
-
-1. Descargar la página del Artifact y sus fotos (herramienta Artifact de Claude Code, `read`).
-2. `node scripts/armar-migracion.mjs <pagina.html> <carpeta-fotos> <salida.json>`
-3. En la app: **Respaldo** → «Importar desde el Artifact» → elegir el `.json` → revisar el informe → «Guardar en este aparato».
-
-El paquete lleva tus fotos: guárdalo **fuera** del repo.
-
 ## Respaldo
 
 - Pestaña **Respaldo**: «Descargar respaldo» (o «Compartir…» a Drive o correo en el celular) arma
@@ -103,8 +95,8 @@ La ruta base se saca del nombre del repo (`/NOMBRE/`, o `/` si el repo es `USUAR
 1. Crear el repo en GitHub (por ejemplo `ruta-pikachu`) con esta carpeta como raíz.
 2. En el repo: Settings → Pages → Source: **GitHub Actions**.
 3. `git push` a `main`. La app queda en `https://USUARIO.github.io/ruta-pikachu/`.
-4. En el celular: abrirla en Chrome → menú → «Instalar app». Luego restaurar un respaldo o importar
-   desde el Artifact (cada dirección tiene sus propios datos).
+4. En el celular: abrirla en Chrome → menú → «Instalar app». Luego conectar Google Drive o restaurar
+   un respaldo (cada dirección tiene sus propios datos).
 
 Para probar la subruta en local: `BASE=/ruta-pikachu/ npm run build && BASE=/ruta-pikachu/ npm run preview`.
 

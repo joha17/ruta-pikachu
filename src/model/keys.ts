@@ -52,9 +52,3 @@ export function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-/** Clave de la foto en el Artifact ("5", "r-moltres", "u-s1.c1", "b-b1") → clave de carta. */
-export function keyFromImgKey(imgKey: string): string | null {
-  if (/^\d+$/.test(imgKey)) return `p:${imgKey}`;
-  const m = /^([a-z])-(.+)$/.exec(imgKey);
-  return m ? `${m[1]}:${m[2]}` : null;
-}

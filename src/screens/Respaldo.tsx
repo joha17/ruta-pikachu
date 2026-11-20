@@ -1,12 +1,11 @@
-// Respaldo: descargar o compartir un .json con todo, restaurarlo, e importar desde el Artifact.
+// Respaldo: descargar o compartir un .json con todo y restaurarlo.
 
-import { useEffect, useState } from 'preact/hooks';
+import { useState } from 'preact/hooks';
 import { say } from '../actions';
 import { canShareFile, download, makeBackup, markBackedUp, restoreBackup, sizeText, type BackupFile } from '../backup';
 import { BACKUP_DAYS, daysSince, parseBackup, summarize, type Backup } from '../model/backup';
 import { isEmpty, settings, updateSettings } from '../store';
-import { go, route } from '../ui/router';
-import { Importar } from './Importar';
+import { go } from '../ui/router';
 import { Sincronizar } from './Sincronizar';
 import { Health } from '../ui/Health';
 import { syncOn } from '../sync/engine';
@@ -293,31 +292,24 @@ function Tema() {
 }
 
 export function Respaldo() {
-  // Desde «Importar desde el Artifact» (colección vacía) se baja directo a esa parte.
-  useEffect(() => {
-    if (route.value === 'importar') document.querySelector('.import')?.scrollIntoView({ block: 'start' });
-  }, []);
   return (
-    <>
-      <section class="backup">
-        <div class="section-head">
-          <div>
-            <h2>Ajustes</h2>
-            <p>
-              {syncOn.value
-                ? 'Tu colección se guarda en este aparato y se sincroniza con tu Google Drive. Un respaldo sigue siendo buena idea.'
-                : 'Tu colección vive solo en este aparato. Sincroniza con Drive o haz un respaldo para no perderla.'}
-            </p>
-          </div>
+    <section class="backup">
+      <div class="section-head">
+        <div>
+          <h2>Ajustes</h2>
+          <p>
+            {syncOn.value
+              ? 'Tu colección se guarda en este aparato y se sincroniza con tu Google Drive. Un respaldo sigue siendo buena idea.'
+              : 'Tu colección vive solo en este aparato. Sincroniza con Drive o haz un respaldo para no perderla.'}
+          </p>
         </div>
-        <Health />
-        <Sincronizar />
-        <Hacer />
-        <Restaurar />
-        <Exportar />
-        <Tema />
-      </section>
-      <Importar />
-    </>
+      </div>
+      <Health />
+      <Sincronizar />
+      <Hacer />
+      <Restaurar />
+      <Exportar />
+      <Tema />
+    </section>
   );
 }
