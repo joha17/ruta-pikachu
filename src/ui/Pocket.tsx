@@ -6,7 +6,7 @@ import { money, usd } from '../model/money';
 import { cardTitle } from '../model/shop';
 import type { BoxCard, CardDef, SheetDef } from '../model/types';
 import { alias, collection, prices } from '../store';
-import { markFailed, useArt } from './art';
+import { checkLoaded, markFailed, useArt } from './art';
 import { TrendMark } from './Trend';
 
 interface Props {
@@ -76,6 +76,7 @@ export function Pocket({ k, card, theme, sheet, slot, preview, picked, dupe, onP
           decoding="async"
           referrerpolicy="no-referrer"
           onError={() => art.kind === 'official' && markFailed(art.src!)}
+          onLoad={(e) => art.kind === 'official' && checkLoaded(e.currentTarget)}
         />
         {tick}
         <span class="badge">

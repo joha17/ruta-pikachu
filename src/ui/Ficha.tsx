@@ -12,7 +12,7 @@ import { lastPriceDate } from '../model/trend';
 import type { BoxCard, CardDef } from '../model/types';
 import { alias, collection, formView, openKey, prices, sheets } from '../store';
 import { cachedCard } from '../tcgdex';
-import { markFailed, photoKeyOf, useArt } from './art';
+import { checkLoaded, markFailed, photoKeyOf, SOURCE_LABEL, useArt } from './art';
 import { AlertForm } from './AlertForm';
 import { Forms } from './Forms';
 import { PriceTrend } from './Trend';
@@ -169,11 +169,12 @@ function CardSheet({ k }: { k: string }) {
               alt={`Imagen de ${title}`}
               referrerpolicy="no-referrer"
               onError={() => art.kind === 'official' && !showMine && markFailed(img)}
+              onLoad={(e) => art.kind === 'official' && !showMine && checkLoaded(e.currentTarget)}
             />
           </Zoomable>
         ) : (
           <span>
-            {c.tcg ? 'TCGdex no tiene imagen oficial de esta carta.' : 'Sin imagen.'}
+            {c.tcg ? 'No se encontró imagen de esta carta (ni en TCGdex ni en TCGplayer).' : 'Sin imagen.'}
             <br />
             Puedes poner tu foto.
           </span>
@@ -197,7 +198,7 @@ function CardSheet({ k }: { k: string }) {
         </h3>
         {art.kind && (
           <p class="img-src">
-            {showMine || art.kind === 'photo' ? 'Tu foto' : 'Imagen oficial de TCGdex'}
+            {showMine || art.kind === 'photo' ? 'Tu foto' : SOURCE_LABEL[art.source ?? 'tcgdex']}
             {art.official && art.photo && (
               <button class="linkish" onClick={() => setShowMine(!showMine)}>
                 {showMine ? 'Ver la oficial' : 'Ver mi foto'}

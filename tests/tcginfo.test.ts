@@ -1,7 +1,7 @@
 // Datos extra de TCGdex para la ficha: precios por variante, variantes impresas y set.
 import { describe, expect, it } from 'vitest';
 import { countText, printedVariants, releaseText, trimSet, variantLabel, variantPrices } from '../src/model/tcgInfo';
-import { trimCard } from '../src/tcgdex';
+import { CARD_V, trimCard } from '../src/tcgdex';
 
 const TP = {
   updated: '2026-11-13T20:00:00.000Z',
@@ -58,7 +58,7 @@ describe('variantes y set', () => {
       variants: { holo: true, firstEdition: true },
       pricing: { tcgplayer: TP },
     });
-    expect(c.v).toBe(3);
+    expect(c.v).toBe(CARD_V);
     expect(c.usd).toBe(0.2); // la variante principal no cambia (normal antes que reverse)
     expect(c.prices).toHaveLength(3);
     expect(c.variants).toEqual(['Holo', '1.ª edición']);
