@@ -7,4 +7,4 @@ export const CLIENT_ID_IN_CODE = '232316067089-ftos0df51gvp9a3ajqce81tfqpd2ludr.
 // Clave de API de Google para LEER los binders que otras personas publican (Siguiendo), sin
 // que quien mira inicie sesión. También es pública por diseño: en Google Cloud queda limitada a
 // la Google Drive API y a https://joha17.github.io/* (README, «Seguir el binder de otra persona»).
-export const DRIVE_API_KEY_IN_CODE = '';
+export const DRIVE_API_KEY_IN_CODE = 'AIzaSyD1hADJffzxKv2KCw1eOQmuYal-Bcc7IL0';
