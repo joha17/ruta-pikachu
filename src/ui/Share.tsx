@@ -2,10 +2,12 @@
 
 import { signal } from '@preact/signals';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { buildShare, shareCount, type SharePayload } from '../model/share';
+import { slots } from '../model/catalog';
+import { buildBinderShare, buildShare, shareCount, type BinderPayload, type SharePayload } from '../model/share';
+import type { CardDef } from '../model/types';
 import { shareLink, sheetImage } from '../share';
 import { alias, collection, sheets } from '../store';
-import { cachedCard } from '../tcgdex';
+import { cachedCard, fetchCard, type Lang } from '../tcgdex';
 
 /** Hoja que se está compartiendo ('' = ninguna). */
 export const sharing = signal('');
@@ -132,5 +134,74 @@ export function ShareDialog() {
         </div>
       )}
     </dialog>
+  );
+}
+
+// ---- Compartir el binder completo ----
+
+/** Arma el binder para compartir. Antes busca las imágenes oficiales que falten (casi siempre ya están guardadas). */
+export async function binderPayload(): Promise<BinderPayload> {
+  const lang = (c: CardDef): Lang => (c.lang === 'ja' ? 'ja' : 'en');
+  const need: CardDef[] = [];
+  for (const sh of sheets.value) for (const s of slots(sh, collection.value)) if (s.card.tcg && !cachedCard(s.card.tcg, lang(s.card))) need.push(s.card);
+  // De a pocas para no saturar la conexión del celular.
+  for (let i = 0; i < need.length; i += 8)
+    await Promise.all(need.slice(i, i + 8).map((c) => fetchCard(c.tcg!, lang(c)).catch(() => null)));
+  return buildBinderShare(sheets.value, collection.value, alias.value, (c) => cachedCard(c.tcg, lang(c))?.image);
+}
+
+/** Botón «Compartir» en la barra del binder: manda un enlace para ver el binder, sin poder cambiar nada. */
+export function ShareBinderButton() {
+  const [link, setLink] = useState('');
+  const [msg, setMsg] = useState('');
+  const col = collection.value;
+  const shs = sheets.value;
+  // Se arma apenas se abre el binder: así «Compartir» abre el menú del celular al instante.
+  useEffect(() => {
+    let alive = true;
+    setLink('');
+    void binderPayload()
+      .then(shareLink)
+      .then((l) => alive && setLink(l))
+      .catch(() => alive && setMsg('No se pudo armar el enlace.'));
+    return () => {
+      alive = false;
+    };
+  }, [col, shs]);
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(''), 3500);
+    return () => clearTimeout(t);
+  }, [msg]);
+
+  async function run() {
+    if (!link) return;
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'Mi binder', text: 'Mi binder en Ruta Pikachu (solo para ver)', url: link });
+        return;
+      } catch (e) {
+        if ((e as Error)?.name === 'AbortError') return; // cancelado
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setMsg('Enlace copiado. Pégalo en el chat con tu amigo.');
+    } catch {
+      setMsg('No se pudo copiar el enlace.');
+    }
+  }
+
+  return (
+    <>
+      <button class="bbtn" disabled={!link} onClick={run} title="Enlace para que otra persona vea tu binder, sin poder cambiar nada">
+        {link ? '🔗 Compartir' : 'Armando…'}
+      </button>
+      {msg && (
+        <span class="bmsg" role="status">
+          {msg}
+        </span>
+      )}
+    </>
   );
 }
