@@ -448,13 +448,6 @@ export function toBlob(c: HTMLCanvasElement, q = 0.92): Promise<Blob> {
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('No se pudo crear la imagen'))), 'image/jpeg', q));
 }
 
-/** Tamaño de foto a pedir a la cámara: el mayor que permita, con el lado largo hasta `cap` px (~12 MP). */
-export function pickPhotoSize(maxW: number | undefined, maxH: number | undefined, cap = 4032): { imageWidth: number; imageHeight: number } {
-  if (!maxW || !maxH) return { imageWidth: cap, imageHeight: Math.round((cap * 3) / 4) };
-  const k = Math.min(1, cap / Math.max(maxW, maxH));
-  return { imageWidth: Math.round(maxW * k), imageHeight: Math.round(maxH * k) };
-}
-
 /**
  * Filtro de mediana 3×3 sobre una franja ya en gris: borra el granulado del brillo holográfico y
  * del ruido de la cámara sin desdibujar las letras. Con franjas chicas (400–600 px) el lector
