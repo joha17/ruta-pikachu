@@ -21,6 +21,9 @@ import { openAsistente } from './Asistente';
 import { Zoomable } from './Zoom';
 import { buyFlow, PaidEdit, refundKey } from './Compra';
 import { gainText, paidOf } from '../model/gain';
+import { restartHistory, stampedPrice, type Stamped } from '../history';
+import { refreshPrices } from '../prices';
+import { stampLabel, stampOf } from '../model/stamp';
 import { condLabel, condOf, COND_HELP, COND_MAX, isGraded, RAW_CONDS } from '../model/condition';
 
 const LANG: Record<string, string> = { en: 'Inglés', ja: 'Japonés' };
@@ -89,7 +92,7 @@ function CardSheet({ k }: { k: string }) {
       ? `${money(man.v)} · puesto a mano el ${fmtDate(man.d)}${auto != null ? ` (TCGplayer automático: ${money(auto)})` : ''}`
       : auto == null
         ? 'Sin dato'
-        : `${money(auto)} · mercado TCGplayer${pdate ? ` al ${fmtDate(pdate)}` : ''}`,
+        : `${money(auto)} · mercado TCGplayer${stampOf(col, ck) ? ' (versión con sello)' : ''}${pdate ? ` al ${fmtDate(pdate)}` : ''}`,
   ]);
 
   // Variantes del bolsillo.
@@ -215,6 +218,7 @@ function CardSheet({ k }: { k: string }) {
           ))}
         </dl>
         {(own || isBox) && <CondPick k={isBox ? k : ck} graded={c.graded} />}
+        {(own || isBox) && tc?.stamps?.length && c.lang !== 'ja' ? <StampPick k={isBox ? k : ck} tcg={c.tcg!} /> : null}
         {!isBox && (
           <div class="actions ficha-main">
             <button
@@ -450,6 +454,63 @@ function CardSheet({ k }: { k: string }) {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Sello de mi copia (logo del set, Pokémon Center…): es otro producto en TCGplayer, con otro precio. */
+function StampPick({ k, tcg }: { k: string; tcg: string }) {
+  const [open, setOpen] = useState(false);
+  const [info, setInfo] = useState<Stamped | null>(null);
+  const tc = cachedCard(tcg);
+  const cur = stampOf(collection.value, k);
+  useEffect(() => setOpen(false), [k]);
+  useEffect(() => {
+    setInfo(null);
+    if (!cur || !tc) return;
+    let alive = true;
+    void stampedPrice(tc, cur).then((r) => alive && setInfo(r));
+    return () => {
+      alive = false;
+    };
+  }, [cur, tc?.id, tc?.tcgpId]);
+  if (!tc?.stamps?.length) return null;
+  function pick(v: string) {
+    act((cc) => ops.setStampOf(cc, k, v));
+    setOpen(false);
+    restartHistory(k);
+    void refreshPrices(new Set([k]));
+  }
+  const found = cur && info ? (info.pid ? info.name ?? `producto ${info.pid}` : null) : undefined;
+  return (
+    <div class="cond-pick stamp-pick">
+      <p class="cond-line">
+        Sello: {cur ? <strong>{stampLabel(cur)}</strong> : <span class="muted">sin sello</span>}{' '}
+        <button class="linkish" onClick={() => setOpen(!open)}>
+          {open ? 'Cerrar' : 'Cambiar'}
+        </button>
+      </p>
+      {open && (
+        <div class="chips" role="group" aria-label="Sello de tu copia">
+          <button class="chipf" aria-pressed={!cur} onClick={() => pick('')}>
+            Sin sello
+          </button>
+          {tc.stamps.map((s) => (
+            <button key={s.s} class="chipf" aria-pressed={cur === s.s} onClick={() => pick(s.s)}>
+              {stampLabel(s.s)}
+            </button>
+          ))}
+        </div>
+      )}
+      {cur && found && (
+        <p class="hint">
+          Precio de la versión con sello: <strong>{info?.usd != null ? money(info.usd) : 'sin dato reciente'}</strong> · TCGplayer «{found}».
+        </p>
+      )}
+      {cur && found === null && (
+        <p class="hint">No encontré esta versión con sello en TCGplayer, así que queda sin precio automático. Puedes ponerlo a mano.</p>
+      )}
+      {open && <p class="hint">La misma carta con sello es otro producto en TCGplayer y tiene otro precio.</p>}
     </div>
   );
 }

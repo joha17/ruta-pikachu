@@ -68,6 +68,7 @@ const KINDS = new Set<string>([
   'spend',
   'later',
   'cond',
+  'stamp',
   'profile',
   'pub',
   'follow',
@@ -109,6 +110,7 @@ export function explode(col: Collection, photos: Record<string, PhotoMeta> = {})
   for (const [k, v] of Object.entries(col.spend ?? {})) out[`spend:${k}`] = v;
   for (const [k, v] of Object.entries(col.later ?? {})) out[`later:${k}`] = v;
   for (const [k, v] of Object.entries(col.cond ?? {})) if (v) out[`cond:${k}`] = v;
+  for (const [k, v] of Object.entries(col.stamp ?? {})) if (v) out[`stamp:${k}`] = v;
   if (col.profile) out['profile:yo'] = col.profile;
   if (col.pub) out['pub:yo'] = col.pub;
   for (const [k, v] of Object.entries(col.follows ?? {})) out[`follow:${k}`] = v;
@@ -256,6 +258,8 @@ export function implode(doc: SyncDoc, saved = ''): Collection {
     else if (kind === 'later') col.later[k] = v as LaterCard;
     else if (kind === 'cond') {
       if (typeof v === 'string' && v) col.cond = { ...(col.cond ?? {}), [k]: v };
+    } else if (kind === 'stamp') {
+      if (typeof v === 'string' && v) col.stamp = { ...(col.stamp ?? {}), [k]: v };
     } else if (kind === 'profile') {
       const p = cleanProfile(v);
       if (p) col.profile = p;

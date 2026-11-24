@@ -7,6 +7,7 @@ import { signal } from '@preact/signals';
 import { db } from './db';
 import { today } from './model/keys';
 import { crossedProduct, type VariantRef } from './model/productMatch';
+import { stampsOf, type StampInfo } from './model/stamp';
 import { printedVariants, trimSet, variantPrices, type TcgSet, type VariantPrice } from './model/tcgInfo';
 
 export const API = 'https://api.tcgdex.net/v2';
@@ -45,6 +46,8 @@ export interface TcgCard {
    * el nombre de ese producto en TCGplayer. La app usa el producto correcto.
    */
   crossedWith?: string;
+  /** Versiones con sello que conoce TCGdex (logo del set, Pokémon Center…). Ver model/stamp.ts. */
+  stamps?: StampInfo[];
 }
 
 /** Orden de variantes de TCGplayer para elegir el precio. */
@@ -186,6 +189,8 @@ export function trimCard(d: Record<string, unknown>): TcgCard {
   if (eur != null) out.eur = eur;
   const tid = tcgplayerId(d.pricing as Pricing) ?? thirdPartyTcgplayerId(d.variants_detailed);
   if (tid) out.tcgpId = tid;
+  const st = stampsOf(d.variants_detailed);
+  if (st.length) out.stamps = st;
   return out;
 }
 
