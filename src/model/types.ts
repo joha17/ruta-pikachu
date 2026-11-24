@@ -163,6 +163,8 @@ export interface Collection {
   later: Record<string, LaterCard>;
   /** Condición de cada copia: clave → «NM», «LP»… o gradeo («PSA 10»). Ver model/condition.ts. */
   cond?: Record<string, string>;
+  /** Sello de cada copia: clave → «set-logo», «pokemon-center»… (ver model/stamp.ts). Cambia el precio. */
+  stamp?: Record<string, string>;
   /** Mi perfil: nombre, avatar y desde cuándo colecciono (ver model/profile.ts). */
   profile?: Profile;
   /** Id del archivo público con mi binder en mi Drive (si lo publico). Ver model/follow.ts. */

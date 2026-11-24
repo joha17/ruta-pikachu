@@ -10,7 +10,8 @@ import { checkAlerts } from './alerts';
 import { savePrices } from './db';
 import { allKeys, canon, findCard } from './model/catalog';
 import { today } from './model/keys';
-import { backfill } from './history';
+import { backfill, stampedPrice } from './history';
+import { stampOf } from './model/stamp';
 import { pendingToday, recordDay } from './model/trend';
 import { alias, collection, prices, sheets } from './store';
 import { fetchCard, tcgCache, type Lang } from './tcgdex';
@@ -32,6 +33,8 @@ interface Target {
   key: string;
   tcg: string;
   lang: Lang;
+  /** Sello de mi copia: el precio es el de esa versión. */
+  stamp?: string;
 }
 
 /** Cartas con ID de TCGdex, una por clave canónica (los espejos comparten precio). */
@@ -46,7 +49,9 @@ export function priceTargets(): Target[] {
     const tcg = c?.tcg?.trim();
     if (!tcg) continue;
     seen.add(key);
-    out.push({ key, tcg, lang: c?.lang === 'ja' ? 'ja' : 'en' });
+    const lang: Lang = c?.lang === 'ja' ? 'ja' : 'en';
+    const stamp = lang === 'en' ? stampOf(col, key) : '';
+    out.push(stamp ? { key, tcg, lang, stamp } : { key, tcg, lang });
   }
   return out;
 }
@@ -67,7 +72,7 @@ export async function refreshPrices(only?: Set<string>): Promise<void> {
       if (e && e.day === day) {
         // Solo dólares de TCGplayer (fetchCard ya completa con tcgcsv las que TCGdex no trae).
         // Nunca Cardmarket: así los totales y el historial no mezclan monedas ni aproximaciones.
-        const v = e.card?.usd ?? null;
+        const v = t.stamp && e.card ? (await stampedPrice(e.card, t.stamp, day)).usd : (e.card?.usd ?? null);
         results[t.key] = v;
         if (v == null) run.noPrice++;
       } else run.failed++;

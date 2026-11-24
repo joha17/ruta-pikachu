@@ -52,6 +52,14 @@ export function setCond(col: Collection, key: string, cond: string): void {
 
 /** La condición viaja con la carta cuando cambia de clave (de la Caja a una hoja y al revés). */
 export function moveCond(col: Collection, from: string, to: string): void {
+  // El sello también viaja con la carta.
+  const st = col.stamp?.[from];
+  if (st && from !== to) {
+    const next = { ...col.stamp };
+    delete next[from];
+    next[to] = st;
+    col.stamp = next;
+  }
   const v = col.cond?.[from];
   if (!v || from === to) return;
   const next = { ...col.cond };

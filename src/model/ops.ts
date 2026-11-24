@@ -5,6 +5,7 @@ import { aliases, canon, findCard, isExtra, MAX_BOX, MAX_CARDS, MAX_SHEETS, slot
 import { keyOf, localOfKey, newId, sheetOfKey, today } from './keys';
 import { eventId, normAlert } from './alerts';
 import { moveCond, setCond } from './condition';
+import { setStamp } from './stamp';
 import type { AlertEvent, BoxCard, CardDef, Collection, CustomSheet, MyGoal, PriceAlert, PriceBook, SheetDef } from './types';
 
 /** Qué hacer con las fotos después de un cambio. */
@@ -142,6 +143,10 @@ export function removeBox(col: Collection, id: string): PhotoChanges {
     col.cond = { ...col.cond };
     delete col.cond[`b:${id}`];
   }
+  if (col.stamp?.[`b:${id}`]) {
+    col.stamp = { ...col.stamp };
+    delete col.stamp[`b:${id}`];
+  }
   return { remove: [`b:${id}`] };
 }
 
@@ -276,6 +281,10 @@ function forget(col: Collection, key: string): void {
   if (col.cond?.[key]) {
     col.cond = { ...col.cond };
     delete col.cond[key];
+  }
+  if (col.stamp?.[key]) {
+    col.stamp = { ...col.stamp };
+    delete col.stamp[key];
   }
 }
 
@@ -583,6 +592,11 @@ export function setCondition(col: Collection, key: string, cond: string): void {
   const sh = editableOf(col, sheetOfKey(key))?.cs;
   const local = localOfKey(key);
   for (const slot of sh?.cards ?? []) for (const o of [slot, ...(slot.alts ?? [])]) if (o.k === local) strip(o);
+}
+
+/** Anota el sello de mi copia ('' = sin sello). */
+export function setStampOf(col: Collection, key: string, stamp: string): void {
+  setStamp(col, key, stamp);
 }
 
 // ---- Objetivos propios ----

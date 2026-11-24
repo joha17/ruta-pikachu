@@ -3,7 +3,8 @@
 // Alertas lo que ese aviso mandó. Se hace después de cada revisión de alertas. En el mismo gist
 // va lo del resumen del mes por Telegram (model/monthly.ts, scripts/resumen.mjs).
 
-import { productIdOf } from './history';
+import { productIdOf, stampedPrice } from './history';
+import { stampOf } from './model/stamp';
 import { signal } from '@preact/signals';
 import { act, ops } from './actions';
 import { loadNube, saveNube, type NubeCfg } from './db';
@@ -112,6 +113,12 @@ async function productIds(keys: string[]): Promise<Map<string, { pid: number; va
       if (!tcg) return;
       const lang: Lang = c?.lang === 'ja' ? 'ja' : 'en';
       const card = cachedCard(tcg, lang) ?? (navigator.onLine ? await fetchCard(tcg, lang) : null);
+      const stamp = lang === 'en' && card ? stampOf(collection.value, key) : '';
+      if (stamp) {
+        const sp = (await stampedPrice(card!, stamp)).pid;
+        if (sp) out.set(key, { pid: sp });
+        return;
+      }
       const pid = await productIdOf(card, lang);
       if (pid) out.set(key, { pid, variant: card?.tcgpId ? card.usdVariant : undefined });
     }),

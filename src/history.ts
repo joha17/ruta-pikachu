@@ -6,7 +6,8 @@ import { findCard } from './model/catalog';
 import { today } from './model/keys';
 import type { Point } from './model/trend';
 import { idShardOf, matchProduct, nameKey, nameShardOf, numKey, type Groups, type IdShard } from './model/productMatch';
-import { mergeRemote, remoteSeries, shardOf, type RemoteShard } from './model/remoteHist';
+import { latestRemote, mergeRemote, remoteSeries, shardOf, type RemoteShard } from './model/remoteHist';
+import { stampOf, stampProduct } from './model/stamp';
 import { alias, collection, prices, sheets } from './store';
 import { cachedCard, fetchCard, type Lang, type TcgCard } from './tcgdex';
 
@@ -14,6 +15,14 @@ const shards = new Map<number, Promise<RemoteShard | null>>();
 let shardsDay = '';
 /** Claves ya completadas hoy. */
 const done = new Map<string, string>();
+/** Claves cuyo historial guardado hay que rehacer (cambió el sello de la copia). */
+const redo = new Set<string>();
+
+/** Cambió el sello de esta carta: su historial se vuelve a armar con el del producto nuevo. */
+export function restartHistory(key: string): void {
+  done.delete(key);
+  redo.add(key);
+}
 
 function shard(n: number): Promise<RemoteShard | null> {
   const day = today();
@@ -76,6 +85,35 @@ export function productIdOf(card: TcgCard | null | undefined, lang: Lang = 'en')
   return p;
 }
 
+export interface Stamped {
+  pid?: number;
+  /** Nombre del producto en TCGplayer («… (Destined Rivals Stamp)»). */
+  name?: string;
+  usd: number | null;
+}
+const stampedMemo = new Map<string, Promise<Stamped>>();
+
+/**
+ * Producto y último precio de mercado (tcgcsv, máximo 7 días) de la versión con sello de una
+ * carta. Sin producto encontrado: usd null (mejor sin precio que con el de la versión normal).
+ */
+export function stampedPrice(card: TcgCard, stamp: string, day = today()): Promise<Stamped> {
+  const id = `${day}|${card.id}|${stamp}`;
+  let p = stampedMemo.get(id);
+  if (!p) {
+    p = (async () => {
+      const rows = await productRows(card.localId);
+      const info = card.stamps?.find((x) => x.s === stamp) ?? { s: stamp };
+      const pid = stampProduct(rows, { name: card.name, localId: card.localId, official: card.set.official, normal: card.tcgpId }, info);
+      if (!pid) return { usd: null };
+      const name = rows?.rows.find((r) => r[0] === pid)?.[3];
+      return { pid, name, usd: latestRemote(await remoteHistory(pid), day) };
+    })().catch(() => ({ usd: null }));
+    stampedMemo.set(id, p);
+  }
+  return p;
+}
+
 /**
  * Completa el historial de estas cartas (claves). Usa el ID de producto de TCGplayer que da TCGdex;
  * las cartas sin él (o que tcgcsv no tiene) se quedan con lo guardado.
@@ -91,10 +129,20 @@ export async function backfill(keys: string[], fetchMissing = false): Promise<vo
     if (!tcg) continue;
     const lang: Lang = c?.lang === 'ja' ? 'ja' : 'en';
     const card = cachedCard(tcg, lang) ?? (fetchMissing ? await fetchCard(tcg, lang) : null);
+    const stamp = lang === 'en' ? stampOf(collection.value, key) : '';
+    if (stamp && card) {
+      // Con sello: el historial es el del producto sellado y reemplaza lo guardado de la normal.
+      const sp = (await stampedPrice(card, stamp, day)).pid;
+      if (!sp) continue;
+      done.set(key, day);
+      todo.push({ key, pid: sp, replace: true });
+      redo.delete(key);
+      continue;
+    }
     const pid = await productIdOf(card, lang);
     if (!pid) continue;
     done.set(key, day);
-    todo.push({ key, pid, variant: card!.tcgpId ? card!.usdVariant : undefined, replace: !!card!.crossedWith });
+    todo.push({ key, pid, variant: card!.tcgpId ? card!.usdVariant : undefined, replace: !!card!.crossedWith || redo.delete(key) });
   }
   if (!todo.length) return;
   const got = await Promise.all(todo.map(async (t) => ({ ...t, sh: await shard(shardOf(t.pid)) })));
