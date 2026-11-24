@@ -1,5 +1,7 @@
-// Bloque de la ficha con lo que da TCGdex gratis: precios de TCGplayer por variante (mercado, bajo,
-// medio, alto), variantes impresas y datos del set (serie, fecha de salida, cartas, formatos).
+// Bloque de la ficha con lo que da TCGdex gratis: precios de TCGplayer por variante (mercado y la
+// publicación más barata), variantes impresas y datos del set (serie, fecha de salida, cartas, formatos).
+// No se muestra el «alto» de TCGplayer: es la publicación más cara (a veces miles de dólares por
+// una copia sola), no un precio de venta.
 
 import { useEffect, useState } from 'preact/hooks';
 import { fmtDate, money } from '../model/money';
@@ -32,8 +34,7 @@ export function TcgInfo({ tcg, lang = 'en' }: { tcg: string; lang?: Lang }) {
               <tr>
                 <th scope="col">Variante</th>
                 <th scope="col">Mercado</th>
-                <th scope="col">Bajo</th>
-                <th scope="col">Alto</th>
+                <th scope="col">Más barata en venta</th>
               </tr>
             </thead>
             <tbody>
@@ -42,18 +43,25 @@ export function TcgInfo({ tcg, lang = 'en' }: { tcg: string; lang?: Lang }) {
                   <th scope="row">{variantLabel(p.key)}</th>
                   <td>{money(p.market)}</td>
                   <td>{money(p.low)}</td>
-                  <td>{money(p.high)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      ) : card.usd != null && card.usdFrom === 'tcgcsv' ? (
+        <p class="hint">Mercado: {money(card.usd)} (último precio de TCGplayer publicado por tcgcsv).</p>
       ) : (
         <p class="hint">TCGdex no tiene precios de TCGplayer para esta carta.</p>
       )}
+      {card.crossedWith && (
+        <p class="hint">
+          TCGdex le daba a esta carta el precio de «{card.crossedWith}», otra versión. La app usa el de la carta normal.
+        </p>
+      )}
       <p class="hint">
         {card.priceUpdated && <>Actualizado el {fmtDate(card.priceUpdated)}. </>}
-        Precio general de TCGplayer, sin separar por estado (casi todo lo que se vende es NM).
+        Mercado es el promedio de lo que se vendió hace poco en TCGplayer, sin separar por estado (casi todo
+        es NM). «Más barata en venta» es la publicación más barata de ahora, en cualquier estado: no es una venta.
         {prices.length > 1 && card.usdVariant && <> En negrita, la variante que usa la app.</>}
       </p>
 

@@ -98,3 +98,44 @@ function best(cands: IdRow[], groups: Groups | null, c: CardRef, min: number): n
   if (scored.length > 1 && scored[1]!.s === top.s && scored[1]!.pid !== top.pid) return undefined;
   return top.pid;
 }
+
+/**
+ * «Eevee - 173 (Pokemon Center Exclusive)» → «Eevee - 173»; «Miraidon - 082 [Staff]» → «Miraidon - 082».
+ * Sin sufijo entre paréntesis o corchetes al final: null.
+ */
+export function plainName(name: string): string | null {
+  const m = /^(.*\S)\s*(\([^)]*\)|\[[^\]]*\])\s*$/.exec(name);
+  return m ? m[1]! : null;
+}
+
+/** Una variante de TCGdex (`variants_detailed`): su producto de TCGplayer y si lleva sello. */
+export interface VariantRef {
+  pid: number;
+  stamped: boolean;
+}
+
+/**
+ * TCGdex a veces cruza los productos de una carta: a la versión normal (sin sello) le pone el
+ * producto de TCGplayer de la sellada y al revés. Pasó con Eevee 173 de SVP: la normal apuntaba a
+ * «Eevee - 173 (Pokemon Center Exclusive)» (US$60) y la del Pokémon Center a «Eevee - 173» (US$8).
+ *
+ * Devuelve el producto correcto cuando:
+ * - el producto que da TCGdex tiene un sufijo («(Pokemon Center Exclusive)», «[Staff]»…),
+ * - la variante de TCGdex que lo usa no lleva sello,
+ * - en el mismo set de TCGplayer hay un producto con el mismo número y el nombre sin sufijo,
+ * - y TCGdex no usa ese producto para otra variante sin sello (si lo usa, no hay cruce).
+ * Si no, undefined (el producto de TCGdex está bien o no se puede saber).
+ */
+export function crossedProduct(sh: IdShard | null, pid: number, variants: VariantRef[]): number | undefined {
+  const rows = sh?.rows ?? [];
+  const row = rows.find((r) => r[0] === pid);
+  if (!row) return undefined;
+  const base = plainName(row[3]);
+  if (!base) return undefined;
+  if (variants.find((v) => v.pid === pid)?.stamped) return undefined;
+  const sib = rows.find((r) => r[0] !== pid && r[1] === row[1] && numKey(r[2]) === numKey(row[2]) && r[3] === base);
+  if (!sib) return undefined;
+  const other = variants.find((v) => v.pid === sib[0]);
+  if (other && !other.stamped) return undefined;
+  return sib[0];
+}

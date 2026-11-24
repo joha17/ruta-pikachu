@@ -6,13 +6,14 @@
 import { signal } from '@preact/signals';
 import { db } from './db';
 import { today } from './model/keys';
+import { crossedProduct, type VariantRef } from './model/productMatch';
 import { printedVariants, trimSet, variantPrices, type TcgSet, type VariantPrice } from './model/tcgInfo';
 
 export const API = 'https://api.tcgdex.net/v2';
 export type Lang = 'en' | 'ja';
 
 /** Versión del recorte: las cartas guardadas con una versión anterior se vuelven a pedir una vez. */
-export const CARD_V = 5;
+export const CARD_V = 6;
 
 /** Lo que guardamos de cada carta de TCGdex. */
 export interface TcgCard {
@@ -39,6 +40,11 @@ export interface TcgCard {
   eur?: number;
   /** ID del producto en TCGplayer: sirve para su foto cuando TCGdex no tiene imagen. */
   tcgpId?: number;
+  /**
+   * TCGdex le había puesto a esta carta el producto de otra versión (p. ej. la del Pokémon Center):
+   * el nombre de ese producto en TCGplayer. La app usa el producto correcto.
+   */
+  crossedWith?: string;
 }
 
 /** Orden de variantes de TCGplayer para elegir el precio. */
@@ -207,6 +213,48 @@ export async function getJson(path: string): Promise<unknown> {
   });
 }
 
+type RawVariant = { stamp?: unknown; thirdParty?: { tcgplayer?: unknown }; pricing?: { tcgplayer?: Record<string, unknown> } };
+
+/**
+ * Revisa que el producto de TCGplayer que da TCGdex sea de esta versión de la carta y no de una
+ * sellada (Pokémon Center, Staff…). Si TCGdex los tiene cruzados, cambia al producto correcto y
+ * toma sus precios (de TCGdex si los trae para ese producto; si no, el último de tcgcsv).
+ */
+async function checkProduct(card: TcgCard, variants: unknown, day: string): Promise<void> {
+  if (!card.tcgpId || !Array.isArray(variants)) return;
+  const raw = variants as RawVariant[];
+  const refs: VariantRef[] = [];
+  for (const v of raw) {
+    const pid = v?.thirdParty?.tcgplayer;
+    if (typeof pid === 'number' && pid > 0) refs.push({ pid, stamped: Array.isArray(v.stamp) && v.stamp.length > 0 });
+  }
+  try {
+    const { productRows } = await import('./history');
+    const rows = await productRows(card.localId);
+    const right = crossedProduct(rows, card.tcgpId, refs);
+    if (!right) return;
+    card.crossedWith = rows!.rows.find((r) => r[0] === card.tcgpId)?.[3];
+    card.tcgpId = right;
+    const tp = raw.find((v) => v?.thirdParty?.tcgplayer === right)?.pricing?.tcgplayer;
+    const p = pickPrice(tp ? { tcgplayer: tp } : null);
+    const vp = variantPrices(tp);
+    if (p.usd != null) {
+      card.usd = p.usd;
+      card.usdVariant = p.variant;
+      card.priceUpdated = p.updated;
+      delete card.usdFrom;
+    } else {
+      card.usd = await tcgcsvUsd(card, day);
+      if (card.usd != null) card.usdFrom = 'tcgcsv';
+      delete card.usdVariant;
+    }
+    if (vp.length) card.prices = vp;
+    else delete card.prices;
+  } catch {
+    // Sin índice (sin conexión): se queda con lo de TCGdex.
+  }
+}
+
 async function tcgcsvUsd(card: TcgCard, day: string): Promise<number | null> {
   try {
     // Import dinámico: history.ts importa este módulo.
@@ -260,6 +308,7 @@ export function fetchCard(tcg: string, lang: Lang = 'en', force = false): Promis
     try {
       const d = (await getJson(`${lang}/cards/${encodeURIComponent(tcg)}`)) as Record<string, unknown> | null;
       const card = d ? trimCard(d) : null;
+      if (card && d && lang === 'en') await checkProduct(card, d.variants_detailed, day);
       // Sin precio de TCGplayer en TCGdex (galerías, promos nuevas): el último de mercado de
       // TCGplayer que publica el trabajo nocturno (tcgcsv), para no caer en el de Cardmarket (euros).
       if (card && card.usd == null && lang === 'en') {
