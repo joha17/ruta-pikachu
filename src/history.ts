@@ -41,6 +41,16 @@ function getJson<T>(path: string): Promise<T | null> {
 let groups: Promise<Groups | null> | null = null;
 const idShards = new Map<string, Promise<IdShard | null>>();
 const pids = new Map<string, Promise<number | undefined>>();
+function idFile(f: string): Promise<IdShard | null> {
+  let sh = idShards.get(f);
+  if (!sh) idShards.set(f, (sh = getJson<IdShard>(`historial/ids/${f}.json`)));
+  return sh;
+}
+
+/** Productos de TCGplayer (índice de tcgcsv) con el número de esta carta. */
+export function productRows(localId: string): Promise<IdShard | null> {
+  return idFile(String(idShardOf(numKey(localId))));
+}
 
 /**
  * Producto de TCGplayer de la carta: el que da TCGdex o, si no trae (pasa con muchas cartas nuevas
@@ -52,11 +62,7 @@ export function productIdOf(card: TcgCard | null | undefined, lang: Lang = 'en')
   if (lang !== 'en') return Promise.resolve(undefined);
   let p = pids.get(card.id);
   if (!p) {
-    const file = (f: string) => {
-      let sh = idShards.get(f);
-      if (!sh) idShards.set(f, (sh = getJson<IdShard>(`historial/ids/${f}.json`)));
-      return sh;
-    };
+    const file = idFile;
     groups ??= getJson<Groups>('historial/ids/groups.json');
     const ref = { name: card.name, localId: card.localId, setName: card.set.name, official: card.set.official };
     p = Promise.all([file(String(idShardOf(numKey(card.localId)))), groups]).then(async ([s, g]) => {
@@ -77,7 +83,7 @@ export function productIdOf(card: TcgCard | null | undefined, lang: Lang = 'en')
 export async function backfill(keys: string[], fetchMissing = false): Promise<void> {
   if (!navigator.onLine) return;
   const day = today();
-  const todo: { key: string; pid: number; variant?: string }[] = [];
+  const todo: { key: string; pid: number; variant?: string; replace: boolean }[] = [];
   for (const key of keys) {
     if (done.get(key) === day) continue;
     const c = findCard(sheets.value, collection.value, key)?.card as { tcg?: string; lang?: string } | undefined;
@@ -88,13 +94,13 @@ export async function backfill(keys: string[], fetchMissing = false): Promise<vo
     const pid = await productIdOf(card, lang);
     if (!pid) continue;
     done.set(key, day);
-    todo.push({ key, pid, variant: card!.tcgpId ? card!.usdVariant : undefined });
+    todo.push({ key, pid, variant: card!.tcgpId ? card!.usdVariant : undefined, replace: !!card!.crossedWith });
   }
   if (!todo.length) return;
   const got = await Promise.all(todo.map(async (t) => ({ ...t, sh: await shard(shardOf(t.pid)) })));
   const p = structuredClone(prices.value);
   let changed = false;
-  for (const t of got) if (mergeRemote(p, alias.value, t.key, remoteSeries(t.sh, t.pid, t.variant), day)) changed = true;
+  for (const t of got) if (mergeRemote(p, alias.value, t.key, remoteSeries(t.sh, t.pid, t.variant), day, t.replace)) changed = true;
   if (!changed) return;
   prices.value = p;
   await savePrices(p);

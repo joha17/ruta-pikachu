@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { idShardOf, matchProduct, nameKey, numKey, type Groups, type IdShard } from '../src/model/productMatch';
+import { crossedProduct, idShardOf, matchProduct, nameKey, numKey, plainName, type Groups, type IdShard } from '../src/model/productMatch';
 
 const groups: Groups = {
   '1': 'Crown Zenith: Galarian Gallery',
@@ -52,5 +52,46 @@ describe('producto de TCGplayer por set, número y nombre', () => {
     expect(matchProduct(sh, groups, { name: 'Giratina VSTAR', localId: '069', setName: 'Otro set' })).toBeUndefined();
     expect(matchProduct(sh, groups, { name: 'Mewtwo', localId: 'GG69', setName: 'Crown Zenith' })).toBeUndefined();
     expect(matchProduct(null, groups, { name: 'Giratina VSTAR', localId: 'GG69', setName: 'Crown Zenith' })).toBeUndefined();
+  });
+});
+
+describe('productos cruzados en TCGdex (versión normal ↔ sellada)', () => {
+  const rows: IdShard = {
+    rows: [
+      [610757, 22872, '173', 'Eevee - 173 (Pokemon Center Exclusive)'],
+      [610758, 22872, '173', 'Eevee - 173'],
+      [706135, 24451, '082', 'Miraidon - 082 (Pitch Black Stamped)'],
+      [707534, 24451, '082', 'Miraidon - 082 [Staff]'],
+      [246275, 2545, 'SWSH178', "Professor's Research [Professor Willow] - SWSH178 (with Pokemon Go Code)"],
+      [278705, 2545, 'SWSH178', "Professor's Research [Professor Willow] - SWSH178"],
+      [637077, 22872, '200', 'Eevee - 200 (Cosmos Holo)'],
+      [246722, 7, '214/203', 'Umbreon VMAX (Secret)'],
+      [246720, 7, '95/203', 'Umbreon VMAX'],
+    ],
+  };
+  it('quita el sufijo del nombre', () => {
+    expect(plainName('Eevee - 173 (Pokemon Center Exclusive)')).toBe('Eevee - 173');
+    expect(plainName('Miraidon - 082 [Staff]')).toBe('Miraidon - 082');
+    expect(plainName('Eevee - 173')).toBeNull();
+  });
+  it('Eevee 173: la normal tenía el producto del Pokémon Center', () => {
+    const v = [
+      { pid: 610757, stamped: false },
+      { pid: 610758, stamped: true },
+    ];
+    expect(crossedProduct(rows, 610757, v)).toBe(610758);
+    // La variante sellada no se toca.
+    expect(crossedProduct(rows, 610758, v)).toBeUndefined();
+  });
+  it('no cambia nada cuando no hay cruce', () => {
+    // Variante con sello: su producto sellado está bien.
+    expect(crossedProduct(rows, 706135, [{ pid: 706135, stamped: true }, { pid: 707534, stamped: true }])).toBeUndefined();
+    // El producto sin sufijo ya lo usa otra variante sin sello (normal / holo distintos).
+    expect(crossedProduct(rows, 246275, [{ pid: 246275, stamped: false }, { pid: 278705, stamped: false }])).toBeUndefined();
+    // Sin versión normal con el mismo número.
+    expect(crossedProduct(rows, 637077, [{ pid: 637077, stamped: false }])).toBeUndefined();
+    expect(crossedProduct(rows, 246722, [{ pid: 246722, stamped: false }])).toBeUndefined();
+    // Producto que no está en el índice.
+    expect(crossedProduct(rows, 1, [])).toBeUndefined();
   });
 });

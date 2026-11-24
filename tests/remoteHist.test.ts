@@ -40,6 +40,14 @@ describe('historial de tcgcsv', () => {
     expect(pr.hist['2026-11-13']).toBeUndefined();
     expect(mergeRemote(pr, {}, 'p:1', pts, '2026-11-13')).toBe(false);
   });
+  it('con replace corrige lo guardado (precio de otra versión)', () => {
+    const pr = emptyPrices();
+    pr.hist['2026-11-12'] = { 'p:1': 60 };
+    const pts = remoteSeries(sh, 5123);
+    expect(mergeRemote(pr, {}, 'p:1', pts, '2026-11-13', true)).toBe(true);
+    expect(pr.hist['2026-11-12']!['p:1']).toBe(1.2);
+    expect(mergeRemote(pr, {}, 'p:1', pts, '2026-11-13', true)).toBe(false);
+  });
   it('usa la clave canónica de los espejos', () => {
     const pr = emptyPrices();
     mergeRemote(pr, { 'e:x': 'r:x' }, 'e:x', [{ d: '2026-01-01', v: 3 }], '2026-02-01');

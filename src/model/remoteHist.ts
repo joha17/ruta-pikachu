@@ -38,15 +38,16 @@ export function remoteSeries(sh: RemoteShard | null, productId: number, variant?
 
 /**
  * Completa el historial guardado con el de tcgcsv: solo días anteriores a `before` (hoy, que lo
- * pone la consulta diaria) y solo donde no hay precio guardado. Devuelve si cambió algo.
+ * pone la consulta diaria) y solo donde no hay precio guardado. Con `replace`, también corrige lo
+ * guardado (cartas a las que TCGdex les daba el precio de otra versión). Devuelve si cambió algo.
  */
-export function mergeRemote(pr: PriceBook, alias: Record<string, string>, key: string, pts: Point[], before: string): boolean {
+export function mergeRemote(pr: PriceBook, alias: Record<string, string>, key: string, pts: Point[], before: string, replace = false): boolean {
   const k = canon(alias, key);
   let changed = false;
   for (const p of pts) {
     if (p.d >= before) continue;
     const h = (pr.hist[p.d] ??= {});
-    if (typeof h[k] === 'number') continue;
+    if (typeof h[k] === 'number' && (!replace || h[k] === p.v)) continue;
     h[k] = p.v;
     changed = true;
   }
