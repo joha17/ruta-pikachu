@@ -135,9 +135,9 @@ describe('hojas propias', () => {
     expect(ops.deleteSheet(col, sh.id)).toEqual({ remove: ['u:s1.c2', 'u:s1.c1'] });
     expect(col.custom).toEqual([]);
   });
-  it('el máximo es 12 hojas', () => {
+  it('el máximo es 50 hojas', () => {
     const col = emptyCollection();
-    for (let i = 0; i < 12; i++) expect(ops.createSheet(col, `H${i}`)).not.toBeNull();
+    for (let i = 0; i < 50; i++) expect(ops.createSheet(col, `H${i}`)).not.toBeNull();
     expect(ops.createSheet(col, 'otra')).toBeNull();
   });
   it('valida el formulario de carta', () => {

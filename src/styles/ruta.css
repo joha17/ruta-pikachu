@@ -418,3 +418,10 @@ dialog.sheet:has(.sheet-wide){width:min(720px,calc(100vw - 32px))}
 .bstage{grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
 .bbook{width:min(var(--w),100%)}
 .bcover>*{flex-shrink:0}
+/* Muchas hojas (hasta 50 propias): «☰» abre la lista de todas, al lado de la tira. */
+.nav-many{display:flex;align-items:stretch}
+.nav-many .nav-in{flex:1;min-width:0}
+.nav-all{position:relative;flex:0 0 auto;display:grid;place-items:center;width:40px;margin:5px 0 5px 5px;border-radius:8px;background:var(--bg);color:var(--ink);font-size:17px;cursor:pointer}
+.nav-all:hover{background:var(--line)}
+.nav-all select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
+.nav-all:focus-within{outline:3px solid var(--yellow);outline-offset:2px}
