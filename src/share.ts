@@ -28,9 +28,9 @@ export async function encodeShare(p: SharePayload | BinderPayload): Promise<stri
 
 async function decodeRaw(s: string): Promise<unknown> {
   try {
-    if (s.length > 80000) return null;
+    if (s.length > 200000) return null;
     const raw = await pipe(fromB64url(s), new DecompressionStream('deflate-raw'));
-    if (raw.length > 400000) return null;
+    if (raw.length > 1000000) return null;
     return JSON.parse(new TextDecoder().decode(raw));
   } catch {
     return null;

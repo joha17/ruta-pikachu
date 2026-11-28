@@ -4,7 +4,7 @@
 import { keyOf, localOfKey, sheetOfKey } from './keys';
 import type { BoxCard, CardDef, Collection, SheetDef } from './types';
 
-export const MAX_SHEETS = 12;
+export const MAX_SHEETS = 50;
 export const MAX_CARDS = 45;
 export const MAX_BOX = 300;
 export const POCKETS = 9;

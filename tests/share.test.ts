@@ -4,6 +4,7 @@ import { FIXED_SHEETS } from '../src/data';
 import { aliases, allSheets, slots } from '../src/model/catalog';
 import { buildBinderShare, buildShare, cleanBinder, cleanShare, shareCount, shareImage } from '../src/model/share';
 import { emptyCollection } from '../src/model/types';
+import * as ops from '../src/model/ops';
 import { decodeAny, decodeShare, encodeShare } from '../src/share';
 
 const sheets = allSheets(FIXED_SHEETS, emptyCollection());
@@ -90,6 +91,19 @@ describe('compartir el binder completo', () => {
     const one = buildShare(rocket, c, AL, () => undefined);
     expect(await decodeAny(await encodeShare(one))).toEqual({ sheet: one });
     expect(await decodeShare(h)).toBeNull();
+  });
+
+  it('con 50 hojas propias llenas, el enlace lleva todas', async () => {
+    const c = emptyCollection();
+    for (let i = 0; i < 50; i++) {
+      const sh = ops.createSheet(c, `Hoja propia ${i + 1}`)!;
+      for (let j = 0; j < 45; j++) ops.addCard(c, sh.id, { n: `Pikachu ex ${i}-${j}`, num: `${j + 1}/191`, set: 'Surging Sparks' });
+    }
+    const all = allSheets(FIXED_SHEETS, c);
+    const b = buildBinderShare(all, c, aliases(all), (card) => `https://assets.tcgdex.net/en/sv/sv08/${card.k}`);
+    expect(b.sheets.filter((s) => s.name.startsWith('Hoja propia'))).toHaveLength(50);
+    const got = await decodeAny(await encodeShare(b));
+    expect(got).toEqual({ binder: b });
   });
 
   it('limpia un binder armado a mano', () => {

@@ -95,8 +95,9 @@ export function shareImage(c: ShareCard, q: 'low' | 'high'): string | null {
 
 export const BINDER_KIND = 'binder';
 const MAX_SHEET_CARDS = 200;
-const MAX_SHEETS = 40;
-const MAX_TOTAL = 1500;
+// 8 hojas de siempre + hasta 50 propias (catalog.MAX_SHEETS), con margen.
+const MAX_SHEETS = 64;
+const MAX_TOTAL = 3000;
 
 export interface BinderSheet {
   name: string;

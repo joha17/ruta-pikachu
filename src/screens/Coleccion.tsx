@@ -489,6 +489,9 @@ function BoxSection() {
 }
 
 /** Tira para elegir la hoja a la vista. La elegida se mantiene visible al deslizar la tira. */
+/** Desde cuántas entradas en la tira aparece la lista «☰» con todas las hojas. */
+const NAV_LIST_FROM = 10;
+
 function Nav({ items, cur }: { items: Array<[string, string, string]>; cur: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -500,25 +503,35 @@ function Nav({ items, cur }: { items: Array<[string, string, string]>; cur: stri
     if (l < inner.scrollLeft) inner.scrollLeft = l - 8;
     else if (r > inner.scrollLeft + inner.clientWidth) inner.scrollLeft = r - inner.clientWidth + 8;
   }, [cur]);
+  const go = (id: string) => {
+    arranging.value = '';
+    picked.value = '';
+    showSheet(id);
+    // Si ya bajaste, la hoja nueva empieza justo debajo de la tira.
+    requestAnimationFrame(() => {
+      const v = document.querySelector('.sheet-view, #s-new');
+      if (v && v.getBoundingClientRect().top < 0) v.scrollIntoView({ block: 'start' });
+    });
+  };
+  // Con muchas hojas la tira no alcanza: una lista para saltar directo a cualquiera.
+  const many = items.length > NAV_LIST_FROM;
   return (
-    <nav class="nav" aria-label="Elegir hoja" ref={ref}>
+    <nav class={many ? 'nav nav-many' : 'nav'} aria-label="Elegir hoja" ref={ref}>
+      {many && (
+        <label class="nav-all" title="Todas las hojas">
+          <span aria-hidden="true">☰</span>
+          <select aria-label="Ir a una hoja" value={cur} onChange={(e) => go(e.currentTarget.value)}>
+            {items.map(([id, label, n]) => (
+              <option key={id} value={id}>
+                {n ? `${label} · ${n}` : label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div class="nav-in">
         {items.map(([id, label, n]) => (
-          <button
-            key={id}
-            class="navi"
-            aria-current={id === cur ? 'true' : undefined}
-            onClick={() => {
-              arranging.value = '';
-              picked.value = '';
-              showSheet(id);
-              // Si ya bajaste, la hoja nueva empieza justo debajo de la tira.
-              requestAnimationFrame(() => {
-                const v = document.querySelector('.sheet-view, #s-new');
-                if (v && v.getBoundingClientRect().top < 0) v.scrollIntoView({ block: 'start' });
-              });
-            }}
-          >
+          <button key={id} class="navi" aria-current={id === cur ? 'true' : undefined} onClick={() => go(id)}>
             {label}
             {n && <small>{n}</small>}
           </button>
